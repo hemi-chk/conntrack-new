@@ -1,0 +1,46 @@
+{
+  "profile": "පැතිකඩ",
+  "logout": "පිටවීම",
+
+  "availability": "ඉදිරියට ලැබීම",
+  "edit_profile": "පැතිකඩ සංස්කරණය",
+  "vehicle_info": "වාහන තොරතුරු",
+  "trip_history": "ගමන් ඉතිහාසය",
+  "settings": "සැකසුම්",
+  "language": "භාෂාව",
+  "change_password": "මුරපදය වෙනස් කරන්න",
+
+  "welcome_driver": "සාදරයෙන් පිළිගනිමු, රියදුරු",
+  "today_overview": "අද සාරාංශය",
+
+  "current_job": "වර්තමාන වැඩය",
+  "view_details": "විස්තර බලන්න",
+
+  "quick_actions": "ඉක්මන් ක්‍රියා",
+
+  "alerts": "ඇඟවීම්",
+  "tracking": "අනුගමනය කිරීම",
+  "docs": "ලේඛන",
+  "help": "උදව්",
+
+  "assigned": "පවරා ඇත",
+  "in_transit": "ගමන් කරමින්",
+  "delivered": "බාර දී ඇත",
+
+  "moving_to_destination": "ගමනාන්තය වෙත යමින්...",
+  "live_tracking_active": "සජීවී අනුගමනය ක්‍රියාත්මකයි",
+
+  "eta": "ආසන්න වේලාව",
+
+  "instructions": "උපදෙස්",
+  "start_delivery": "බෙදාහැරීම ආරම්භ කරන්න",
+  "mark_delivered": "බාරදී ඇත ලෙස සලකුණු කරන්න",
+
+  "start_trip": "ගමන ආරම්භ කරන්න",
+  "pickup_confirmed": "ගන්නා ස්ථානය තහවුරුයි",
+  "ready_to_start": "ආරම්භ කිරීමට සූදානම්",
+
+  "notifications": "දැනුම්දීම්",
+  "documents": "ලේඛන",
+  "support": "සහාය"
+}

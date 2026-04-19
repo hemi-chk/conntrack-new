@@ -1,0 +1,46 @@
+{
+  "profile": "சுயவிவரம்",
+  "logout": "வெளியேறு",
+
+  "availability": "கிடைக்கும் நிலை",
+  "edit_profile": "சுயவிவரம் திருத்து",
+  "vehicle_info": "வாகன தகவல்",
+  "trip_history": "பயண வரலாறு",
+  "settings": "அமைப்புகள்",
+  "language": "மொழி",
+  "change_password": "கடவுச்சொல்லை மாற்று",
+
+  "welcome_driver": "வரவேற்கிறோம், ஓட்டுநர்",
+  "today_overview": "இன்றைய சுருக்கம்",
+
+  "current_job": "தற்போதைய வேலை",
+  "view_details": "விவரங்களை காண்க",
+
+  "quick_actions": "விரைவு செயல்கள்",
+
+  "alerts": "எச்சரிக்கைகள்",
+  "tracking": "கண்காணிப்பு",
+  "docs": "ஆவணங்கள்",
+  "help": "உதவி",
+
+  "assigned": "ஒதுக்கப்பட்டது",
+  "in_transit": "பயணத்தில்",
+  "delivered": "வழங்கப்பட்டது",
+
+  "moving_to_destination": "இலக்குக்கு சென்று கொண்டிருக்கிறது...",
+  "live_tracking_active": "நேரடி கண்காணிப்பு செயலில் உள்ளது",
+
+  "eta": "வருகை நேரம்",
+
+  "instructions": "வழிமுறைகள்",
+  "start_delivery": "விநியோகத்தை தொடங்கு",
+  "mark_delivered": "வழங்கப்பட்டது என குறிக்கவும்",
+
+  "start_trip": "பயணத்தை தொடங்கு",
+  "pickup_confirmed": "பிக்-அப் உறுதிசெய்யப்பட்டது",
+  "ready_to_start": "தொடங்க தயாராக உள்ளது",
+
+  "notifications": "அறிவிப்புகள்",
+  "documents": "ஆவணங்கள்",
+  "support": "ஆதரவு"
+}

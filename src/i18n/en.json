@@ -1,0 +1,46 @@
+{
+  "profile": "Profile",
+  "logout": "Logout",
+
+  "availability": "Availability",
+  "edit_profile": "Edit Profile",
+  "vehicle_info": "Vehicle Information",
+  "trip_history": "Trip History",
+  "settings": "Settings",
+  "language": "Language",
+  "change_password": "Change Password",
+
+  "welcome_driver": "Welcome, Driver",
+  "today_overview": "Today Overview",
+
+  "current_job": "Current Job",
+  "view_details": "View Details",
+
+  "quick_actions": "Quick Actions",
+
+  "alerts": "Alerts",
+  "tracking": "Tracking",
+  "docs": "Documents",
+  "help": "Help",
+
+  "assigned": "Assigned",
+  "in_transit": "In Transit",
+  "delivered": "Delivered",
+
+  "moving_to_destination": "Moving to destination...",
+  "live_tracking_active": "Live tracking active",
+
+  "eta": "ETA",
+
+  "instructions": "Instructions",
+  "start_delivery": "Start Delivery",
+  "mark_delivered": "Mark as Delivered",
+
+  "start_trip": "Start Trip",
+  "pickup_confirmed": "Pickup confirmed",
+  "ready_to_start": "Ready to start",
+
+  "notifications": "Notifications",
+  "documents": "Documents",
+  "support": "Support"
+}
