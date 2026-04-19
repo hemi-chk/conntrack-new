@@ -1,50 +1,71 @@
-# Welcome to your Expo app 👋
+# Logistics Management System - Driver App 🚚
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to the **Driver App** interface for the Logistics Management System. This mobile application is built using **React Native** and **Expo**, designed to provide a seamless, real-time experience for delivery drivers.
 
-## Get started
+## 📱 About the Project
 
-1. Install dependencies
+This application is one of the five core interfaces in the broader Logistics Management System (which will eventually be structured as a Turborepo monorepo). It handles everything a driver needs on the road, including:
+- Real-time route tracking and navigation.
+- Order details and delivery management.
+- Driver profile and vehicle information.
+- Push notifications for new assignments.
 
+## 🛠️ Tech Stack
+
+- **Framework:** [React Native](https://reactnative.dev/)
+- **Toolchain:** [Expo](https://expo.dev/)
+- **Routing:** Expo Router / React Navigation
+- **Architecture (Planned):** Will integrate with **Supabase** for real-time Postgres DB/Auth and **RabbitMQ** (via a Node.js backend) for scalable asynchronous task queueing.
+
+## 🚀 Getting Started
+
+Follow these steps to run the application locally on your machine.
+
+### Prerequisites
+
+Make sure you have the following installed:
+- [Node.js](https://nodejs.org/) (v18 or newer recommended)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- Expo Go app installed on your physical device (iOS/Android), or an Android Emulator / iOS Simulator running on your computer.
+
+### Installation
+
+1. Clone the repository and checkout the driver UI branch:
+   ```bash
+   git clone https://github.com/hemi-chk/conntrack-new.git
+   cd conntrack-new
+   git checkout feature/driver-ui
+   ```
+
+2. Install the project dependencies:
    ```bash
    npm install
    ```
 
-2. Start the app
+### Running the App
 
+1. Start the Expo development server:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+2. Open the app:
+   - **On a physical device:** Scan the QR code generated in your terminal using the Expo Go app.
+   - **On Android Emulator:** Press `a` in the terminal.
+   - **On iOS Simulator:** Press `i` in the terminal.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📂 Project Structure
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+src/
+├── components/      # Reusable UI elements (Buttons, Typography, Cards)
+├── constants/       # Global constants like Colors, Theme, Styles
+├── context/         # React Context providers (e.g., OrderContext)
+├── i18n/            # Internationalization (en, si, ta)
+├── navigation/      # Stack and Tab Navigators
+└── screens/         # App screens (Dashboard, Tracking, Login, etc.)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🤝 Contributing
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+When contributing to this project, please ensure UI components remain modular and decoupled from complex business logic, as they will eventually be migrated to a shared `ui-components` package within our Turborepo architecture.
