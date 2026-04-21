@@ -1,0 +1,1 @@
+export const Biddings = () => <div>Biddings</div>;

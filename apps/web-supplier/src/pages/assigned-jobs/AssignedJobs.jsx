@@ -1,0 +1,1 @@
+export const AssignedJobs = () => <div>AssignedJobs</div>;
