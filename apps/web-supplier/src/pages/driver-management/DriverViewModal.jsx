@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 export const DriverViewModal = ({ isOpen, onClose, driver, onEdit, onDelete }) => {
   if (!isOpen || !driver) return null;
@@ -17,7 +18,7 @@ export const DriverViewModal = ({ isOpen, onClose, driver, onEdit, onDelete }) =
             <p className="text-blue-100 text-xs mt-0.5">Driver Profile Overview</p>
           </div>
           <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-            <span className="text-xl">&times;</span>
+            <X size={24} />
           </button>
         </div>
 

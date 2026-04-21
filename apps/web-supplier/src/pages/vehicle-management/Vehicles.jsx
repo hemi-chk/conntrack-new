@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import { useVehicles } from '../../hooks/useVehicles';
 import { AddVehicleModal } from './AddVehicleModal';
 import { VehicleViewModal } from './VehicleViewModal';
@@ -26,38 +27,35 @@ export const Vehicles = () => {
   const handleAddVehicle = async (newVehicleData) => {
     try {
       console.log("Vehicles Page: Sending data to service...", newVehicleData);
-      const result = await addVehicle(newVehicleData);
-      console.log("Vehicles Page: Save successful!", result);
-      
-      alert("✅ Vehicle Added Successfully!");
-      
+      await addVehicle(newVehicleData);
+      alert("Vehicle Added Successfully!");
       setIsAddModalOpen(false);
-      refreshVehicles(); // Reload new data from database into table
+      refreshVehicles();
     } catch (err) {
       console.error("Vehicles Page: Save failed", err);
-      alert("❌ Error saving vehicle: " + err.message);
+      alert("Error saving vehicle: " + err.message);
     }
   };
 
   const handleUpdateVehicle = async (id, updatedData) => {
     try {
       await updateVehicle(id, updatedData);
-      alert("✅ Vehicle Updated Successfully!");
+      alert("Vehicle Updated Successfully!");
       setIsEditModalOpen(false);
       refreshVehicles();
     } catch (err) {
-      alert("❌ Error updating vehicle: " + err.message);
+      alert("Error updating vehicle: " + err.message);
     }
   };
 
   const handleDeleteVehicle = async (id) => {
     try {
       await deleteVehicle(id);
-      alert("✅ Vehicle Deleted Successfully!");
+      alert("Vehicle Deleted Successfully!");
       setIsDeleteModalOpen(false);
       refreshVehicles();
     } catch (err) {
-      alert("❌ Error deleting vehicle: " + err.message);
+      alert("Error deleting vehicle: " + err.message);
     }
   };
 
@@ -68,13 +66,13 @@ export const Vehicles = () => {
 
   const handleOpenEditModal = (vehicle) => {
     setSelectedVehicle(vehicle);
-    setIsViewModalOpen(false); // Close view modal first
+    setIsViewModalOpen(false);
     setIsEditModalOpen(true);
   };
 
   const handleOpenDeleteModal = (vehicle) => {
     setSelectedVehicle(vehicle);
-    setIsViewModalOpen(false); // Close view modal first
+    setIsViewModalOpen(false);
     setIsDeleteModalOpen(true);
   };
 
@@ -114,10 +112,9 @@ export const Vehicles = () => {
         <h1 className="text-3xl font-bold text-primary">Manage Vehicles</h1>
       </div>
 
-      {/* Action Row: 'All' Dropdown Left, 'Add' Button Right */}
+      {/* Action Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         
-        {/* Left side: Filter and count */}
         <div className="flex items-center gap-4">
           <select 
             className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-dark font-medium outline-none focus:ring-2 focus:ring-primary cursor-pointer"
@@ -135,24 +132,26 @@ export const Vehicles = () => {
           </span>
         </div>
         
-        {/* Right side: Add button */}
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
         >
-          <span className="text-xl leading-none">+</span> Add Vehicle
+          <Plus size={20} />
+          Add Vehicle
         </button>
       </div>
 
       {/* Messages */}
       {error && (
         <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <span className="text-xl">⚠️</span> {error}
+          <AlertTriangle size={18} />
+          <span>{error}</span>
         </div>
       )}
       {!isLoading && vehicles.length === 0 && !error && (
         <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <span className="text-xl">⚠️</span> No data in vehicles table (Supabase Status: Connected)
+          <AlertTriangle size={18} />
+          <span>No data in vehicles table (Supabase Status: Connected)</span>
         </div>
       )}
       {!isLoading && vehicles.length > 0 && filteredVehicles.length === 0 && (

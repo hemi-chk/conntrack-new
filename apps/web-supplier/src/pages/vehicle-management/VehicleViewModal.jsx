@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from 'lucide-react';
 
 export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete }) => {
   if (!isOpen || !vehicle) return null;
@@ -17,7 +18,7 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
             <p className="text-blue-100 text-xs mt-0.5">Vehicle Details Overview</p>
           </div>
           <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
-            <span className="text-xl">&times;</span>
+            <X size={24} />
           </button>
         </div>
 

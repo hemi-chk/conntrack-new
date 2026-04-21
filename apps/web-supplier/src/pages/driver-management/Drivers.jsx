@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AlertTriangle, UserPlus } from 'lucide-react';
 import { useDrivers } from '../../hooks/useDrivers';
 import { AddDriverModal } from './AddDriverModal';
 import { DriverViewModal } from './DriverViewModal';
@@ -23,33 +24,33 @@ export const Drivers = () => {
   const handleAddDriver = async (newDriverData) => {
     try {
       await addDriver(newDriverData);
-      alert("✅ Driver Added Successfully!");
+      alert("Driver Added Successfully!");
       setIsAddModalOpen(false);
       refreshDrivers();
     } catch (err) {
-      alert("❌ Error saving driver: " + err.message);
+      alert("Error saving driver: " + err.message);
     }
   };
 
   const handleUpdateDriver = async (id, updatedData) => {
     try {
       await updateDriver(id, updatedData);
-      alert("✅ Driver Updated Successfully!");
+      alert("Driver Updated Successfully!");
       setIsEditModalOpen(false);
       refreshDrivers();
     } catch (err) {
-      alert("❌ Error updating driver: " + err.message);
+      alert("Error updating driver: " + err.message);
     }
   };
 
   const handleDeleteDriver = async (id) => {
     try {
       await deleteDriver(id);
-      alert("✅ Driver Deleted Successfully!");
+      alert("Driver Deleted Successfully!");
       setIsDeleteModalOpen(false);
       refreshDrivers();
     } catch (err) {
-      alert("❌ Error deleting driver: " + err.message);
+      alert("Error deleting driver: " + err.message);
     }
   };
 
@@ -130,19 +131,22 @@ export const Drivers = () => {
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
         >
-          <span className="text-xl leading-none">+</span> Add Driver
+          <UserPlus size={20} />
+          Add Driver
         </button>
       </div>
 
       {/* Messages */}
       {error && (
         <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <span className="text-xl">⚠️</span> {error}
+          <AlertTriangle size={18} />
+          <span>{error}</span>
         </div>
       )}
       {!isLoading && drivers.length === 0 && !error && (
         <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <span className="text-xl">⚠️</span> No data in drivers table (Supabase Status: Connected)
+          <AlertTriangle size={18} />
+          <span>No data in drivers table (Supabase Status: Connected)</span>
         </div>
       )}
 

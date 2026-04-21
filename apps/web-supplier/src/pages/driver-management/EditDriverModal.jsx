@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
   const [formData, setFormData] = useState({
@@ -142,7 +143,7 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
             
             {error && (
                <div className="text-error text-sm font-medium bg-red-50 p-2.5 rounded-lg border border-red-100 flex items-center gap-2">
-                 <span>⚠️</span> {error}
+                 <AlertTriangle size={16} /> {error}
                </div>
             )}
             
