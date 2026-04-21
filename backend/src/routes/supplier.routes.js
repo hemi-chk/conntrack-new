@@ -15,7 +15,7 @@ router.get('/vehicles', async (req, res) => {
     const { data, error } = await supabase
       .from('vehicles')
       .select('*')
-      .order('vehicle_id', { ascending: true })
+      .order('vehicle_number', { ascending: true })
     
     if (error) {
       console.error('Supabase error:', error)
@@ -89,7 +89,7 @@ router.put('/vehicles/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('vehicles')
       .update(updateData)
-      .eq('vehicle_id', id)
+      .eq('vehicle_number', id)
       .select();
 
     if (error) {
@@ -117,7 +117,7 @@ router.delete('/vehicles/:id', async (req, res) => {
     const { error } = await supabase
       .from('vehicles')
       .delete()
-      .eq('vehicle_id', id);
+      .eq('vehicle_number', id);
 
     if (error) {
       console.error('Supabase delete error:', error);
@@ -130,6 +130,119 @@ router.delete('/vehicles/:id', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// --- Driver Management Routes ---
+
+// Fetch all drivers
+router.get('/drivers', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('drivers')
+      .select('*')
+      .order('driver_id', { ascending: true })
+    
+    if (error) {
+      console.error('Supabase error fetching drivers:', error)
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.json(data)
+  } catch (err) {
+    console.error('Server error fetching drivers:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Add a new driver
+router.post('/drivers', async (req, res) => {
+  try {
+    const { driver_id, first_name, last_name, nic, license_expiry_date, availability_status, contact_number } = req.body
+    
+    const insertData = { 
+      driver_id, 
+      first_name, 
+      last_name, 
+      nic, 
+      license_expiry_date, 
+      availability_status, 
+      contact_number 
+    }
+    
+    const { data, error } = await supabase
+      .from('drivers')
+      .insert([insertData])
+      .select()
+    
+    if (error) {
+      console.error('Supabase insert error drivers:', error)
+      return res.status(500).json({ error: error.message })
+    }
+    
+    res.status(201).json(data[0]) 
+  } catch (err) {
+    console.error('Server error adding driver:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Update a driver
+router.put('/drivers/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const { first_name, last_name, nic, license_expiry_date, availability_status, contact_number } = req.body
+    
+    const updateData = {
+      first_name,
+      last_name,
+      nic,
+      license_expiry_date,
+      availability_status,
+      contact_number
+    }
+
+    const { data, error } = await supabase
+      .from('drivers')
+      .update(updateData)
+      .eq('driver_id', id)
+      .select()
+
+    if (error) {
+      console.error('Supabase update error drivers:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Driver not found' })
+    }
+
+    res.json(data[0])
+  } catch (err) {
+    console.error('Server error updating driver:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Delete a driver
+router.delete('/drivers/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { error } = await supabase
+      .from('drivers')
+      .delete()
+      .eq('driver_id', id)
+
+    if (error) {
+      console.error('Supabase delete error drivers:', error)
+      return res.status(500).json({ error: error.message })
+    }
+
+    res.json({ message: 'Driver deleted successfully' })
+  } catch (err) {
+    console.error('Server error deleting driver:', err)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
 
 router.get('/orders', (req, res) => {
   res.json({ message: 'Get available orders' })
