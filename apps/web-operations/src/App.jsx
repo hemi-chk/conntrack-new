@@ -16,7 +16,7 @@ function App() {
     <Layout currentPath={currentPath} onNavigate={setCurrentPath}>
       {currentPath === '/' && <Dashboard />}
       {currentPath === '/create' && <CreateOrder />}
-      {currentPath === '/orders' && <Orders />}
+      {currentPath === '/orders' && <Orders onNavigate={setCurrentPath} />}
       {currentPath === '/suppliers' && <Suppliers />}
       {currentPath === '/tracking' && <Tracking />}
       {currentPath === '/issues' && <Issues />}
