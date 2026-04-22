@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-function Dashboard() {
+function Dashboard({ onNavigate }) {
 
-  // STATE: used to store which filter is currently active (clicked card)
+  // STATE: Tracks which filter is currently selected (from summary cards)
   const [filter, setFilter] = useState(null);
 
-  // SAMPLE DATA: this will later come from backend (Supabase)
+  // MOCK DATA: Represents order records (will be replaced by backend data later)
   const orders = [
     { id: "EXP-1023", type: "Export", supplier: "Global Trans", status: "In Progress" },
     { id: "IMP-2014", type: "Import", supplier: "OceanLink Carriers", status: "Awaiting Clearance" },
@@ -15,33 +15,33 @@ function Dashboard() {
   ];
 
   // FILTER LOGIC:
-  // Based on selected card, filter the orders dynamically
+  // Dynamically filters orders based on selected card
   const filteredOrders = orders.filter(order => {
 
-    // show only export orders
+    // Filter export orders
     if (filter === "export") return order.type === "Export";
 
-    // show only import orders
+    // Filter import orders
     if (filter === "import") return order.type === "Import";
 
-    // active = all orders except completed
+    // Active = all orders except completed
     if (filter === "active") return order.status !== "Completed";
 
-    // show only issues
+    // Show only orders with issues
     if (filter === "issues") return order.status === "Issue Reported";
 
-    // show only completed
+    // Show completed orders
     if (filter === "completed") return order.status === "Completed";
 
-    // bidding = awaiting clearance (your current logic)
+    // Bidding logic (currently mapped to awaiting clearance)
     if (filter === "bidding") return order.status === "Awaiting Clearance";
 
-    // default → show all
+    // Default case: return all orders
     return true;
   });
 
-  // STATUS COLOR LOGIC:
-  // Assign different colors based on order status
+  // STATUS COLOR MAPPING:
+  // Assigns UI color styles based on order status
   const statusColor = (status) => {
 
     if (status === "In Progress") 
@@ -63,8 +63,8 @@ function Dashboard() {
   return (
     <div className="p-8 bg-[#EFF6FF] h-full overflow-hidden">
 
-      {/* MINI SUMMARY CARDS */}
-      {/* Clicking a card updates the filter state */}
+      {/* SUMMARY CARDS SECTION */}
+      {/* Each card applies a specific filter when clicked */}
       <div className="grid grid-cols-6 gap-6 mb-6">
 
         <Card title="Active Orders" number="4" filterKey="active" current={filter} setFilter={setFilter} />
@@ -72,25 +72,37 @@ function Dashboard() {
         <Card title="Import Orders" number="2" filterKey="import" current={filter} setFilter={setFilter} />
         <Card title="Orders in Bidding" number="1" filterKey="bidding" current={filter} setFilter={setFilter} />
 
-        {/* Special styled cards */}
+        {/* Highlight cards with custom colors */}
         <Card title="Completed Orders" number="1" filterKey="completed" current={filter} setFilter={setFilter} color="bg-[#16A34A]" white />
         <Card title="Orders with Issues" number="1" filterKey="issues" current={filter} setFilter={setFilter} color="bg-[#DC2626]" white />
 
       </div>
 
-      {/* ORDER TABLE */}
+      {/* ORDER TABLE SECTION */}
       <div className="bg-[#FFFFFF] rounded-xl shadow-md p-6">
 
-        {/* Table Header */}
-        <div className="border-b pb-3 mb-4">
+        {/* TABLE HEADER + ACTION BUTTON */}
+        <div className="border-b pb-3 mb-4 flex justify-between items-center">
+
+          {/* Section title */}
           <h3 className="font-semibold text-[#1E293B]">
             Order Overview
           </h3>
+
+          {/* Navigation button to Create Order page */}
+          <button
+            onClick={() => onNavigate('/create')}
+            className="bg-[#1E40AF] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#1E3A8A] transition"
+          >
+            + Create New Order
+          </button>
+
         </div>
 
+        {/* TABLE STRUCTURE */}
         <table className="w-full text-sm">
 
-          {/* TABLE HEAD */}
+          {/* TABLE HEADERS */}
           <thead className="bg-[#EFF6FF] text-[#1E293B] font-semibold border-b">
             <tr>
               <th className="py-3 px-4 text-left">Order ID</th>
@@ -104,7 +116,7 @@ function Dashboard() {
           {/* TABLE BODY */}
           <tbody className="divide-y divide-gray-200">
 
-            {/* LOOP THROUGH FILTERED ORDERS */}
+            {/* Render filtered order list */}
             {filteredOrders.map((order, index) => (
               <tr key={index} className="hover:bg-[#EFF6FF]">
 
@@ -121,7 +133,7 @@ function Dashboard() {
                 {/* Supplier Name */}
                 <td>{order.supplier}</td>
 
-                {/* Status with dynamic color */}
+                {/* Status with dynamic styling */}
                 <td>
                   <span className={`${statusColor(order.status)} px-3 py-1 rounded-md font-medium`}>
                     {order.status}
@@ -148,15 +160,15 @@ function Dashboard() {
   );
 }
 
-// CARD COMPONENT
+// REUSABLE CARD COMPONENT
 function Card({ title, number, filterKey, current, setFilter, color, white }) {
 
-  // Check if this card is currently selected
+  // Determines if the card is currently active
   const active = current === filterKey;
 
   return (
     <div
-      // When clicked → update filter
+      // On click → update filter state
       onClick={() => setFilter(filterKey)}
 
       className={`

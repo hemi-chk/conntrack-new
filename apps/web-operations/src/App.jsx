@@ -14,14 +14,28 @@ function App() {
 
   return (
     <Layout currentPath={currentPath} onNavigate={setCurrentPath}>
-      {currentPath === '/' && <Dashboard />}
+
+      {/* Dashboard (FIXED) */}
+      {currentPath === '/' && (
+        <Dashboard onNavigate={setCurrentPath} />
+      )}
+
       {currentPath === '/create' && <CreateOrder />}
-      {currentPath === '/orders' && <Orders onNavigate={setCurrentPath} />}
+      
+      {currentPath === '/orders' && (
+        <Orders onNavigate={setCurrentPath} />
+      )}
+
       {currentPath === '/suppliers' && <Suppliers />}
+
       {currentPath === '/tracking' && <Tracking />}
+
       {currentPath === '/issues' && <Issues />}
+
       {currentPath === '/bidding' && <Bidding />}
+
       {currentPath === '/reports' && <Reports />}
+
     </Layout>
   )
 }
