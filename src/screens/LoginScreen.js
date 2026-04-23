@@ -2,12 +2,17 @@ import { useState } from "react";
 import {
   Alert,
   Image,
-  Text,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import colors from "../constants/colors";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
+import { theme } from "../constants/theme";
 
 export default function LoginScreen({ navigation }) {
   const [driverId, setDriverId] = useState("");
@@ -28,183 +33,152 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#FFFFFF", padding: 20 }}>
-
-      {/* 🚚 TOP IMAGE */}
-      <View style={{ alignItems: "center", marginTop: 40 }}>
-        <Image
-          source={require("../../assets/truck.jpg")}
-          style={{
-            width: 220,
-            height: 160,
-            resizeMode: "contain",
-          }}
-        />
-      </View>
-
-      {/* 🧾 TITLE */}
-      <Text
-        style={{
-          textAlign: "center",
-          fontSize: 22,
-          fontWeight: "700",
-          marginTop: 20,
-        }}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardView}
       >
-        Welcome Back
-      </Text>
+        <View style={styles.innerContainer}>
+          {/* 🚚 TOP IMAGE */}
+          <View style={styles.imageContainer}>
+            <Image
+              source={require("../../assets/truck.jpg")}
+              style={styles.image}
+            />
+          </View>
 
-      <Text
-        style={{
-          textAlign: "center",
-          color: "#6B7280",
-          marginBottom: 30,
-          marginTop: 5,
-        }}
-      >
-        Login to continue your journey
-      </Text>
+          {/* 🧾 TITLE */}
+          <Typography variant="h2" align="center" style={styles.title}>
+            Welcome Back
+          </Typography>
 
-      {/* 🔄 LOGIN OR FORGOT PASSWORD OPTIONS */}
-      {!showReset ? (
-        <>
-          {/* LOGIN FORM */}
-          <TextInput
-            placeholder="Driver ID"
-            value={driverId}
-            onChangeText={setDriverId}
-            style={{
-              backgroundColor: "#F3F4F6",
-              padding: 16,
-              borderRadius: 14,
-              marginBottom: 15,
-            }}
-          />
+          <Typography variant="body" color="textMuted" align="center" style={styles.subtitle}>
+            Login to continue your journey
+          </Typography>
 
-          <TextInput
-            placeholder="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={{
-              backgroundColor: "#F3F4F6",
-              padding: 16,
-              borderRadius: 14,
-              marginBottom: 10,
-            }}
-          />
+          {/* 🔄 LOGIN OR FORGOT PASSWORD OPTIONS */}
+          {!showReset ? (
+            <>
+              {/* LOGIN FORM */}
+              <TextInput
+                placeholder="Driver ID"
+                value={driverId}
+                onChangeText={setDriverId}
+                style={styles.input}
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-          <TouchableOpacity onPress={() => setShowReset(true)}>
-            <Text
-              style={{
-                textAlign: "right",
-                color: colors.primary,
-                marginBottom: 25,
-              }}
-            >
-              Forgot Password?
-            </Text>
-          </TouchableOpacity>
+              <TextInput
+                placeholder="Password"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+                style={styles.input}
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-          <TouchableOpacity
-            onPress={handleLogin}
-            style={{
-              backgroundColor: colors.primary,
-              padding: 18,
-              borderRadius: 14,
-            }}
-          >
-            <Text
-              style={{
-                color: "#fff",
-                textAlign: "center",
-                fontWeight: "600",
-                fontSize: 16,
-              }}
-            >
-              Login
-            </Text>
-          </TouchableOpacity>
-        </>
-      ) : (
-        <>
-          {/* FORGOT PASSWORD OPTIONS */}
-          <Text
-            style={{
-              textAlign: "center",
-              fontSize: 18,
-              fontWeight: "600",
-              marginBottom: 20,
-            }}
-          >
-            Forgot Password
-          </Text>
+              <TouchableOpacity onPress={() => setShowReset(true)}>
+                <Typography variant="caption" color="primary" align="right" style={styles.forgotPassword}>
+                  Forgot Password?
+                </Typography>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "OTP Sent",
-                "A verification code has been sent to your registered phone/email."
-              )
-            }
-            style={{
-              backgroundColor: colors.primary,
-              padding: 18,
-              borderRadius: 14,
-              marginBottom: 15,
-            }}
-          >
-            <Text
-              style={{
-                color: "#fff",
-                textAlign: "center",
-                fontWeight: "600",
-                fontSize: 16,
-              }}
-            >
-              Send OTP
-            </Text>
-          </TouchableOpacity>
+              <Button
+                title="Login"
+                onPress={handleLogin}
+                style={styles.actionButton}
+              />
+            </>
+          ) : (
+            <>
+              {/* FORGOT PASSWORD OPTIONS */}
+              <Typography variant="subtitle" weight="semiBold" align="center" style={styles.resetTitle}>
+                Forgot Password
+              </Typography>
 
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert(
-                "Contact Support",
-                "Please contact support@company.com to reset your password."
-              )
-            }
-            style={{
-              backgroundColor: "#F3F4F6",
-              padding: 18,
-              borderRadius: 14,
-              marginBottom: 15,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.primary,
-                textAlign: "center",
-                fontWeight: "600",
-                fontSize: 16,
-              }}
-            >
-              Contact Support
-            </Text>
-          </TouchableOpacity>
+              <Button
+                title="Send OTP"
+                onPress={() =>
+                  Alert.alert(
+                    "OTP Sent",
+                    "A verification code has been sent to your registered phone/email."
+                  )
+                }
+                style={styles.actionButton}
+              />
 
-          <TouchableOpacity onPress={() => setShowReset(false)}>
-            <Text
-              style={{
-                textAlign: "center",
-                color: colors.primary,
-                marginTop: 15,
-              }}
-            >
-              Back to Login
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-    </View>
+              <Button
+                title="Contact Support"
+                variant="secondary"
+                onPress={() =>
+                  Alert.alert(
+                    "Contact Support",
+                    "Please contact support@company.com to reset your password."
+                  )
+                }
+                style={styles.actionButton}
+              />
+
+              <TouchableOpacity onPress={() => setShowReset(false)}>
+                <Typography variant="caption" color="primary" align="center" style={styles.backToLogin}>
+                  Back to Login
+                </Typography>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.surface,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  innerContainer: {
+    flex: 1,
+    padding: theme.spacing.lg,
+    justifyContent: "center",
+  },
+  imageContainer: {
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  image: {
+    width: 220,
+    height: 160,
+    resizeMode: "contain",
+  },
+  title: {
+    marginBottom: theme.spacing.xs,
+  },
+  subtitle: {
+    marginBottom: theme.spacing.xl,
+  },
+  input: {
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.md,
+    borderRadius: theme.roundness.md,
+    marginBottom: theme.spacing.md,
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFamily.regular,
+    fontSize: theme.typography.sizes.md,
+  },
+  forgotPassword: {
+    marginBottom: theme.spacing.xl,
+  },
+  actionButton: {
+    marginBottom: theme.spacing.md,
+  },
+  resetTitle: {
+    marginBottom: theme.spacing.lg,
+  },
+  backToLogin: {
+    marginTop: theme.spacing.md,
+  }
+});

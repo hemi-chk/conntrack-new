@@ -1,15 +1,15 @@
 export const theme = {
   colors: {
-    primary: "#0F172A", // Dark Navy
+    primary: "#1E40AF", // Primary Blue
     secondary: "#3B82F6", // Blue
     accent: "#10B981", // Emerald Green
-    background: "#F8FAFC", // Light Gray/Blue
-    surface: "#FFFFFF",
-    text: "#1E293B", // Dark Slate
+    background: "#EFF6FF", // Light Blue
+    surface: "#FFFFFF", // White
+    text: "#1E293B", // Dark Text
     textMuted: "#64748B",
-    success: "#16A34A",
-    warning: "#F59E0B",
-    error: "#EF4444",
+    success: "#16A34A", // Success
+    warning: "#EA580C", // Warning
+    error: "#DC2626", // Danger
     border: "#E2E8F0",
   },
   spacing: {

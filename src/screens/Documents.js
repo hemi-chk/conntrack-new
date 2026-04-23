@@ -1,19 +1,23 @@
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import React from "react";
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { theme } from "../constants/theme";
+import { Typography } from "../components/Typography";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
 
-export default function Documents() {
+export default function Documents({ navigation }) {
   const docs = [
-    "BOI Clearance",
-    "Gate Pass",
-    "Port Documents",
+    { name: "BOI Clearance", icon: "assignment" },
+    { name: "Gate Pass", icon: "vpn-key" },
+    { name: "Port Documents", icon: "folder" },
   ];
 
-  // 📥 Download function
   const handleDownload = (doc) => {
     Alert.alert("Download", `${doc} downloaded successfully`);
   };
 
-  // ✅ Confirm all clearances
   const handleConfirmAll = () => {
     Alert.alert(
       "Clearance Confirmed",
@@ -22,66 +26,117 @@ export default function Documents() {
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: "#F5F7FB" }}>
-
-      {/* 🔝 TITLE */}
-      <Text style={{ fontSize: 22, fontWeight: "700", marginBottom: 10 }}>
-        Documents
-      </Text>
-
-      {/* 📄 DOCUMENT LIST */}
-      {docs.map((doc, index) => (
-        <View
-          key={index}
-          style={{
-            backgroundColor: "#fff",
-            padding: 18,
-            borderRadius: 15,
-            marginTop: 15,
-            elevation: 3,
-          }}
-        >
-          {/* 📄 Document Name */}
-          <Text style={{ fontWeight: "600", marginBottom: 10 }}>
-            {doc}
-          </Text>
-
-          {/* 📥 DOWNLOAD BUTTON */}
-          <TouchableOpacity
-            onPress={() => handleDownload(doc)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#E0EDFF",
-              padding: 10,
-              borderRadius: 10,
-              alignSelf: "flex-start",
-            }}
-          >
-            <MaterialIcons name="download" size={18} color="#2563EB" />
-            <Text style={{ marginLeft: 5, color: "#2563EB" }}>
-              Download
-            </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation?.goBack?.()}>
+            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
+          <Typography variant="h3" style={styles.headerTitle}>
+            Documents
+          </Typography>
         </View>
-      ))}
 
-      {/* ✅ SINGLE CONFIRM BUTTON */}
-      <TouchableOpacity
-        onPress={handleConfirmAll}
-        style={{
-          marginTop: 30,
-          backgroundColor: "#16A34A",
-          padding: 15,
-          borderRadius: 12,
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ color: "#fff", fontWeight: "600" }}>
-          Confirm Clearance
-        </Text>
-      </TouchableOpacity>
+        <Typography variant="body" color="textMuted" style={styles.description}>
+          View and download required clearance documents for your current trips.
+        </Typography>
 
-    </View>
+        {/* DOCUMENT LIST */}
+        {docs.map((doc, index) => (
+          <Card key={index} elevation="sm" style={styles.docCard}>
+            <View style={styles.docInfo}>
+              <View style={styles.iconBackground}>
+                <MaterialIcons name={doc.icon} size={24} color={theme.colors.primary} />
+              </View>
+              <Typography variant="subtitle" weight="semiBold" style={styles.docName}>
+                {doc.name}
+              </Typography>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => handleDownload(doc.name)}
+              style={styles.downloadButton}
+            >
+              <MaterialIcons name="download" size={20} color={theme.colors.primary} />
+              <Typography variant="body" color="primary" weight="medium" style={styles.downloadText}>
+                Download
+              </Typography>
+            </TouchableOpacity>
+          </Card>
+        ))}
+
+        {/* CONFIRM BUTTON */}
+        <Button
+          title="Confirm Clearance"
+          onPress={handleConfirmAll}
+          style={styles.confirmButton}
+          variant="primary"
+        />
+
+        <View style={{ height: theme.spacing.xl }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing.lg,
+  },
+  headerTitle: {
+    marginLeft: theme.spacing.sm,
+  },
+  description: {
+    marginBottom: theme.spacing.xl,
+  },
+  docCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.md,
+    padding: theme.spacing.md,
+  },
+  docInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  iconBackground: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.roundness.md,
+    backgroundColor: `${theme.colors.primary}15`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  docName: {
+    marginLeft: theme.spacing.md,
+    flex: 1,
+  },
+  downloadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${theme.colors.secondary}15`,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.roundness.md,
+  },
+  downloadText: {
+    marginLeft: theme.spacing.xs,
+  },
+  confirmButton: {
+    marginTop: theme.spacing.xl,
+    backgroundColor: theme.colors.success,
+  },
+});

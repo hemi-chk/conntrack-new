@@ -1,13 +1,19 @@
 import React, { useState } from "react";
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   Alert,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import colors from "../constants/colors";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { theme } from "../constants/theme";
+import { Typography } from "../components/Typography";
+import { Button } from "../components/Button";
 
 export default function EditProfile({ navigation }) {
 
@@ -17,112 +23,149 @@ export default function EditProfile({ navigation }) {
   const [email, setEmail] = useState("driver@email.com");
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F5F7FB", padding: 20 }}>
-
-      {/* HEADER */}
-      <View style={{
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 20,
-        marginBottom: 25
-      }}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} />
-        </TouchableOpacity>
-
-        <Text style={{
-          fontSize: 20,
-          fontWeight: "700",
-          marginLeft: 10
-        }}>
-          My Profile
-        </Text>
-      </View>
-
-      {/* PERSONAL INFO */}
-      <Text>Name</Text>
-      <TextInput value={name} onChangeText={setName} style={styles.input} />
-
-      <Text>Username</Text>
-      <TextInput value={username} onChangeText={setUsername} style={styles.input} />
-
-      <Text>Phone Number</Text>
-      <TextInput value={phone} onChangeText={setPhone} style={styles.input} />
-
-      <Text>Email</Text>
-      <TextInput value={email} onChangeText={setEmail} style={styles.input} />
-
-      {/* SAVE */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={() => {
-          Alert.alert("Success", "Profile updated successfully");
-          navigation.goBack();
-        }}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
       >
-        <Text style={{ color: "#fff", textAlign: "center", fontWeight: "600" }}>
-          Save Changes
-        </Text>
-      </TouchableOpacity>
+        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
 
-      {/* CHANGE PASSWORD */}
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => navigation.navigate("ChangePassword")}
-      >
-        <MaterialIcons name="lock" size={20} color={colors.primary} />
-        <Text style={{ marginLeft: 10, color: colors.primary }}>
-          Change Password
-        </Text>
-      </TouchableOpacity>
+            <Typography variant="h3" style={styles.headerTitle}>
+              My Profile
+            </Typography>
+          </View>
 
-      {/* SIGN OUT */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={() =>
-          Alert.alert("Sign Out", "Are you sure you want to logout?", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Logout", onPress: () => navigation.navigate("Login") },
-          ])
-        }
-      >
-        <MaterialIcons name="logout" size={20} color="red" />
-        <Text style={{ marginLeft: 10, color: "red", fontWeight: "600" }}>
-          Sign Out
-        </Text>
-      </TouchableOpacity>
+          {/* PERSONAL INFO */}
+          <Typography variant="body" weight="medium" style={styles.label}>Name</Typography>
+          <TextInput 
+            value={name} 
+            onChangeText={setName} 
+            style={styles.input} 
+            placeholderTextColor={theme.colors.textMuted}
+          />
 
-    </View>
+          <Typography variant="body" weight="medium" style={styles.label}>Username</Typography>
+          <TextInput 
+            value={username} 
+            onChangeText={setUsername} 
+            style={styles.input} 
+            placeholderTextColor={theme.colors.textMuted}
+          />
+
+          <Typography variant="body" weight="medium" style={styles.label}>Phone Number</Typography>
+          <TextInput 
+            value={phone} 
+            onChangeText={setPhone} 
+            style={styles.input} 
+            keyboardType="phone-pad"
+            placeholderTextColor={theme.colors.textMuted}
+          />
+
+          <Typography variant="body" weight="medium" style={styles.label}>Email</Typography>
+          <TextInput 
+            value={email} 
+            onChangeText={setEmail} 
+            style={styles.input} 
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholderTextColor={theme.colors.textMuted}
+          />
+
+          {/* SAVE */}
+          <Button 
+            title="Save Changes"
+            style={styles.saveButton}
+            onPress={() => {
+              Alert.alert("Success", "Profile updated successfully");
+              navigation.goBack();
+            }}
+          />
+
+          {/* CHANGE PASSWORD */}
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate("ChangePassword")}
+          >
+            <MaterialIcons name="lock" size={20} color={theme.colors.primary} />
+            <Typography variant="body" color="primary" style={styles.secondaryButtonText}>
+              Change Password
+            </Typography>
+          </TouchableOpacity>
+
+          {/* SIGN OUT */}
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() =>
+              Alert.alert("Sign Out", "Are you sure you want to logout?", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Logout", onPress: () => navigation.navigate("Login") },
+              ])
+            }
+          >
+            <MaterialIcons name="logout" size={20} color={theme.colors.error} />
+            <Typography variant="body" weight="semiBold" color="error" style={styles.secondaryButtonText}>
+              Sign Out
+            </Typography>
+          </TouchableOpacity>
+
+          <View style={{ height: theme.spacing.xl }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const styles = {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+  },
+  headerTitle: {
+    marginLeft: theme.spacing.sm,
+  },
+  label: {
+    marginBottom: theme.spacing.xs,
+  },
   input: {
-    backgroundColor: "#E5E7EB",
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 15,
-    marginTop: 5,
+    backgroundColor: theme.colors.surface,
+    padding: theme.spacing.md,
+    borderRadius: theme.roundness.md,
+    marginBottom: theme.spacing.md,
+    color: theme.colors.text,
+    fontFamily: theme.typography.fontFamily.regular,
+    fontSize: theme.typography.sizes.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
-
-  button: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+  saveButton: {
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
   },
-
   secondaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 25,
-    padding: 12,
+    paddingVertical: theme.spacing.md,
   },
-
+  secondaryButtonText: {
+    marginLeft: theme.spacing.sm,
+  },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 15,
-    padding: 12,
+    paddingVertical: theme.spacing.md,
   }
-};
+});

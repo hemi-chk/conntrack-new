@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import { View, Text, Switch, TouchableOpacity } from "react-native";
+import { View, Switch, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { theme } from "../constants/theme";
+import { Typography } from "../components/Typography";
+import { Card } from "../components/Card";
 
 export default function Settings({ navigation }) {
   const { t } = useTranslation();
@@ -11,22 +15,14 @@ export default function Settings({ navigation }) {
   const [soundAlerts, setSoundAlerts] = useState(true);
   const [locationAccess, setLocationAccess] = useState(true);
 
-  const Row = ({ icon, title, subtitle, right }) => (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 14,
-        borderBottomWidth: 0.5,
-        borderColor: "#eee",
-      }}
-    >
-      <MaterialIcons name={icon} size={22} color="#2563EB" />
+  const Row = ({ icon, title, subtitle, right, isLast }) => (
+    <View style={[styles.row, !isLast && styles.rowBorder]}>
+      <MaterialIcons name={icon} size={22} color={theme.colors.primary} />
 
-      <View style={{ marginLeft: 12, flex: 1 }}>
-        <Text style={{ fontWeight: "600" }}>{title}</Text>
+      <View style={styles.rowTextContainer}>
+        <Typography variant="body" weight="semiBold">{title}</Typography>
         {subtitle && (
-          <Text style={{ fontSize: 12, color: "#6B7280" }}>{subtitle}</Text>
+          <Typography variant="tiny" color="textMuted" style={{ marginTop: 2 }}>{subtitle}</Typography>
         )}
       </View>
 
@@ -35,81 +31,149 @@ export default function Settings({ navigation }) {
   );
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: "#F5F7FB" }}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-      <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 20 }}>
-        {t("settings")}
-      </Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Typography variant="h3" style={styles.headerTitle}>
+            {t("settings")}
+          </Typography>
+        </View>
 
-      {/* APPEARANCE */}
-      <View style={{ backgroundColor: "#fff", borderRadius: 12, padding: 10, marginBottom: 15 }}>
-        <Row
-          icon="dark-mode"
-          title="Dark Mode"
-          subtitle="Reduce eye strain at night"
-          right={<Switch value={darkMode} onValueChange={setDarkMode} />}
-        />
-      </View>
-
-      {/* ALERTS */}
-      <View style={{ backgroundColor: "#fff", borderRadius: 12, padding: 10, marginBottom: 15 }}>
-        <Row
-          icon="notifications"
-          title="Notifications"
-          subtitle="Order updates & system alerts"
-          right={<Switch value={notifications} onValueChange={setNotifications} />}
-        />
-
-        <Row
-          icon="volume-up"
-          title="Sound Alerts"
-          subtitle="Play sound for new jobs"
-          right={<Switch value={soundAlerts} onValueChange={setSoundAlerts} />}
-        />
-      </View>
-
-      {/* SYSTEM */}
-      <View style={{ backgroundColor: "#fff", borderRadius: 12, padding: 10, marginBottom: 15 }}>
-        <Row
-          icon="location-on"
-          title="Location Access"
-          subtitle="Required for live tracking"
-          right={<Switch value={locationAccess} onValueChange={setLocationAccess} />}
-        />
-
-        <TouchableOpacity onPress={() => navigation.navigate("Support")}>
+        {/* APPEARANCE */}
+        <Card elevation="sm" style={styles.card}>
           <Row
-            icon="support-agent"
-            title="Help & Support"
-            subtitle="Contact our support team"
-            right={<MaterialIcons name="chevron-right" size={22} color="#999" />}
+            icon="dark-mode"
+            title="Dark Mode"
+            subtitle="Reduce eye strain at night"
+            isLast={true}
+            right={
+              <Switch 
+                value={darkMode} 
+                onValueChange={setDarkMode}
+                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
+                thumbColor={darkMode ? theme.colors.primary : theme.colors.surface}
+              />
+            }
           />
-        </TouchableOpacity>
+        </Card>
 
-        <TouchableOpacity>
+        {/* ALERTS */}
+        <Card elevation="sm" style={styles.card}>
           <Row
-            icon="security"
-            title="Privacy & Security"
-            subtitle="Password, data & account safety"
-            right={<MaterialIcons name="chevron-right" size={22} color="#999" />}
+            icon="notifications"
+            title="Notifications"
+            subtitle="Order updates & system alerts"
+            right={
+              <Switch 
+                value={notifications} 
+                onValueChange={setNotifications} 
+                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
+                thumbColor={notifications ? theme.colors.primary : theme.colors.surface}
+              />
+            }
           />
-        </TouchableOpacity>
-      </View>
 
-      {/* INFO */}
-      <View
-        style={{
-          backgroundColor: "#fff",
-          padding: 15,
-          borderRadius: 12,
-        }}
-      >
-        <Text style={{ fontWeight: "700" }}>App Information</Text>
-        <Text style={{ color: "#6B7280", marginTop: 5, fontSize: 12 }}>
-          Driver App v1.0.0 • Logistics Management System
-        </Text>
-      </View>
+          <Row
+            icon="volume-up"
+            title="Sound Alerts"
+            subtitle="Play sound for new jobs"
+            isLast={true}
+            right={
+              <Switch 
+                value={soundAlerts} 
+                onValueChange={setSoundAlerts} 
+                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
+                thumbColor={soundAlerts ? theme.colors.primary : theme.colors.surface}
+              />
+            }
+          />
+        </Card>
 
-    </View>
+        {/* SYSTEM */}
+        <Card elevation="sm" style={styles.card}>
+          <Row
+            icon="location-on"
+            title="Location Access"
+            subtitle="Required for live tracking"
+            right={
+              <Switch 
+                value={locationAccess} 
+                onValueChange={setLocationAccess} 
+                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
+                thumbColor={locationAccess ? theme.colors.primary : theme.colors.surface}
+              />
+            }
+          />
+
+          <TouchableOpacity onPress={() => navigation.navigate("Support")}>
+            <Row
+              icon="support-agent"
+              title="Help & Support"
+              subtitle="Contact our support team"
+              right={<MaterialIcons name="chevron-right" size={22} color={theme.colors.textMuted} />}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity>
+            <Row
+              icon="security"
+              title="Privacy & Security"
+              subtitle="Password, data & account safety"
+              isLast={true}
+              right={<MaterialIcons name="chevron-right" size={22} color={theme.colors.textMuted} />}
+            />
+          </TouchableOpacity>
+        </Card>
+
+        {/* INFO */}
+        <Card elevation="sm" style={styles.card}>
+          <Typography variant="body" weight="semiBold">App Information</Typography>
+          <Typography variant="tiny" color="textMuted" style={{ marginTop: 4 }}>
+            Driver App v1.0.0 • Logistics Management System
+          </Typography>
+        </Card>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContent: {
+    padding: theme.spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  headerTitle: {
+    marginLeft: theme.spacing.sm,
+  },
+  card: {
+    marginBottom: theme.spacing.lg,
+    paddingVertical: 0,
+    paddingHorizontal: theme.spacing.md,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing.md,
+  },
+  rowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+  },
+  rowTextContainer: {
+    marginLeft: theme.spacing.md,
+    flex: 1,
+  }
+});

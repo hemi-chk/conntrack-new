@@ -1,8 +1,12 @@
 import React from "react";
-import { View, Text, ScrollView } from "react-native";
+import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { theme } from "../constants/theme";
+import { Typography } from "../components/Typography";
+import { Card } from "../components/Card";
 
-export default function History() {
+export default function History({ navigation }) {
 
   const trips = [
     { id: "IMP-10234", route: "Colombo → Freezone", status: "Delivered" },
@@ -11,62 +15,85 @@ export default function History() {
     { id: "EXP-99821", route: "BOI → Export Port", status: "Delivered" },
   ];
 
+  const getStatusColor = (status) => {
+    if (status === "Delivered" || status === "Completed") return theme.colors.success;
+    if (status === "In Transit") return theme.colors.primary;
+    return theme.colors.warning;
+  };
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#F5F7FB", padding: 20 }}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
-      <Text style={{ fontSize: 20, fontWeight: "700", marginBottom: 15 }}>
-        Trip History
-      </Text>
-
-      {trips.map((trip, index) => (
-        <View
-          key={index}
-          style={{
-            backgroundColor: "#fff",
-            padding: 15,
-            borderRadius: 12,
-            marginBottom: 12,
-            elevation: 2,
-          }}
-        >
-          <Text style={{ fontWeight: "700", fontSize: 15 }}>
-            {trip.id}
-          </Text>
-
-          <Text style={{ color: "#6B7280", marginTop: 4 }}>
-            {trip.route}
-          </Text>
-
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
-            <MaterialIcons
-              name="local-shipping"
-              size={18}
-              color={
-                trip.status === "Delivered"
-                  ? "green"
-                  : trip.status === "In Transit"
-                  ? "#2563EB"
-                  : "#F59E0B"
-              }
-            />
-
-            <Text style={{
-              marginLeft: 6,
-              fontWeight: "600",
-              color:
-                trip.status === "Delivered"
-                  ? "green"
-                  : trip.status === "In Transit"
-                  ? "#2563EB"
-                  : "#F59E0B"
-            }}>
-              {trip.status}
-            </Text>
-          </View>
-
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation?.goBack?.()}>
+            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Typography variant="h3" style={styles.headerTitle}>
+            Trip History
+          </Typography>
         </View>
-      ))}
 
-    </ScrollView>
+        {trips.map((trip, index) => (
+          <Card key={index} elevation="sm" style={styles.card}>
+            <Typography variant="h3">{trip.id}</Typography>
+            
+            <Typography variant="body" color="textMuted" style={styles.routeText}>
+              {trip.route}
+            </Typography>
+
+            <View style={styles.statusRow}>
+              <MaterialIcons
+                name="local-shipping"
+                size={18}
+                color={getStatusColor(trip.status)}
+              />
+              <Typography 
+                variant="body" 
+                weight="semiBold" 
+                style={[styles.statusText, { color: getStatusColor(trip.status) }]}
+              >
+                {trip.status}
+              </Typography>
+            </View>
+          </Card>
+        ))}
+
+        <View style={{ height: theme.spacing.xl }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    paddingHorizontal: theme.spacing.lg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+  },
+  headerTitle: {
+    marginLeft: theme.spacing.sm,
+  },
+  card: {
+    marginBottom: theme.spacing.md,
+  },
+  routeText: {
+    marginTop: theme.spacing.xs,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: theme.spacing.sm,
+  },
+  statusText: {
+    marginLeft: theme.spacing.xs,
+  }
+});

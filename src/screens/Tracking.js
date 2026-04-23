@@ -1,34 +1,24 @@
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import colors from "../constants/colors";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { theme } from "../constants/theme";
+import { Typography } from "../components/Typography";
+import { Card } from "../components/Card";
+import { Button } from "../components/Button";
 
 export default function Tracking({ navigation }) {
-
-  // 🚚 later backend will decide this (import/export)
   const orderType = "import";
 
-  const importSteps = [
-    "Order Started",
-    "Arrived at Port",
-    "Custom Clearance",
-    "BOI Checkpoint",
-    "Delivered"
+  const steps = [
+    { title: "Order Started", time: "08:30 AM", status: "completed" },
+    { title: "Arrived at Port", time: "10:15 AM", status: "completed" },
+    { title: "Custom Clearance", time: "11:45 AM", status: "active" },
+    { title: "BOI Checkpoint", time: "Pending", status: "pending" },
+    { title: "Delivered", time: "Pending", status: "pending" }
   ];
 
-  const exportSteps = [
-    "Order Started",
-    "Warehouse Pickup",
-    "Port Loading",
-    "Shipping",
-    "Delivered"
-  ];
-
-  const steps = orderType === "import" ? importSteps : exportSteps;
-
-  const [currentStep, setCurrentStep] = useState(0);
-
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  const [currentStep, setCurrentStep] = useState(2);
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -37,199 +27,297 @@ export default function Tracking({ navigation }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F5F7FB" }}>
-
+    <SafeAreaView style={styles.container}>
       {/* HEADER */}
-      <View style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingTop: 60,
-        paddingHorizontal: 20,
-        paddingBottom: 15,
-        backgroundColor: "#fff",
-        elevation: 3
-      }}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={24} />
+      <View style={styles.header}>
+        <TouchableOpacity 
+          activeOpacity={0.7}
+          onPress={() => navigation?.goBack?.()}
+          style={styles.backButton}
+        >
+          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 16, fontWeight: "700" }}>
-          IMP-12345
-        </Text>
+        <View style={styles.headerTitleContainer}>
+          <Typography variant="subtitle" weight="bold">
+            Shipment Tracking
+          </Typography>
+          <Typography variant="tiny" color="textMuted">
+            ID: IMP-12345 • Active
+          </Typography>
+        </View>
 
-        <MaterialIcons name="local-shipping" size={24} color={colors.primary} />
+        <TouchableOpacity style={styles.infoButton}>
+          <MaterialIcons name="info-outline" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        
+        {/* PROGRESS OVERVIEW */}
+        <Card elevation="md" style={styles.overviewCard}>
+          <View style={styles.overviewHeader}>
+            <Typography variant="body" color="surface" weight="medium">
+              Overall Progress
+            </Typography>
+            <Typography variant="body" color="surface" weight="bold">
+              {Math.round(((currentStep + 1) / steps.length) * 100)}%
+            </Typography>
+          </View>
+          
+          <View style={styles.progressTrack}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${((currentStep + 1) / steps.length) * 100}%` }
+              ]} 
+            />
+          </View>
 
-        {/* STATUS CARD */}
-        <View style={{
-          backgroundColor: colors.primary,
-          margin: 20,
-          padding: 20,
-          borderRadius: 18
-        }}>
-          <Text style={{ color: "#fff", opacity: 0.8 }}>
-            Current Status
-          </Text>
-
-          <Text style={{
-            color: "#fff",
-            fontSize: 18,
-            fontWeight: "700",
-            marginTop: 5
-          }}>
-            {steps[currentStep]}
-          </Text>
-
-          <Text style={{
-            color: "#E5E7EB",
-            marginTop: 5,
-            fontSize: 12
-          }}>
-            Step {currentStep + 1} of {steps.length}
-          </Text>
-        </View>
-
-        {/* PROGRESS BAR */}
-        <View style={{
-          height: 8,
-          backgroundColor: "#E5E7EB",
-          marginHorizontal: 20,
-          borderRadius: 10
-        }}>
-          <View style={{
-            width: `${progress}%`,
-            height: 8,
-            backgroundColor: "#16A34A",
-            borderRadius: 10
-          }} />
-        </View>
+          <View style={styles.statusBadge}>
+            <MaterialIcons name="sync" size={14} color={theme.colors.surface} />
+            <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface, marginLeft: 4 }}>
+              Syncing with GPS
+            </Typography>
+          </View>
+        </Card>
 
         {/* TIMELINE */}
-        <View style={{ padding: 20 }}>
+        <View style={styles.timelineContainer}>
+          <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
+            Journey Timeline
+          </Typography>
 
           {steps.map((step, index) => {
-
-            const completed = index < currentStep;
-            const active = index === currentStep;
+            const isCompleted = index < currentStep;
+            const isActive = index === currentStep;
+            const isLast = index === steps.length - 1;
 
             return (
-              <View
-                key={index}
-                style={{
-                  flexDirection: "row",
-                  marginBottom: 18
-                }}
-              >
-
-                {/* DOT + LINE */}
-                <View style={{ alignItems: "center", width: 30 }}>
-                  <View style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 10,
-                    backgroundColor: completed
-                      ? "#16A34A"
-                      : active
-                        ? colors.primary
-                        : "#D1D5DB"
-                  }} />
-
-                  {index !== steps.length - 1 && (
-                    <View style={{
-                      width: 2,
-                      height: 40,
-                      backgroundColor: "#E5E7EB"
-                    }} />
+              <View key={index} style={styles.timelineItem}>
+                <View style={styles.timelineLeft}>
+                  <View style={[
+                    styles.timelineDot,
+                    isCompleted ? styles.dotCompleted : isActive ? styles.dotActive : styles.dotPending
+                  ]}>
+                    {isCompleted && <MaterialIcons name="check" size={12} color={theme.colors.surface} />}
+                    {isActive && <View style={styles.dotInner} />}
+                  </View>
+                  {!isLast && (
+                    <View style={[
+                      styles.timelineLine,
+                      isCompleted ? styles.lineCompleted : styles.linePending
+                    ]} />
                   )}
                 </View>
 
-                {/* CARD */}
-                <View style={{
-                  flex: 1,
-                  backgroundColor: "#fff",
-                  padding: 15,
-                  borderRadius: 14,
-                  elevation: 2,
-                }}>
-
-                  <Text style={{
-                    fontWeight: "700",
-                    color: completed
-                      ? "#16A34A"
-                      : active
-                        ? colors.primary
-                        : "#111"
-                  }}>
-                    {step}
-                  </Text>
-
-                  <Text style={{
-                    fontSize: 12,
-                    marginTop: 4,
-                    color: "#6B7280"
-                  }}>
-                    {completed
-                      ? "Completed"
-                      : active
-                        ? "In progress"
-                        : "Pending"}
-                  </Text>
-
-                  {active && (
-                    <View style={{
-                      marginTop: 8,
-                      backgroundColor: "#FEF3C7",
-                      padding: 6,
-                      borderRadius: 8
-                    }}>
-                      <Text style={{ fontSize: 11 }}>
-                        🚚 Live tracking active
-                      </Text>
+                <View style={styles.timelineRight}>
+                  <Card 
+                    elevation={isActive ? "md" : "sm"} 
+                    style={[
+                      styles.stepCard,
+                      isActive && styles.activeStepCard
+                    ]}
+                  >
+                    <View style={styles.stepHeader}>
+                      <Typography 
+                        variant="subtitle" 
+                        weight="bold"
+                        style={{ color: isActive ? theme.colors.primary : theme.colors.text }}
+                      >
+                        {step.title}
+                      </Typography>
+                      <Typography variant="tiny" color="textMuted">
+                        {step.time}
+                      </Typography>
                     </View>
-                  )}
+                    
+                    <Typography variant="caption" color="textMuted" style={{ marginTop: 4 }}>
+                      {isCompleted ? "Successfully verified" : isActive ? "Current stage of shipment" : "Upcoming milestone"}
+                    </Typography>
 
+                    {isActive && (
+                      <View style={styles.activeIndicator}>
+                        <View style={styles.pulseDot} />
+                        <Typography variant="tiny" weight="bold" color="primary">
+                          In Progress
+                        </Typography>
+                      </View>
+                    )}
+                  </Card>
                 </View>
               </View>
             );
           })}
-
         </View>
 
-        {/* ACTION BUTTON */}
-        <View style={{ padding: 20 }}>
-
-          <TouchableOpacity
+        {/* ACTION */}
+        <View style={styles.footer}>
+          <Button
+            title="Complete Current Stage"
             onPress={nextStep}
-            style={{
-              backgroundColor: colors.primary,
-              padding: 15,
-              borderRadius: 12,
-            }}
-          >
-            <Text style={{
-              color: "#fff",
-              textAlign: "center",
-              fontWeight: "700"
-            }}>
-              Update Next Stage
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={{
-            textAlign: "center",
-            marginTop: 10,
-            color: "#6B7280",
-            fontSize: 12
-          }}>
-            Demo mode — will sync with GPS & backend later
-          </Text>
-
+            disabled={currentStep === steps.length - 1}
+            style={styles.mainButton}
+          />
+          <Typography variant="tiny" color="textMuted" align="center" style={{ marginTop: 12 }}>
+            Data last updated: <Typography variant="tiny" weight="bold">2 minutes ago</Typography>
+          </Typography>
         </View>
 
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    ...theme.shadows.sm,
+  },
+  backButton: {
+    padding: theme.spacing.xs,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    marginLeft: theme.spacing.md,
+  },
+  infoButton: {
+    padding: theme.spacing.xs,
+  },
+  scrollContent: {
+    padding: theme.spacing.lg,
+  },
+  overviewCard: {
+    backgroundColor: theme.colors.primary,
+    padding: theme.spacing.lg,
+    borderRadius: theme.roundness.xl,
+    marginBottom: theme.spacing.xl,
+  },
+  overviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: theme.spacing.md,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 4,
+    marginBottom: theme.spacing.md,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: theme.colors.accent,
+    borderRadius: 4,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  timelineContainer: {
+    marginTop: theme.spacing.sm,
+  },
+  sectionTitle: {
+    marginBottom: theme.spacing.lg,
+  },
+  timelineItem: {
+    flexDirection: "row",
+    minHeight: 100,
+  },
+  timelineLeft: {
+    alignItems: "center",
+    width: 30,
+  },
+  timelineDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  dotCompleted: {
+    backgroundColor: theme.colors.success,
+  },
+  dotActive: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  dotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.primary,
+  },
+  dotPending: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+  },
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    marginVertical: 4,
+  },
+  lineCompleted: {
+    backgroundColor: theme.colors.success,
+  },
+  linePending: {
+    backgroundColor: theme.colors.border,
+  },
+  timelineRight: {
+    flex: 1,
+    marginLeft: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+  },
+  stepCard: {
+    padding: theme.spacing.md,
+    borderRadius: theme.roundness.lg,
+  },
+  activeStepCard: {
+    borderColor: theme.colors.primary,
+    borderWidth: 1.5,
+  },
+  stepHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  activeIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: theme.spacing.sm,
+    backgroundColor: `${theme.colors.primary}10`,
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primary,
+    marginRight: 6,
+  },
+  footer: {
+    marginTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+  },
+  mainButton: {
+    borderRadius: theme.roundness.lg,
+  },
+});

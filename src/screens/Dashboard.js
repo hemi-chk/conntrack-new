@@ -2,11 +2,18 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
   ScrollView,
-  Text,
+  StyleSheet,
   TouchableOpacity,
-  View
+  View,
+  Dimensions
 } from "react-native";
-import colors from "../constants/colors";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { Typography } from "../components/Typography";
+import { theme } from "../constants/theme";
+
+const { width } = Dimensions.get("window");
 
 export default function Dashboard({ navigation }) {
   const { t } = useTranslation();
@@ -17,215 +24,303 @@ export default function Dashboard({ navigation }) {
       id: 1,
       text: "New delivery assigned",
       type: "info",
-      icon: "local-shipping"
+      icon: "local-shipping",
+      time: "10:30 AM"
     },
     {
       id: 2,
       text: "Documents verified successfully",
       type: "success",
-      icon: "check-circle"
-    },
-    {
-      id: 3,
-      text: "Route delay due to traffic",
-      type: "warning",
-      icon: "warning"
+      icon: "check-circle",
+      time: "Yesterday"
     }
   ];
 
   const quickActions = [
-    { icon: "local-shipping", label: t("tracking"), screen: "Tracking" },
-    { icon: "notifications-active", label: t("alerts"), screen: "Notifications" },
-    { icon: "description", label: t("docs"), screen: "Documents" },
-    { icon: "support-agent", label: t("help"), screen: "Support" },
+    { icon: "local-shipping", label: t("tracking"), screen: "Tracking", color: "#6366F1" },
+    { icon: "notifications-active", label: t("alerts"), screen: "Notifications", color: "#F59E0B" },
+    { icon: "description", label: t("docs"), screen: "Documents", color: "#10B981" },
+    { icon: "support-agent", label: t("help"), screen: "Support", color: "#EC4899" },
   ];
 
   const getColor = (type) => {
-    if (type === "success") return "#16A34A";
-    if (type === "warning") return "#F59E0B";
-    return "#2563EB";
+    if (type === "success") return theme.colors.success;
+    if (type === "warning") return theme.colors.warning;
+    return theme.colors.secondary;
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#F5F7FB" }}>
-
-      <ScrollView style={{ flex: 1, padding: 20 }}>
-
+    <SafeAreaView style={styles.container}>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* HEADER */}
-        <View style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 15,
-        }}>
+        <View style={styles.header}>
           <View>
-            <Text style={{ fontSize: 22, fontWeight: "700" }}>
-              {t("welcome_driver")}
-            </Text>
-            <Text style={{ color: "#6B7280" }}>
-              Ready for your next job
-            </Text>
+            <Typography variant="h2" weight="bold">
+              {t("welcome_driver")} 👋
+            </Typography>
+            <Typography variant="body" color="textMuted">
+              Everything looks good today
+            </Typography>
           </View>
 
-          <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-            <View style={{
-              backgroundColor: "#fff",
-              padding: 10,
-              borderRadius: 50,
-              elevation: 3,
-            }}>
-              <MaterialIcons name="person" size={24} color={colors.primary} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* 🚚 CURRENT JOB */}
-        <View style={{
-          backgroundColor: colors.primary,
-          padding: 20,
-          borderRadius: 20,
-          marginBottom: 20,
-          elevation: 4
-        }}>
-          <Text style={{ color: "#fff", opacity: 0.8 }}>
-            {t("current_job")}
-          </Text>
-
-          <Text style={{
-            color: "#fff",
-            fontSize: 22,
-            fontWeight: "700",
-            marginTop: 5,
-          }}>
-            IMP-12345
-          </Text>
-
-          <Text style={{ color: "#E5E7EB", marginTop: 5 }}>
-            Freezone → Colombo Port
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => navigation.navigate("OrderDetails")}
-            style={{
-              backgroundColor: "#fff",
-              marginTop: 15,
-              padding: 12,
-              borderRadius: 10,
-            }}
+          <TouchableOpacity 
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate("Profile")}
+            style={styles.profileIconContainer}
           >
-            <Text style={{
-              textAlign: "center",
-              color: colors.primary,
-              fontWeight: "600"
-            }}>
-              {t("view_details")}
-            </Text>
+            <MaterialIcons name="person" size={26} color={theme.colors.primary} />
+            <View style={styles.onlineBadge} />
           </TouchableOpacity>
         </View>
+
+        {/* 🚚 CURRENT ACTIVE JOB */}
+        <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
+          Active Mission
+        </Typography>
+        <Card elevation="lg" style={styles.currentJobCard}>
+          <View style={styles.jobHeader}>
+            <View style={styles.jobBadge}>
+              <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface }}>
+                IN PROGRESS
+              </Typography>
+            </View>
+            <Typography variant="body" weight="bold" style={{ color: theme.colors.surface }}>
+              IMP-12345
+            </Typography>
+          </View>
+
+          <View style={styles.jobRouteContainer}>
+            <View style={styles.routeIconColumn}>
+              <View style={styles.routeDot} />
+              <View style={styles.routeLine} />
+              <View style={[styles.routeDot, { backgroundColor: theme.colors.accent }]} />
+            </View>
+            <View style={styles.routeTextColumn}>
+              <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface }}>
+                Freezone Warehouse
+              </Typography>
+              <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface, marginTop: 20 }}>
+                Colombo Port Terminal
+              </Typography>
+            </View>
+          </View>
+
+          <Button
+            title={t("view_details")}
+            variant="secondary"
+            style={styles.viewDetailsButton}
+            textStyle={styles.viewDetailsButtonText}
+            onPress={() => navigation.navigate("OrderDetails")}
+          />
+        </Card>
 
         {/* ⚡ QUICK ACTIONS */}
-        <Text style={{
-          fontWeight: "700",
-          marginBottom: 10
-        }}>
+        <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("quick_actions")}
-        </Text>
+        </Typography>
 
-        <View style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginBottom: 20,
-        }}>
+        <View style={styles.quickActionsGrid}>
           {quickActions.map((item, index) => (
             <TouchableOpacity
               key={index}
+              activeOpacity={0.8}
               onPress={() => navigation.navigate(item.screen)}
-              style={{ alignItems: "center", width: "22%" }}
+              style={styles.quickActionItem}
             >
-              <View style={{
-                backgroundColor: "#fff",
-                padding: 15,
-                borderRadius: 15,
-                elevation: 3,
-                marginBottom: 5,
-              }}>
-                <MaterialIcons
-                  name={item.icon}
-                  size={26}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text style={{ fontSize: 12, textAlign: "center" }}>
-                {item.label}
-              </Text>
+              <Card elevation="md" style={styles.quickActionIconContainer}>
+                <View style={[styles.iconBg, { backgroundColor: `${item.color}15` }]}>
+                  <MaterialIcons
+                    name={item.icon}
+                    size={28}
+                    color={item.color}
+                  />
+                </View>
+                <Typography variant="caption" weight="medium" style={{ marginTop: 8 }}>
+                  {item.label}
+                </Typography>
+              </Card>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* 🔔 ALERTS */}
-        <Text style={{
-          fontWeight: "700",
-          marginBottom: 10
-        }}>
-          {t("alerts")}
-        </Text>
+        {/* 🔔 RECENT UPDATES */}
+        <View style={styles.sectionHeader}>
+          <Typography variant="subtitle" weight="bold">
+            Recent Updates
+          </Typography>
+          <TouchableOpacity onPress={() => navigation.navigate("Notifications")}>
+            <Typography variant="caption" color="primary" weight="semiBold">
+              See All
+            </Typography>
+          </TouchableOpacity>
+        </View>
 
         {alerts.map((alert) => (
-          <View
-            key={alert.id}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#fff",
-              padding: 15,
-              borderRadius: 15,
-              marginBottom: 10,
-              elevation: 2,
-            }}
-          >
-            <View style={{
-              backgroundColor: `${getColor(alert.type)}20`,
-              padding: 10,
-              borderRadius: 10,
-              marginRight: 10
-            }}>
+          <Card key={alert.id} elevation="sm" style={styles.alertCard}>
+            <View style={[styles.alertIconContainer, { backgroundColor: `${getColor(alert.type)}15` }]}>
               <MaterialIcons
                 name={alert.icon}
-                size={20}
+                size={22}
                 color={getColor(alert.type)}
               />
             </View>
 
-            <Text style={{ flex: 1 }}>
-              {alert.text}
-            </Text>
-          </View>
+            <View style={styles.alertTextContainer}>
+              <Typography variant="body" weight="medium">
+                {alert.text}
+              </Typography>
+              <Typography variant="tiny" color="textMuted">
+                {alert.time}
+              </Typography>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={theme.colors.border} />
+          </Card>
         ))}
 
-        {/* VIEW ALL ALERTS */}
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Notifications")}
-          style={{
-            marginTop: 5,
-            padding: 12,
-            borderRadius: 10,
-            borderWidth: 1,
-            borderColor: "#E5E7EB"
-          }}
-        >
-          <Text style={{
-            textAlign: "center",
-            color: colors.primary,
-            fontWeight: "600"
-          }}>
-            {t("view_all_alerts")}
-          </Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 20 }} />
-
+        <View style={{ height: theme.spacing.xl }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.xl,
+  },
+  profileIconContainer: {
+    backgroundColor: theme.colors.surface,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+    ...theme.shadows.md,
+    position: "relative",
+  },
+  onlineBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: theme.colors.success,
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
+  },
+  sectionTitle: {
+    marginBottom: theme.spacing.md,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+  },
+  currentJobCard: {
+    backgroundColor: theme.colors.primary,
+    marginBottom: theme.spacing.xl,
+    padding: theme.spacing.lg,
+    borderRadius: theme.roundness.xl,
+  },
+  jobHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.lg,
+  },
+  jobBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: theme.roundness.sm,
+  },
+  jobRouteContainer: {
+    flexDirection: "row",
+    marginBottom: theme.spacing.lg,
+    paddingLeft: 4,
+  },
+  routeIconColumn: {
+    alignItems: "center",
+    marginRight: theme.spacing.md,
+    paddingVertical: 6,
+  },
+  routeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: theme.colors.surface,
+  },
+  routeLine: {
+    width: 2,
+    height: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    marginVertical: 4,
+  },
+  routeTextColumn: {
+    justifyContent: "space-between",
+  },
+  viewDetailsButton: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.roundness.lg,
+  },
+  viewDetailsButtonText: {
+    color: theme.colors.primary,
+  },
+  quickActionsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  quickActionItem: {
+    width: "48%",
+    marginBottom: theme.spacing.md,
+  },
+  quickActionIconContainer: {
+    padding: theme.spacing.md,
+    alignItems: "center",
+  },
+  iconBg: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  alertCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  alertIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: theme.spacing.md,
+  },
+  alertTextContainer: {
+    flex: 1,
+  },
+});
