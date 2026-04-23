@@ -8,6 +8,7 @@ import OrderDetails from "./pages/OrderDetails";
 import OrdersPage from "./pages/Orders";
 import ClearanceIssues from "./pages/ClearanceIssue";
 import Reports from "./pages/Reports";
+import OperationRequests from "./pages/OperationRequests";
 
 export default function App() {
   return (
@@ -16,7 +17,7 @@ export default function App() {
         <Route element={<Layout />}>
           {/* Main Pages */}
           <Route path="/" element={<Dashboard />} />
-          <Route path="/tracking" element={<Tracking />} />
+          <Route path="/operations" element={<OperationRequests />} />
           <Route path="/import" element={<OrdersPage title="Import Orders" type="import" />} />
           <Route path="/export" element={<OrdersPage title="Export Orders" type="export" />} />
 

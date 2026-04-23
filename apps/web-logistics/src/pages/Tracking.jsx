@@ -1,94 +1,142 @@
-import { useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Truck, Search, MapPin } from "lucide-react"
+import { useState } from "react";
+import { MapPin, Truck, Package, User } from "lucide-react";
+
+// Shadcn
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default function Tracking() {
-    const [trackingId, setTrackingId] = useState("")
-    const [data, setData] = useState(null)
 
-    // 🔹 Dummy tracking data
-    const mockData = {
-        id: "TRK12345",
-        status: "In Transit",
-        location: "Colombo Port",
-        vehicle: "Truck B",
-        driver: "Kasun",
-    }
+    // ✅ MOCK DATA
+    const order = {
+        id: "ORD-001",
+        status: "IN_TRANSIT", // PICKED_UP | IN_TRANSIT | DELIVERED
+        origin: "Colombo Port",
+        destination: "Kandy Warehouse",
+    };
 
-    const handleTrack = () => {
-        // simulate API
-        if (trackingId) {
-            setData(mockData)
-        }
-    }
+    const driver = {
+        name: "Kasun Perera",
+        phone: "+94 77 123 4567",
+        vehicle: "Truck - CAB 1234",
+    };
+
+    // 🎯 Progress stages
+    const steps = [
+        { label: "Picked Up", value: "PICKED_UP" },
+        { label: "In Transit", value: "IN_TRANSIT" },
+        { label: "Delivered", value: "DELIVERED" },
+    ];
+
+    const currentStepIndex = steps.findIndex(
+        (s) => s.value === order.status
+    );
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 bg-white">
 
             {/* Header */}
             <div>
-                <h1 className="text-2xl font-semibold">Track Shipment</h1>
-                <p className="text-sm text-muted-foreground">
-                    Enter tracking ID to view shipment status
+                <h1 className="text-2xl font-semibold text-[#1E293B]">
+                    Tracking
+                </h1>
+                <p className="text-sm text-gray-500">
+                    Track shipment progress and location
                 </p>
             </div>
 
-            {/* Search Box */}
-            <Card>
-                <CardContent className="flex gap-3 p-4">
-                    <Input
-                        placeholder="Enter Tracking ID..."
-                        value={trackingId}
-                        onChange={(e) => setTrackingId(e.target.value)}
-                    />
-                    <Button onClick={handleTrack}>
-                        <Search className="h-4 w-4 mr-2" />
-                        Track
-                    </Button>
+            {/* Top Cards */}
+            <div className="grid md:grid-cols-2 gap-4">
+
+                {/* Order Card */}
+                <Card className="border border-gray-200">
+                    <CardHeader className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-[#1E40AF]" />
+                        <CardTitle>Order Details</CardTitle>
+                    </CardHeader>
+
+                    <CardContent className="space-y-2 text-sm">
+                        <p><strong>ID:</strong> #{order.id}</p>
+                        <p><strong>From:</strong> {order.origin}</p>
+                        <p><strong>To:</strong> {order.destination}</p>
+                        <Badge className="bg-[#EFF6FF] text-[#1E40AF]">
+                            {order.status.replace("_", " ")}
+                        </Badge>
+                    </CardContent>
+                </Card>
+
+                {/* Driver Card */}
+                <Card className="border border-gray-200">
+                    <CardHeader className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-[#1E40AF]" />
+                        <CardTitle>Driver Details</CardTitle>
+                    </CardHeader>
+
+                    <CardContent className="space-y-2 text-sm">
+                        <p><strong>Name:</strong> {driver.name}</p>
+                        <p><strong>Phone:</strong> {driver.phone}</p>
+                        <p><strong>Vehicle:</strong> {driver.vehicle}</p>
+                    </CardContent>
+                </Card>
+
+            </div>
+
+            {/* Progress Tracker */}
+            <Card className="border border-gray-200">
+                <CardHeader>
+                    <CardTitle>Shipment Progress</CardTitle>
+                </CardHeader>
+
+                <CardContent>
+                    <div className="flex items-center justify-between relative">
+
+                        {/* Line */}
+                        <div className="absolute top-4 left-0 right-0 h-1 bg-gray-200 z-0"></div>
+
+                        {steps.map((step, index) => {
+                            const isActive = index <= currentStepIndex;
+
+                            return (
+                                <div key={step.value} className="flex flex-col items-center z-10 w-full">
+
+                                    {/* Circle */}
+                                    <div
+                                        className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs
+                      ${isActive ? "bg-[#1E40AF]" : "bg-gray-300"}`}
+                                    >
+                                        {index + 1}
+                                    </div>
+
+                                    {/* Label */}
+                                    <p
+                                        className={`mt-2 text-sm ${isActive ? "text-[#1E293B]" : "text-gray-400"
+                                            }`}
+                                    >
+                                        {step.label}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </CardContent>
             </Card>
 
-            {/* Result */}
-            {data && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Shipment Details</CardTitle>
-                    </CardHeader>
+            {/* Map Placeholder */}
+            <Card className="border border-gray-200">
+                <CardHeader>
+                    <CardTitle>Live Location</CardTitle>
+                </CardHeader>
 
-                    <CardContent className="space-y-4">
-
-                        {/* ID + Status */}
-                        <div className="flex items-center justify-between">
-                            <span className="font-mono text-sm">#{data.id}</span>
-                            <Badge>{data.status}</Badge>
+                <CardContent>
+                    <div className="h-[350px] bg-[#EFF6FF] flex items-center justify-center rounded-lg border border-dashed border-[#1E40AF]/30">
+                        <div className="text-center text-gray-500">
+                            <MapPin className="mx-auto mb-2 h-6 w-6 text-[#1E40AF]" />
+                            Map Integration (Google Maps / Mapbox)
                         </div>
+                    </div>
+                </CardContent>
+            </Card>
 
-                        {/* Details */}
-                        <div className="grid gap-3 sm:grid-cols-2">
-
-                            <div className="flex items-center gap-2 text-sm">
-                                <Truck className="h-4 w-4 text-primary" />
-                                {data.vehicle}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-primary" />
-                                {data.location}
-                            </div>
-
-                            <div className="text-sm">
-                                <span className="text-muted-foreground">Driver:</span>{" "}
-                                {data.driver}
-                            </div>
-
-                        </div>
-
-                    </CardContent>
-                </Card>
-            )}
         </div>
-    )
+    );
 }

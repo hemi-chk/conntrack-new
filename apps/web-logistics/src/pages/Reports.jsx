@@ -82,9 +82,6 @@ export default function ReportsPage() {
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" className="no-print">
-                            <Download className="mr-2 h-4 w-4" /> CSV
-                        </Button>
                         <Button onClick={handlePrint} className="bg-[#1E40AF] text-white font-bold px-6 no-print">
                             <Printer className="mr-2 h-4 w-4" /> Print Report
                         </Button>
