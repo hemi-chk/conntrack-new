@@ -1,47 +1,67 @@
 import { useState } from "react";
-import { Package, MapPin, Truck, ShieldCheck, Info } from "lucide-react";
-import BidsSection from "../components/BidsSection";
-import DocumentsSection from "../components/DocumentsSection";
+import { useParams, useNavigate } from "react-router-dom";
+import { Package, MapPin, Truck, ShieldCheck, Info, Map } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import BidsSection from "@/components/BidsSection";
+import DocumentsSection from "@/components/DocumentsSection";
 
 export default function OrderDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  // Mock order data
   const [order, setOrder] = useState({
-    id: "ORD-001",
-    status: "BIDDING_OPEN",
+    id: id || "ORD-001",
+    origin: "Colombo, Sri Lanka",
+    destination: "London, UK",
     supplier: null,
     driver: null,
-    origin: "Colombo Port, LK",
-    destination: "Kandy Central, LK",
   });
 
+  const [isBidSelected, setIsBidSelected] = useState(false);
+  const [isDocumentsUnlocked, setIsDocumentsUnlocked] = useState(false);
+
   const handleSelectBid = (bid) => {
-    setOrder({
-      ...order,
+    setOrder((prev) => ({
+      ...prev,
       supplier: bid.supplier,
       driver: bid.driver,
-      status: "SUPPLIER_SELECTED",
-    });
+    }));
+    setIsBidSelected(true);
+    setIsDocumentsUnlocked(true);
   };
-
-  const isBidSelected = !!order.supplier;
-  const isDocumentsUnlocked = isBidSelected;
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 space-y-6">
 
-      {/* --- Page Header (Simplified) --- */}
-      <div className="flex items-center gap-4 border-b border-slate-200 pb-6">
-        <div className="bg-[#1E40AF] p-2.5 rounded-xl text-white shadow-sm">
-          <Package size={24} />
+      {/* --- Page Header --- */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+        <div className="flex items-center gap-4">
+          <div className="bg-[#1E40AF] p-2.5 rounded-xl text-white shadow-sm">
+            <Package size={24} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Order #{order.id}
+            </h1>
+            <p className="text-xs text-slate-500 font-bold tracking-widest uppercase mt-0.5">
+              Logistics Management
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Order #{order.id}
-          </h1>
-          <p className="text-xs text-slate-500 font-bold tracking-widest uppercase mt-0.5">
-            Logistics Management
-          </p>
-        </div>
+
+        {/* Optional Header Tracking Shortcut (Visible only when assigned) */}
+        {isBidSelected && (
+          <Button
+            variant="outline"
+            className="border-blue-200 text-[#1E40AF] hover:bg-blue-50 font-bold"
+            onClick={() => navigate("/operations")}
+          >
+            <Map size={18} className="mr-2" />
+            Quick Track
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -108,11 +128,32 @@ export default function OrderDetails() {
                 </div>
               </div>
 
+              {/* --- TRACKING BUTTON SECTION --- */}
+              <div className="pt-4 border-t border-slate-100">
+                <Button
+                  disabled={!isBidSelected}
+                  className={`w-full py-6 font-bold transition-all duration-300 ${isBidSelected
+                      ? "bg-[#1E40AF] hover:bg-[#1E3A8A] text-white shadow-lg shadow-blue-100"
+                      : "bg-slate-100 text-slate-400"
+                    }`}
+                  onClick={() => navigate("/operations")}
+                >
+                  <Map className={`mr-2 ${isBidSelected ? "animate-pulse" : ""}`} size={20} />
+                  {isBidSelected ? "Track Real-time Location" : "Tracking Unavailable"}
+                </Button>
+
+                {!isBidSelected && (
+                  <p className="text-[10px] text-center text-slate-400 mt-3 font-medium px-4">
+                    Tracking will be available once a logistics supplier is selected.
+                  </p>
+                )}
+              </div>
+
               {isBidSelected && (
                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-start gap-3 animate-in fade-in zoom-in-95 duration-300">
                   <ShieldCheck className="text-emerald-600 shrink-0 mt-0.5" size={18} />
                   <p className="text-xs text-emerald-800 font-semibold leading-relaxed">
-                    Supplier selection finalized. Documentation portal is now active.
+                    Supplier selection finalized. Documentation portal and tracking are now active.
                   </p>
                 </div>
               )}

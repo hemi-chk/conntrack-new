@@ -85,9 +85,6 @@ export default function OrdersPage({ title, type }) {
                         Managing {filteredData.length} active <span className="capitalize">{type}</span> logs
                     </p>
                 </div>
-                <Button className="bg-[#1E40AF] hover:bg-[#1E3A8A] text-white shadow-sm">
-                    Create New Order
-                </Button>
             </div>
 
             {/* Filter Bar */}
