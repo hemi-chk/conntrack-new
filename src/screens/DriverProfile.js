@@ -1,17 +1,17 @@
-import React, { useState } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  View,
+  Alert,
+  Image,
+  ScrollView,
+  Switch,
   Text,
   TouchableOpacity,
-  Image,
-  Switch,
-  Alert,
-  ScrollView
+  View
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { MaterialIcons } from "@expo/vector-icons";
 import colors from "../constants/colors";
-import { useTranslation } from "react-i18next";
 
 export default function DriverProfile({ navigation }) {
 
@@ -37,7 +37,7 @@ export default function DriverProfile({ navigation }) {
     }
   };
 
-  // MENU ITEMS (CLEAN)
+  // MENU ITEMS 
   const menuItems = [
     { icon: "person", label: t("edit_profile"), screen: "EditProfile" },
     { icon: "directions-car", label: t("vehicle_info"), screen: "VehicleInfo" },

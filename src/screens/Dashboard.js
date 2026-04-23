@@ -1,18 +1,17 @@
-import React from "react";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import {
-  View,
+  ScrollView,
   Text,
   TouchableOpacity,
-  ScrollView
+  View
 } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 import colors from "../constants/colors";
-import { useTranslation } from "react-i18next";
 
 export default function Dashboard({ navigation }) {
   const { t } = useTranslation();
 
-  // 🔔 ALERTS (DO NOT TRANSLATE TEXT HERE)
+  // 🔔 ALERTS
   const alerts = [
     {
       id: 1,

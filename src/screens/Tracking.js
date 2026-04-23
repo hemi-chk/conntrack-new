@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import colors from "../constants/colors";
 
 export default function Tracking({ navigation }) {
@@ -133,8 +133,8 @@ export default function Tracking({ navigation }) {
                     backgroundColor: completed
                       ? "#16A34A"
                       : active
-                      ? colors.primary
-                      : "#D1D5DB"
+                        ? colors.primary
+                        : "#D1D5DB"
                   }} />
 
                   {index !== steps.length - 1 && (
@@ -160,8 +160,8 @@ export default function Tracking({ navigation }) {
                     color: completed
                       ? "#16A34A"
                       : active
-                      ? colors.primary
-                      : "#111"
+                        ? colors.primary
+                        : "#111"
                   }}>
                     {step}
                   </Text>
@@ -174,8 +174,8 @@ export default function Tracking({ navigation }) {
                     {completed
                       ? "Completed"
                       : active
-                      ? "In progress"
-                      : "Pending"}
+                        ? "In progress"
+                        : "Pending"}
                   </Text>
 
                   {active && (

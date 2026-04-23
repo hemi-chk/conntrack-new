@@ -1,5 +1,4 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { theme } from "../constants/theme";
 
 export const Card = ({ children, style, elevation = "md", ...props }) => {

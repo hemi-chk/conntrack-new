@@ -1,14 +1,13 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { MaterialIcons } from "@expo/vector-icons";
+import { useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import colors from "../constants/colors";
 
 export default function VehicleInfo() {
 
   const [licenseImage, setLicenseImage] = useState(null);
 
-  const licenseExpiryDays = 12; // mock data (backend later)
+  const licenseExpiryDays = 12;
 
   const pickDoc = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({

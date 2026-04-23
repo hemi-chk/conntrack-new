@@ -1,14 +1,13 @@
-import React from "react";
-import { TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
-import { Typography } from "./Typography";
+import { ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native";
 import { theme } from "../constants/theme";
+import { Typography } from "./Typography";
 
-export const Button = ({ 
-  title, 
-  onPress, 
-  variant = "primary", 
+export const Button = ({
+  title,
+  onPress,
+  variant = "primary",
   size = "md",
-  disabled = false, 
+  disabled = false,
   loading = false,
   style,
   textStyle
@@ -42,9 +41,9 @@ export const Button = ({
       {loading ? (
         <ActivityIndicator color={textColor} size="small" />
       ) : (
-        <Typography 
-          variant="subtitle" 
-          weight="semiBold" 
+        <Typography
+          variant="subtitle"
+          weight="semiBold"
           style={[{ color: textColor }, textStyle]}
         >
           {title}

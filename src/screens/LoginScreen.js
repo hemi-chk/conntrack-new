@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  View,
+  Alert,
+  Image,
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
-  Alert,
+  View,
 } from "react-native";
 import colors from "../constants/colors";
 
@@ -13,7 +13,7 @@ export default function LoginScreen({ navigation }) {
   const [driverId, setDriverId] = useState("");
   const [password, setPassword] = useState("");
 
-  // 🔐 Store password (frontend only)
+  // 🔐 Store password 
   const [storedPassword, setStoredPassword] = useState("1234");
 
   // 🔁 Toggle forgot-password options
@@ -128,7 +128,7 @@ export default function LoginScreen({ navigation }) {
         </>
       ) : (
         <>
-          {/* REALISTIC FORGOT PASSWORD OPTIONS */}
+          {/* FORGOT PASSWORD OPTIONS */}
           <Text
             style={{
               textAlign: "center",
