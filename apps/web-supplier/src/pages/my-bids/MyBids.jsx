@@ -19,11 +19,11 @@ export const MyBids = () => {
   const error = null;
 
   const stats = [
-    { label: 'Total Bids', value: '6', icon: BarChart3, color: 'text-primary' },
-    { label: 'Won', value: '5', icon: CheckCircle2, color: 'text-success' },
+    { label: 'Total Bids', value: '0', icon: BarChart3, color: 'text-primary' },
+    { label: 'Won', value: '0', icon: CheckCircle2, color: 'text-success' },
     { label: 'Pending', value: '0', icon: FileText, color: 'text-warning' },
-    { label: 'Lost', value: '1', icon: XCircle, color: 'text-danger' },
-    { label: 'Success Rate', value: '83%', icon: Star, color: 'text-primary' },
+    { label: 'Lost', value: '0', icon: XCircle, color: 'text-danger' },
+    { label: 'Success Rate', value: '0%', icon: Star, color: 'text-primary' },
   ];
 
   return (
