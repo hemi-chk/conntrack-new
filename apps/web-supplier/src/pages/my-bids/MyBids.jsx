@@ -19,11 +19,11 @@ export const MyBids = () => {
   const error = null;
 
   const stats = [
-    { label: 'Total Bids', value: '0', icon: BarChart3, color: 'text-primary' },
-    { label: 'Won', value: '0', icon: CheckCircle2, color: 'text-success' },
-    { label: 'Pending', value: '0', icon: FileText, color: 'text-warning' },
-    { label: 'Lost', value: '0', icon: XCircle, color: 'text-danger' },
-    { label: 'Success Rate', value: '0%', icon: Star, color: 'text-primary' },
+    { label: 'Total Bids', value: '0', icon: BarChart3, bgColor: 'bg-blue-50', iconColor: 'text-primary' },
+    { label: 'Won', value: '0', icon: CheckCircle2, bgColor: 'bg-blue-50', iconColor: 'text-primary' },
+    { label: 'Pending', value: '0', icon: FileText, bgColor: 'bg-blue-50', iconColor: 'text-primary' },
+    { label: 'Lost', value: '0', icon: XCircle, bgColor: 'bg-blue-50', iconColor: 'text-primary' },
+    { label: 'Success Rate', value: '0%', icon: Star, bgColor: 'bg-blue-50', iconColor: 'text-primary' },
   ];
 
   return (
@@ -37,12 +37,16 @@ export const MyBids = () => {
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-1 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-1">
-              <stat.icon size={20} className={stat.color} />
+          <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4 hover:shadow-md transition-all">
+            <div className="flex items-center justify-between">
+              <div className={`${stat.bgColor} p-3 rounded-lg ${stat.iconColor}`}>
+                <stat.icon size={24} />
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</span>
               <span className="text-2xl font-bold text-dark">{stat.value}</span>
             </div>
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.label}</span>
           </div>
         ))}
       </div>
