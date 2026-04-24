@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
 
 export default function EditProfile({ navigation }) {
+  const { t } = useTranslation();
 
   const [name, setName] = useState("Driver Name");
   const [username, setUsername] = useState("driver01");
@@ -36,12 +38,12 @@ export default function EditProfile({ navigation }) {
             </TouchableOpacity>
 
             <Typography variant="h3" style={styles.headerTitle}>
-              My Profile
+              {t("my_profile")}
             </Typography>
           </View>
 
           {/* PERSONAL INFO */}
-          <Typography variant="body" weight="medium" style={styles.label}>Name</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("name")}</Typography>
           <TextInput 
             value={name} 
             onChangeText={setName} 
@@ -49,7 +51,7 @@ export default function EditProfile({ navigation }) {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>Username</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("username")}</Typography>
           <TextInput 
             value={username} 
             onChangeText={setUsername} 
@@ -57,7 +59,7 @@ export default function EditProfile({ navigation }) {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>Phone Number</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("phone_number")}</Typography>
           <TextInput 
             value={phone} 
             onChangeText={setPhone} 
@@ -66,7 +68,7 @@ export default function EditProfile({ navigation }) {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>Email</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("email")}</Typography>
           <TextInput 
             value={email} 
             onChangeText={setEmail} 
@@ -78,10 +80,10 @@ export default function EditProfile({ navigation }) {
 
           {/* SAVE */}
           <Button 
-            title="Save Changes"
+            title={t("save_changes")}
             style={styles.saveButton}
             onPress={() => {
-              Alert.alert("Success", "Profile updated successfully");
+              Alert.alert(t("success"), t("profile_updated_success"));
               navigation.goBack();
             }}
           />
@@ -93,7 +95,7 @@ export default function EditProfile({ navigation }) {
           >
             <MaterialIcons name="lock" size={20} color={theme.colors.primary} />
             <Typography variant="body" color="primary" style={styles.secondaryButtonText}>
-              Change Password
+              {t("change_password")}
             </Typography>
           </TouchableOpacity>
 
@@ -101,15 +103,15 @@ export default function EditProfile({ navigation }) {
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={() =>
-              Alert.alert("Sign Out", "Are you sure you want to logout?", [
-                { text: "Cancel", style: "cancel" },
-                { text: "Logout", onPress: () => navigation.navigate("Login") },
+              Alert.alert(t("sign_out"), t("are_you_sure_logout"), [
+                { text: t("cancel"), style: "cancel" },
+                { text: t("logout"), onPress: () => navigation.navigate("Login") },
               ])
             }
           >
             <MaterialIcons name="logout" size={20} color={theme.colors.error} />
             <Typography variant="body" weight="semiBold" color="error" style={styles.secondaryButtonText}>
-              Sign Out
+              {t("sign_out")}
             </Typography>
           </TouchableOpacity>
 

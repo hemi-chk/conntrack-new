@@ -2,20 +2,22 @@ import React, { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 
 export default function Tracking({ navigation }) {
+  const { t } = useTranslation();
   const orderType = "import";
 
   const steps = [
-    { title: "Order Started", time: "08:30 AM", status: "completed" },
-    { title: "Arrived at Port", time: "10:15 AM", status: "completed" },
-    { title: "Custom Clearance", time: "11:45 AM", status: "active" },
-    { title: "BOI Checkpoint", time: "Pending", status: "pending" },
-    { title: "Delivered", time: "Pending", status: "pending" }
+    { title: t("order_started"), time: "08:30 AM", status: "completed" },
+    { title: t("arrived_at_port"), time: "10:15 AM", status: "completed" },
+    { title: t("custom_clearance"), time: "11:45 AM", status: "active" },
+    { title: t("boi_checkpoint"), time: t("pending"), status: "pending" },
+    { title: t("delivered"), time: t("pending"), status: "pending" }
   ];
 
   const [currentStep, setCurrentStep] = useState(2);
@@ -40,10 +42,10 @@ export default function Tracking({ navigation }) {
 
         <View style={styles.headerTitleContainer}>
           <Typography variant="subtitle" weight="bold">
-            Shipment Tracking
+            {t("shipment_tracking")}
           </Typography>
           <Typography variant="tiny" color="textMuted">
-            ID: IMP-12345 • Active
+            ID: IMP-12345 • {t("assigned")}
           </Typography>
         </View>
 
@@ -58,7 +60,7 @@ export default function Tracking({ navigation }) {
         <Card elevation="md" style={styles.overviewCard}>
           <View style={styles.overviewHeader}>
             <Typography variant="body" color="surface" weight="medium">
-              Overall Progress
+              {t("overall_progress")}
             </Typography>
             <Typography variant="body" color="surface" weight="bold">
               {Math.round(((currentStep + 1) / steps.length) * 100)}%
@@ -77,7 +79,7 @@ export default function Tracking({ navigation }) {
           <View style={styles.statusBadge}>
             <MaterialIcons name="sync" size={14} color={theme.colors.surface} />
             <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface, marginLeft: 4 }}>
-              Syncing with GPS
+              {t("syncing_with_gps")}
             </Typography>
           </View>
         </Card>
@@ -85,7 +87,7 @@ export default function Tracking({ navigation }) {
         {/* TIMELINE */}
         <View style={styles.timelineContainer}>
           <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
-            Journey Timeline
+            {t("journey_timeline")}
           </Typography>
 
           {steps.map((step, index) => {
@@ -133,14 +135,14 @@ export default function Tracking({ navigation }) {
                     </View>
                     
                     <Typography variant="caption" color="textMuted" style={{ marginTop: 4 }}>
-                      {isCompleted ? "Successfully verified" : isActive ? "Current stage of shipment" : "Upcoming milestone"}
+                      {isCompleted ? t("successfully_verified") : isActive ? t("current_stage_of_shipment") : t("upcoming_milestone")}
                     </Typography>
 
                     {isActive && (
                       <View style={styles.activeIndicator}>
                         <View style={styles.pulseDot} />
                         <Typography variant="tiny" weight="bold" color="primary">
-                          In Progress
+                          {t("in_progress")}
                         </Typography>
                       </View>
                     )}
@@ -154,13 +156,13 @@ export default function Tracking({ navigation }) {
         {/* ACTION */}
         <View style={styles.footer}>
           <Button
-            title="Complete Current Stage"
+            title={t("complete_current_stage")}
             onPress={nextStep}
             disabled={currentStep === steps.length - 1}
             style={styles.mainButton}
           />
           <Typography variant="tiny" color="textMuted" align="center" style={{ marginTop: 12 }}>
-            Data last updated: <Typography variant="tiny" weight="bold">2 minutes ago</Typography>
+            {t("data_last_updated")}: <Typography variant="tiny" weight="bold">{t("minutes_ago", { count: 2 })}</Typography>
           </Typography>
         </View>
 

@@ -1,11 +1,11 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
+  Dimensions,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View,
-  Dimensions
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
@@ -22,17 +22,17 @@ export default function Dashboard({ navigation }) {
   const alerts = [
     {
       id: 1,
-      text: "New delivery assigned",
+      text: t("new_delivery_assigned"),
       type: "info",
       icon: "local-shipping",
-      time: "10:30 AM"
+      time: t("10:30 AM") // Time could also be formatted but keeping as is for now
     },
     {
       id: 2,
-      text: "Documents verified successfully",
+      text: t("docs_verified_success"),
       type: "success",
       icon: "check-circle",
-      time: "Yesterday"
+      time: t("yesterday")
     }
   ];
 
@@ -51,8 +51,8 @@ export default function Dashboard({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        style={styles.scrollContainer} 
+      <ScrollView
+        style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
@@ -60,14 +60,14 @@ export default function Dashboard({ navigation }) {
         <View style={styles.header}>
           <View>
             <Typography variant="h2" weight="bold">
-              {t("welcome_driver")} 👋
+              {t("welcome")} 👋
             </Typography>
             <Typography variant="body" color="textMuted">
-              Everything looks good today
+              {t("everything_looks_good")}
             </Typography>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => navigation.navigate("Profile")}
             style={styles.profileIconContainer}
@@ -79,13 +79,13 @@ export default function Dashboard({ navigation }) {
 
         {/* 🚚 CURRENT ACTIVE JOB */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
-          Active Mission
+          {t("active_mission")}
         </Typography>
         <Card elevation="lg" style={styles.currentJobCard}>
           <View style={styles.jobHeader}>
             <View style={styles.jobBadge}>
               <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface }}>
-                IN PROGRESS
+                {t("in_progress")}
               </Typography>
             </View>
             <Typography variant="body" weight="bold" style={{ color: theme.colors.surface }}>
@@ -101,10 +101,10 @@ export default function Dashboard({ navigation }) {
             </View>
             <View style={styles.routeTextColumn}>
               <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface }}>
-                Freezone Warehouse
+                {t("freezone_warehouse")}
               </Typography>
               <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface, marginTop: 20 }}>
-                Colombo Port Terminal
+                {t("colombo_port_terminal")}
               </Typography>
             </View>
           </View>
@@ -150,11 +150,11 @@ export default function Dashboard({ navigation }) {
         {/* 🔔 RECENT UPDATES */}
         <View style={styles.sectionHeader}>
           <Typography variant="subtitle" weight="bold">
-            Recent Updates
+            {t("recent_updates")}
           </Typography>
           <TouchableOpacity onPress={() => navigation.navigate("Notifications")}>
             <Typography variant="caption" color="primary" weight="semiBold">
-              See All
+              {t("see_all")}
             </Typography>
           </TouchableOpacity>
         </View>

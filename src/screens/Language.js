@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { View, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
 
 export default function Language({ navigation }) {
+  const { t } = useTranslation();
   const [selectedLang, setSelectedLang] = useState(null);
 
   const languages = [
@@ -18,15 +20,15 @@ export default function Language({ navigation }) {
 
   const confirmChange = () => {
     if (!selectedLang) {
-      Alert.alert("Select Language", "Please choose a language first");
+      Alert.alert(t("select_language"), t("please_choose_language"));
       return;
     }
 
     i18n.changeLanguage(selectedLang);
 
     Alert.alert(
-      "Language Updated",
-      "Your language has been changed successfully"
+      t("language_updated"),
+      t("language_changed_success")
     );
   };
 
@@ -41,7 +43,7 @@ export default function Language({ navigation }) {
           </TouchableOpacity>
 
           <Typography variant="h3" style={styles.headerTitle}>
-            Select Language
+            {t("select_language")}
           </Typography>
         </View>
 
@@ -71,7 +73,7 @@ export default function Language({ navigation }) {
 
         {/* CONFIRM BUTTON */}
         <Button 
-          title="Confirm Language"
+          title={t("confirm_language")}
           style={styles.confirmButton}
           onPress={confirmChange}
         />

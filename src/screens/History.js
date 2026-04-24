@@ -2,22 +2,24 @@ import React from "react";
 import { View, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 
 export default function History({ navigation }) {
+  const { t } = useTranslation();
 
   const trips = [
-    { id: "IMP-10234", route: "Colombo → Freezone", status: "Delivered" },
-    { id: "EXP-77889", route: "Port → Warehouse", status: "Completed" },
-    { id: "IMP-55678", route: "Airport → Colombo Port", status: "In Transit" },
-    { id: "EXP-99821", route: "BOI → Export Port", status: "Delivered" },
+    { id: "IMP-10234", route: t("colombo_freezone"), status: t("delivered") },
+    { id: "EXP-77889", route: t("port_warehouse"), status: t("completed") },
+    { id: "IMP-55678", route: t("airport_colombo_port"), status: t("in_transit") },
+    { id: "EXP-99821", route: t("boi_export_port"), status: t("delivered") },
   ];
 
   const getStatusColor = (status) => {
-    if (status === "Delivered" || status === "Completed") return theme.colors.success;
-    if (status === "In Transit") return theme.colors.primary;
+    if (status === t("delivered") || status === t("completed")) return theme.colors.success;
+    if (status === t("in_transit")) return theme.colors.primary;
     return theme.colors.warning;
   };
 
@@ -30,7 +32,7 @@ export default function History({ navigation }) {
             <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
           </TouchableOpacity>
           <Typography variant="h3" style={styles.headerTitle}>
-            Trip History
+            {t("trip_history")}
           </Typography>
         </View>
 

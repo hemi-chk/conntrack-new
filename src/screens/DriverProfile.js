@@ -27,7 +27,7 @@ export default function DriverProfile({ navigation }) {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("Permission required", "Allow access to gallery");
+      Alert.alert(t("permission_required"), t("allow_access_gallery"));
       return;
     }
 
@@ -81,11 +81,11 @@ export default function DriverProfile({ navigation }) {
           </TouchableOpacity>
 
           <Typography variant="h3" style={styles.driverName}>
-            Driver Name
+            {t("driver_name")}
           </Typography>
 
           <Typography variant="body" color="textMuted">
-            Logistics Driver
+            {t("logistics_driver")}
           </Typography>
         </View>
 
@@ -101,7 +101,7 @@ export default function DriverProfile({ navigation }) {
               weight="semiBold" 
               style={{ color: available ? theme.colors.success : theme.colors.error }}
             >
-              {available ? "Available" : "Not Available"}
+              {available ? t("available") : t("not_available")}
             </Typography>
 
             <Switch 

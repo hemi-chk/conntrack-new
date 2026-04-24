@@ -2,16 +2,18 @@ import React, { useState } from "react";
 import { View, StyleSheet, FlatList, TouchableOpacity, Animated } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 
 export default function Notifications({ navigation }) {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState([
-    { id: 1, title: "New Order Assigned", message: "You have been assigned IMP-12345. Pickup at Freezone Warehouse.", read: false, time: "2m ago", type: "order" },
-    { id: 2, title: "Document Approved", message: "Your vehicle insurance document has been approved by the admin.", read: false, time: "1h ago", type: "system" },
-    { id: 3, title: "System Update", message: "Driver App v1.2.0 is now available with improved mapping.", read: true, time: "Yesterday", type: "update" },
-    { id: 4, title: "Payment Received", message: "Weekly payout for 20th - 27th April has been processed.", read: true, time: "2 days ago", type: "payment" },
+    { id: 1, title: t("new_order_assigned_title"), message: t("new_order_assigned_msg", { id: "IMP-12345", location: t("freezone_warehouse") }), read: false, time: "2m ago", type: "order" },
+    { id: 2, title: t("doc_approved_title"), message: t("doc_approved_msg"), read: false, time: "1h ago", type: "system" },
+    { id: 3, title: t("system_update_title"), message: t("system_update_msg"), read: true, time: t("yesterday"), type: "update" },
+    { id: 4, title: t("payment_received_title"), message: t("payment_received_msg"), read: true, time: "2 days ago", type: "payment" },
   ]);
 
   const markAllAsRead = () => {
@@ -78,12 +80,12 @@ export default function Notifications({ navigation }) {
         </TouchableOpacity>
         
         <Typography variant="h3" weight="bold" style={styles.headerTitle}>
-          Notifications
+          {t("notifications")}
         </Typography>
 
         <TouchableOpacity onPress={markAllAsRead} activeOpacity={0.6}>
           <Typography variant="body" color="primary" weight="semiBold">
-            Clear All
+            {t("clear_all")}
           </Typography>
         </TouchableOpacity>
       </View>
@@ -91,13 +93,13 @@ export default function Notifications({ navigation }) {
       {/* TABS (Visual only) */}
       <View style={styles.tabContainer}>
         <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-          <Typography variant="caption" weight="bold" style={{ color: theme.colors.primary }}>All</Typography>
+          <Typography variant="caption" weight="bold" style={{ color: theme.colors.primary }}>{t("all")}</Typography>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tab}>
-          <Typography variant="caption" weight="bold" color="textMuted">Unread</Typography>
+          <Typography variant="caption" weight="bold" color="textMuted">{t("unread")}</Typography>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tab}>
-          <Typography variant="caption" weight="bold" color="textMuted">System</Typography>
+          <Typography variant="caption" weight="bold" color="textMuted">{t("system")}</Typography>
         </TouchableOpacity>
       </View>
 
@@ -112,7 +114,7 @@ export default function Notifications({ navigation }) {
           <View style={styles.emptyState}>
             <MaterialIcons name="notifications-none" size={64} color={theme.colors.border} />
             <Typography variant="body" color="textMuted" style={{ marginTop: theme.spacing.md }}>
-              Your notification box is empty
+              {t("no_notifications")}
             </Typography>
           </View>
         }
