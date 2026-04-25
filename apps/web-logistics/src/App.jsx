@@ -22,6 +22,7 @@ export default function App() {
           <Route path="/export" element={<OrdersPage title="Export Orders" type="export" />} />
 
           <Route path="/clearance" element={<ClearanceIssues />} />
+          <Route path="/tracking" element={<Tracking />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/orders/:id" element={<OrderDetails />} />
         </Route>
