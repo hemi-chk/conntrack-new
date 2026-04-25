@@ -1,53 +1,68 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FileText, Upload, Lock, X, FileCheck, CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function DocumentsSection({ disabled, onFinishUpload }) {
-  const [files, setFiles] = useState([]);
+export default function DocumentsSection({
+  disabled,
+  stageName,
+  onFinishUpload,
+  existingFiles = []
+}) {
   const fileInputRef = useRef(null);
+  const [tempFiles, setTempFiles] = useState([]);
+
+  // ✅ Only clear temporary files if the user switches to a different stage
+  useEffect(() => {
+    setTempFiles([]);
+  }, [stageName]);
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFiles([...files, {
-        name: file.name,
-        size: (file.size / 1024).toFixed(1) + " KB",
-        id: Date.now()
-      }]);
-      e.target.value = null; // Reset for potential re-uploads
-    }
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    // Mapping multiple files if needed, or just keep it to one
+    const newFiles = files.map(file => ({
+      name: file.name,
+      size: (file.size / 1024).toFixed(1) + " KB",
+      id: Math.random().toString(36).substr(2, 9), // Better unique ID
+      uploadDate: new Date().toLocaleTimeString(),
+      rawFile: file // Keep reference if you need to upload to Supabase/S3 later
+    }));
+
+    setTempFiles((prev) => [...prev, ...newFiles]);
+    e.target.value = null; // Reset input so same file can be picked again if deleted
   };
 
   const removeFile = (id) => {
-    setFiles(files.filter((file) => file.id !== id));
+    setTempFiles((prev) => prev.filter((file) => file.id !== id));
   };
 
-  const handleFinish = () => {
-    if (onFinishUpload) {
-      onFinishUpload(files);
-      // Optional: Clear files after finish or keep them for display
+  const handleUploadClick = () => {
+    if (tempFiles.length > 0) {
+      onFinishUpload(tempFiles);
+      setTempFiles([]); // Clear local queue after parent takes ownership
     }
-    console.log("Finalizing upload for:", files);
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden transition-all">
       {/* Header */}
-      <div className="bg-slate-50 px-5 py-4 border-b border-slate-200">
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          Shipping Documents
-          <FileText size={18} className="text-[#1E40AF]" />
+      <div className="bg-slate-50 px-4 py-2.5 border-b flex justify-between items-center">
+        <h2 className="text-[11px] uppercase tracking-wider font-bold text-slate-600 flex items-center gap-2">
+          <FileText size={14} className="text-[#1E40AF]" />
+          Clearance Docs: {stageName}
         </h2>
       </div>
 
-      <div className="p-5 space-y-6">
-        {/* Main Upload Box */}
+      <div className="p-4 space-y-4">
+        {/* Upload Box */}
         <div
-          className={`group border-2 border-dashed rounded-xl p-8 transition-all flex flex-col items-center justify-center gap-4
+          className={`relative border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-3 transition-colors
             ${disabled
-              ? "bg-slate-50 border-slate-200"
-              : "border-slate-300 bg-slate-50/30"
+              ? "bg-slate-50 border-slate-200 cursor-not-allowed"
+              : "border-slate-300 hover:border-[#1E40AF] hover:bg-blue-50/30 cursor-pointer"
             }`}
+          onClick={() => !disabled && fileInputRef.current?.click()}
         >
           <input
             type="file"
@@ -55,87 +70,66 @@ export default function DocumentsSection({ disabled, onFinishUpload }) {
             onChange={handleFileChange}
             disabled={disabled}
             className="hidden"
+            multiple // Allow multiple files selection
           />
 
-          <div className={`p-4 rounded-full transition-colors ${disabled ? "bg-slate-100 text-slate-400" : "bg-white text-[#1E40AF] shadow-sm border border-slate-100"}`}>
-            {disabled ? <Lock size={28} /> : <Upload size={28} />}
+          <div className={`p-3 rounded-full ${disabled ? "bg-slate-100 text-slate-400" : "bg-white text-[#1E40AF] shadow-sm border"}`}>
+            {disabled ? <Lock size={20} /> : <Upload size={20} />}
           </div>
 
-          <div className="text-center space-y-1">
-            <p className={`text-sm font-semibold ${disabled ? "text-slate-400" : "text-slate-600"}`}>
-              {disabled ? "Upload is currently locked" : "Select shipping documents to attach"}
+          <div className="text-center">
+            <p className="text-sm font-semibold text-slate-700">
+              {disabled ? "Upload Locked" : "Click to upload documents"}
             </p>
-            <p className="text-xs text-slate-400 font-medium">
-              Maximum file size: 5MB
+            <p className="text-xs text-slate-500 mt-1">
+              {disabled ? "This stage is not yet active" : "PDF, PNG, or JPG (Max 5MB)"}
             </p>
           </div>
-
-          {/* UPLOAD BUTTON */}
-          <Button
-            type="button"
-            disabled={disabled}
-            onClick={() => fileInputRef.current.click()}
-            variant="outline"
-            className="border-slate-300 text-slate-700 hover:bg-slate-100 px-8 font-bold"
-          >
-            Choose File
-          </Button>
-
-          {disabled && (
-            <div className="mt-2 px-3 py-1 bg-amber-50 border border-amber-100 rounded-md flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-tight">
-                Please select a handler first
-              </span>
-            </div>
-          )}
         </div>
 
-        {/* File List & Finalize Button */}
-        {files.length > 0 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center justify-between ml-1">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Attached Files ({files.length})
-              </h3>
+        {/* Selected Files Queue */}
+        {tempFiles.length > 0 && (
+          <div className="space-y-2 animate-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Ready to upload</span>
+              <span className="text-[10px] text-slate-400">{tempFiles.length} file(s) selected</span>
             </div>
 
-            <div className="space-y-2">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-emerald-50 p-2 rounded text-emerald-600">
-                      <FileCheck size={18} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 truncate max-w-[180px]">
-                        {file.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 font-bold uppercase">{file.size}</p>
-                    </div>
+            {tempFiles.map((file) => (
+              <div key={file.id} className="flex justify-between items-center bg-[#EFF6FF] border border-blue-100 p-2.5 rounded-lg group">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="bg-blue-600 p-1.5 rounded text-white shrink-0">
+                    <FileCheck size={14} />
                   </div>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeFile(file.id)}
-                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                  >
-                    <X size={16} />
-                  </Button>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium text-slate-700 truncate max-w-[180px]">{file.name}</span>
+                    <span className="text-[10px] text-slate-500">{file.size}</span>
+                  </div>
                 </div>
-              ))}
-            </div>
 
-            {/* FINISH UPLOAD BUTTON */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering the upload box click
+                    removeFile(file.id);
+                  }}
+                >
+                  <X size={14} />
+                </Button>
+              </div>
+            ))}
+
             <Button
-              onClick={handleFinish}
-              className="w-full bg-[#1E40AF] hover:bg-[#1E3A8A] text-white font-bold h-11 shadow-md shadow-blue-100 flex items-center justify-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUploadClick();
+              }}
+              className="w-full bg-[#1E40AF] hover:bg-blue-800 text-white shadow-md shadow-blue-200"
             >
-              <CloudUpload size={20} />
-              Finish & Upload All Files
+              <CloudUpload size={16} className="mr-2" />
+              Confirm & Submit Documents
             </Button>
           </div>
         )}
