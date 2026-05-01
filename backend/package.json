@@ -1,18 +1,22 @@
 {
-  "name": "conntrack",
-  "private": true,
-  "packageManager": "npm@11.6.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "backend"
-  ],
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "ConTrack Backend API",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint"
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.0"
   },
   "devDependencies": {
-    "turbo": "latest"
+    "nodemon": "^3.0.0"
   }
 }

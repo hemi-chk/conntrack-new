@@ -1,30 +1,45 @@
 import express from 'express'
-import { supabase } from '../config/supabase.js'
+import {
+  getDashboardStats,
+  getAllOrders,
+  getAllDrivers,
+  addDriver,
+  updateDriverStatus,
+  getAllSuppliers,
+  addSupplier,
+  updateSupplierStatus,
+  getAllStaff,
+  updateStaffStatus,
+  getAllBids,
+  getAllIssues,
+} from '../controllers/admin.controller.js'
 
 const router = express.Router()
 
-router.get('/orders', async (req, res) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
+// Dashboard
+router.get('/stats', getDashboardStats)
 
-  if (error) {
-    return res.status(500).json({ error: error.message })
-  }
+// Orders
+router.get('/orders', getAllOrders)
 
-  res.json(data)
-})
+// Drivers
+router.get('/drivers', getAllDrivers)
+router.post('/drivers', addDriver)
+router.put('/drivers/:id/status', updateDriverStatus)
 
-router.get('/users', async (req, res) => {
-  const { data, error } = await supabase
-    .from('customers')
-    .select('*')
+// Suppliers
+router.get('/suppliers', getAllSuppliers)
+router.post('/suppliers', addSupplier)
+router.put('/suppliers/:id/status', updateSupplierStatus)
 
-  if (error) {
-    return res.status(500).json({ error: error.message })
-  }
+// Staff
+router.get('/staff', getAllStaff)
+router.put('/staff/:id/status', updateStaffStatus)
 
-  res.json(data)
-})
+// Bids
+router.get('/bids', getAllBids)
+
+// Issues
+router.get('/issues', getAllIssues)
 
 export default router
