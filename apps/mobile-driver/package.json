@@ -1,6 +1,6 @@
 {
-  "name": "driver-app",
-  "main": "expo/AppEntry",
+  "name": "mobile-driver",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
