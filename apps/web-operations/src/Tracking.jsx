@@ -17,14 +17,14 @@ delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png",
-  iconUrl:
-    "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
-  shadowUrl:
-    "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
 });
 
 function Tracking() {
   const [search, setSearch] = useState("");
+
+  const trackingOrder = JSON.parse(sessionStorage.getItem("trackingOrder"));
 
   const orders = [
     {
@@ -36,6 +36,7 @@ function Tracking() {
       vehicleNo: "CB-7532",
       supplier: "Prime Freight",
       driver: "Peter Silva",
+      status: "In Transit",
     },
     {
       orderId: "IMP-2044",
@@ -46,6 +47,7 @@ function Tracking() {
       vehicleNo: "WP-AB-4567",
       supplier: "OceanLink",
       driver: "Nimal Perera",
+      status: "Awaiting Clearance",
     },
     {
       orderId: "EXP-3301",
@@ -56,6 +58,7 @@ function Tracking() {
       vehicleNo: "CP-CD-8910",
       supplier: "Global Trans",
       driver: "Ruwan Fernando",
+      status: "In Transit",
     },
     {
       orderId: "IMP-5542",
@@ -66,12 +69,29 @@ function Tracking() {
       vehicleNo: "SP-EF-2222",
       supplier: "SkyCargo",
       driver: "Saman Wijesinghe",
+      status: "Pending Pickup",
     },
   ];
 
-  const filteredOrders = orders.filter((order) =>
-    order.orderId.toLowerCase().includes(search.toLowerCase())
-  );
+  const selectedTrackingOrder = trackingOrder
+    ? {
+        orderId: trackingOrder.id || trackingOrder.orderId,
+        type: trackingOrder.type,
+        pickup: trackingOrder.pickup,
+        destination: trackingOrder.destination,
+        containerNo: trackingOrder.containerNo || "N/A",
+        vehicleNo: trackingOrder.vehicleNo || "N/A",
+        supplier: trackingOrder.supplier,
+        driver: trackingOrder.driver,
+        status: trackingOrder.status,
+      }
+    : null;
+
+  const displayOrders = selectedTrackingOrder
+    ? [selectedTrackingOrder]
+    : orders.filter((order) =>
+        order.orderId.toLowerCase().includes(search.toLowerCase())
+      );
 
   const steps = [
     { id: 1, label: "Pending Pickup" },
@@ -82,19 +102,45 @@ function Tracking() {
 
   return (
     <div className="bg-[#EFF6FF] p-6 h-full overflow-auto space-y-6">
-      {/* SEARCH */}
-      <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
-        <Search size={18} className="text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search by Order ID..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full outline-none text-sm text-[#1E293B] placeholder:text-slate-400"
-        />
-      </div>
+      {selectedTrackingOrder && (
+        <div className="bg-white rounded-xl shadow p-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl font-bold text-[#1E293B]">
+                Tracking Order - {selectedTrackingOrder.orderId}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                {selectedTrackingOrder.pickup} →{" "}
+                {selectedTrackingOrder.destination}
+              </p>
+            </div>
 
-      {/* TABLE */}
+            <button
+              onClick={() => {
+                sessionStorage.removeItem("trackingOrder");
+                window.location.reload();
+              }}
+              className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E293B] hover:bg-slate-50"
+            >
+              Show All Orders
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!selectedTrackingOrder && (
+        <div className="bg-white p-4 rounded-xl shadow flex items-center gap-3">
+          <Search size={18} className="text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by Order ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full outline-none text-sm text-[#1E293B] placeholder:text-slate-400"
+          />
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-[#EFF6FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
@@ -107,14 +153,17 @@ function Tracking() {
               <th className="px-4 text-left">Vehicle No</th>
               <th className="px-4 text-left">Supplier</th>
               <th className="px-4 text-left">Driver</th>
+              <th className="px-4 text-left">Status</th>
             </tr>
           </thead>
 
           <tbody className="divide-y divide-slate-200">
-            {filteredOrders.length > 0 ? (
-              filteredOrders.map((order) => (
+            {displayOrders.length > 0 ? (
+              displayOrders.map((order) => (
                 <tr key={order.orderId} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-[#1E293B]">{order.orderId}</td>
+                  <td className="py-3 px-4 font-medium text-[#1E293B]">
+                    {order.orderId}
+                  </td>
                   <td className="px-4 text-[#1E293B]">{order.type}</td>
                   <td className="px-4 text-[#1E293B]">{order.pickup}</td>
                   <td className="px-4 text-[#1E293B]">{order.destination}</td>
@@ -122,11 +171,16 @@ function Tracking() {
                   <td className="px-4 text-[#1E293B]">{order.vehicleNo}</td>
                   <td className="px-4 text-[#1E293B]">{order.supplier}</td>
                   <td className="px-4 text-[#1E293B]">{order.driver}</td>
+                  <td className="px-4 text-[#1E293B]">
+                    <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EFF6FF] text-[#1E40AF]">
+                      {order.status}
+                    </span>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="text-center py-6 text-slate-500">
+                <td colSpan="9" className="text-center py-6 text-slate-500">
                   No matching order found
                 </td>
               </tr>
@@ -135,11 +189,11 @@ function Tracking() {
         </table>
       </div>
 
-      {/* STATUS */}
       <div className="bg-white rounded-xl shadow p-6">
         <div className="flex justify-between mb-6">
           <h3 className="font-semibold text-lg text-[#1E293B]">
-            Status <span className="text-[#16A34A] text-sm">22 Days Remaining</span>
+            Status{" "}
+            <span className="text-[#16A34A] text-sm">22 Days Remaining</span>
           </h3>
           <span className="text-sm text-slate-500 flex items-center gap-1">
             <CalendarDays size={16} />
@@ -155,10 +209,15 @@ function Tracking() {
                   <div className="h-1 bg-[#16A34A] w-full" />
                 </div>
               )}
+
               <div className="w-8 h-8 rounded-full mx-auto flex items-center justify-center text-sm bg-[#16A34A] text-white relative z-10">
                 {step.id}
               </div>
-              <p className="text-sm mt-2 font-medium text-[#1E293B]">{step.label}</p>
+
+              <p className="text-sm mt-2 font-medium text-[#1E293B]">
+                {step.label}
+              </p>
+
               {step.time && (
                 <p className="text-xs text-slate-500">{step.time}</p>
               )}
@@ -167,24 +226,19 @@ function Tracking() {
         </div>
       </div>
 
-      {/* MAP */}
       <div className="bg-white rounded-xl shadow p-4">
-        <MapContainer
-          center={[6.9271, 79.8612]}
-          zoom={5}
-          className="h-72 rounded-lg"
-        >
+        <MapContainer center={[6.9271, 79.8612]} zoom={5} className="h-72 rounded-lg">
           <TileLayer
             attribution="&copy; OpenStreetMap contributors"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
           <Marker position={[6.9271, 79.8612]}>
-            <Popup>Colombo Port</Popup>
+            <Popup>{selectedTrackingOrder?.pickup || "Colombo Port"}</Popup>
           </Marker>
 
           <Marker position={[25.2048, 55.2708]}>
-            <Popup>Dubai - Jebel Ali</Popup>
+            <Popup>{selectedTrackingOrder?.destination || "Dubai - Jebel Ali"}</Popup>
           </Marker>
 
           <Polyline
@@ -198,10 +252,11 @@ function Tracking() {
         </MapContainer>
       </div>
 
-      {/* SHIPMENT HISTORY */}
       <div className="bg-white rounded-xl shadow p-6">
         <div className="border-b border-slate-200 pb-4 mb-6">
-          <h3 className="text-lg font-semibold text-[#1E293B]">Shipment History</h3>
+          <h3 className="text-lg font-semibold text-[#1E293B]">
+            Shipment History
+          </h3>
         </div>
 
         <div className="space-y-6 text-sm">
@@ -219,9 +274,7 @@ function Tracking() {
             <Ship size={18} className="text-[#EA580C] mt-1" />
             <div>
               <p className="font-medium text-[#1E293B]">Customs Clearance</p>
-              <p className="text-slate-500">
-                25 Feb 2026 - Colombo Port
-              </p>
+              <p className="text-slate-500">25 Feb 2026 - Colombo Port</p>
             </div>
           </div>
 
@@ -230,7 +283,8 @@ function Tracking() {
             <div>
               <p className="font-medium text-[#1E293B]">Picked Up</p>
               <p className="text-slate-500">
-                25 Feb 2026 - Peter Silva - Colombo Port
+                25 Feb 2026 - {selectedTrackingOrder?.driver || "Peter Silva"} -{" "}
+                {selectedTrackingOrder?.pickup || "Colombo Port"}
               </p>
             </div>
           </div>
@@ -240,7 +294,7 @@ function Tracking() {
             <div>
               <p className="font-medium text-[#1E293B]">Order Created</p>
               <p className="text-slate-500">
-                24 Feb 2026 - Colombo Port
+                24 Feb 2026 - {selectedTrackingOrder?.pickup || "Colombo Port"}
               </p>
             </div>
           </div>

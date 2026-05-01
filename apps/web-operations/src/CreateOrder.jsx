@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Country, State } from "country-state-city";
 
-function CreateOrder() {
-  // Initial form state
+function CreateOrder({ onNavigate }) {
   const initialState = {
     orderId: "",
     orderType: "Export",
@@ -31,32 +30,24 @@ function CreateOrder() {
     },
   };
 
-  // Main form state
   const [form, setForm] = useState(initialState);
 
-  // Restrict date inputs from selecting past dates
   const today = new Date().toISOString().split("T")[0];
-
-  // Load country list
   const countries = Country.getAllCountries();
 
-  // Load states dynamically based on selected pickup country
   const pickupStates = form.pickupCountry
     ? State.getStatesOfCountry(form.pickupCountry)
     : [];
 
-  // Load states dynamically based on selected destination country
   const destinationStates = form.destinationCountry
     ? State.getStatesOfCountry(form.destinationCountry)
     : [];
 
-  // Generate order ID based on selected order type
   const generateOrderId = (type) => {
     const random = Math.floor(1000 + Math.random() * 9000);
     return `${type === "Import" ? "IMP" : "EXP"}-${random}`;
   };
 
-  // Handle standard input and select field updates
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -66,7 +57,6 @@ function CreateOrder() {
     });
   };
 
-  // Handle checkbox updates for special instructions
   const handleInstructionChange = (e) => {
     const { name, checked } = e.target;
 
@@ -79,7 +69,6 @@ function CreateOrder() {
     });
   };
 
-  // Handle file selection for document uploads
   const handleDocumentChange = (e) => {
     const { name, files } = e.target;
 
@@ -92,7 +81,6 @@ function CreateOrder() {
     });
   };
 
-  // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
 
@@ -105,18 +93,53 @@ function CreateOrder() {
       .filter(([, value]) => value)
       .map(([key]) => key);
 
-    const finalData = {
-      ...form,
+    const newOrder = {
+      id: form.orderId,
+      type: form.orderType,
+      supplier: "-",
+      driver: "-",
+      pickup: form.pickupState || "-",
+      destination: form.destinationState || "-",
+      status: "Created",
+      cargoType: form.cargoType,
+      cargoWeight: form.cargoWeight,
+      pickupDate: form.pickupDate,
+      arrivalDate: form.arrivalDate,
+      vehicleSize: form.vehicleSize,
+      vehicleNo: form.vehicleNo,
+      notes: form.notes,
       selectedInstructions,
+      vehicle: {
+        insurance: "-",
+        portPass: "-",
+        condition: "-",
+      },
+      driverDetails: {
+        name: "-",
+        license: "-",
+        policeReport: "-",
+      },
+      progress: ["Created", "Bidding", "Pickup", "In Transit", "Delivered"],
+      currentStep: 0,
     };
 
-    console.log("Created Order:", finalData);
+    const existingOrders =
+      JSON.parse(localStorage.getItem("createdOrders")) || [];
+
+    localStorage.setItem(
+      "createdOrders",
+      JSON.stringify([newOrder, ...existingOrders])
+    );
+
     alert("Order Created Successfully!");
 
     setForm(initialState);
+
+    if (onNavigate) {
+      onNavigate("/orders");
+    }
   };
 
-  // Reset form to initial state
   const handleCancel = () => {
     setForm(initialState);
   };
@@ -131,7 +154,6 @@ function CreateOrder() {
           Create New Order
         </h2>
 
-        {/* Main form fields */}
         <div className="grid grid-cols-2 gap-5 text-sm">
           <Field label="Order Type">
             <div className="flex gap-3">
@@ -179,7 +201,7 @@ function CreateOrder() {
               value={form.orderId}
               onChange={handleChange}
               placeholder="EXP-1023"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -188,7 +210,7 @@ function CreateOrder() {
               name="cargoType"
               value={form.cargoType}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Cargo Type</option>
               <option>Electronics</option>
@@ -206,7 +228,7 @@ function CreateOrder() {
               value={form.cargoWeight}
               onChange={handleChange}
               placeholder="Enter Cargo Weight"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -221,7 +243,7 @@ function CreateOrder() {
                   pickupState: "",
                 })
               }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Country</option>
               {countries.map((country) => (
@@ -238,7 +260,7 @@ function CreateOrder() {
               value={form.pickupState}
               onChange={handleChange}
               disabled={!form.pickupCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF]"
             >
               <option value="">Select State</option>
               {pickupStates.map((state) => (
@@ -260,7 +282,7 @@ function CreateOrder() {
                   destinationState: "",
                 })
               }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Country</option>
               {countries.map((country) => (
@@ -277,7 +299,7 @@ function CreateOrder() {
               value={form.destinationState}
               onChange={handleChange}
               disabled={!form.destinationCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF]"
             >
               <option value="">Select State</option>
               {destinationStates.map((state) => (
@@ -295,7 +317,7 @@ function CreateOrder() {
               value={form.pickupDate}
               onChange={handleChange}
               min={today}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -306,7 +328,7 @@ function CreateOrder() {
               value={form.arrivalDate}
               onChange={handleChange}
               min={form.pickupDate || today}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -315,7 +337,7 @@ function CreateOrder() {
               name="vehicleSize"
               value={form.vehicleSize}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Vehicle</option>
               <option>20ft Container</option>
@@ -330,7 +352,7 @@ function CreateOrder() {
               name="vehicleNo"
               value={form.vehicleNo}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Container No</option>
               <option>WP-AB-1234</option>
@@ -341,44 +363,19 @@ function CreateOrder() {
           </Field>
         </div>
 
-        {/* Document upload section */}
         <div className="mt-6">
           <label className="block mb-3 font-medium text-sm text-[#1E293B]">
             Upload Relevant Documents
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DocumentUpload
-              label="1. Commercial Invoice"
-              name="commercialInvoice"
-              file={form.documents.commercialInvoice}
-              onChange={handleDocumentChange}
-            />
-
-            <DocumentUpload
-              label="2. BOI Clearance"
-              name="boiClearance"
-              file={form.documents.boiClearance}
-              onChange={handleDocumentChange}
-            />
-
-            <DocumentUpload
-              label="3. Port Gate Pass"
-              name="portGatePass"
-              file={form.documents.portGatePass}
-              onChange={handleDocumentChange}
-            />
-
-            <DocumentUpload
-              label="4. Packing List"
-              name="packingList"
-              file={form.documents.packingList}
-              onChange={handleDocumentChange}
-            />
+            <DocumentUpload label="1. Commercial Invoice" name="commercialInvoice" file={form.documents.commercialInvoice} onChange={handleDocumentChange} />
+            <DocumentUpload label="2. BOI Clearance" name="boiClearance" file={form.documents.boiClearance} onChange={handleDocumentChange} />
+            <DocumentUpload label="3. Port Gate Pass" name="portGatePass" file={form.documents.portGatePass} onChange={handleDocumentChange} />
+            <DocumentUpload label="4. Packing List" name="packingList" file={form.documents.packingList} onChange={handleDocumentChange} />
           </div>
         </div>
 
-        {/* Special instruction checkboxes */}
         <div className="mt-6">
           <label className="block mb-3 font-medium text-sm text-[#1E293B]">
             Special Instructions
@@ -386,38 +383,14 @@ function CreateOrder() {
 
           <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#EFF6FF]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <CheckboxInstruction
-                label="Fragile cargo"
-                name="fragileCargo"
-                checked={form.instructions.fragileCargo}
-                onChange={handleInstructionChange}
-              />
-
-              <CheckboxInstruction
-                label="Temperature sensitive"
-                name="temperatureSensitive"
-                checked={form.instructions.temperatureSensitive}
-                onChange={handleInstructionChange}
-              />
-
-              <CheckboxInstruction
-                label="Handle with crane"
-                name="handleWithCrane"
-                checked={form.instructions.handleWithCrane}
-                onChange={handleInstructionChange}
-              />
-
-              <CheckboxInstruction
-                label="Priority shipment"
-                name="priorityShipment"
-                checked={form.instructions.priorityShipment}
-                onChange={handleInstructionChange}
-              />
+              <CheckboxInstruction label="Fragile cargo" name="fragileCargo" checked={form.instructions.fragileCargo} onChange={handleInstructionChange} />
+              <CheckboxInstruction label="Temperature sensitive" name="temperatureSensitive" checked={form.instructions.temperatureSensitive} onChange={handleInstructionChange} />
+              <CheckboxInstruction label="Handle with crane" name="handleWithCrane" checked={form.instructions.handleWithCrane} onChange={handleInstructionChange} />
+              <CheckboxInstruction label="Priority shipment" name="priorityShipment" checked={form.instructions.priorityShipment} onChange={handleInstructionChange} />
             </div>
           </div>
         </div>
 
-        {/* Additional note section */}
         <div className="mt-4">
           <label className="block mb-2 font-medium text-sm text-[#1E293B]">
             Additional Instructions
@@ -427,11 +400,10 @@ function CreateOrder() {
             value={form.notes}
             onChange={handleChange}
             placeholder="Enter any other special instructions here..."
-            className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:text-[#1E293B] h-24"
+            className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] h-24"
           />
         </div>
 
-        {/* Action buttons */}
         <div className="flex justify-end gap-4 mt-6">
           <button
             type="button"
@@ -445,7 +417,7 @@ function CreateOrder() {
             type="submit"
             className="px-6 py-2 bg-[#1E40AF] text-[#FFFFFF] rounded-md hover:opacity-90 transition"
           >
-            Create & Submit
+            Create & Submit to Logistics
           </button>
         </div>
       </form>
@@ -453,7 +425,6 @@ function CreateOrder() {
   );
 }
 
-// Reusable field wrapper for labels and inputs
 function Field({ label, children }) {
   return (
     <div>
@@ -465,7 +436,6 @@ function Field({ label, children }) {
   );
 }
 
-// Reusable custom file upload component
 function DocumentUpload({ label, name, file, onChange }) {
   return (
     <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#FFFFFF]">
@@ -476,12 +446,7 @@ function DocumentUpload({ label, name, file, onChange }) {
       <div className="flex items-center gap-4">
         <label className="px-4 py-2 bg-[#EFF6FF] text-[#1E293B] border border-[#BFDBFE] rounded-md cursor-pointer hover:border-[#1E40AF] transition">
           Choose File
-          <input
-            type="file"
-            name={name}
-            onChange={onChange}
-            className="hidden"
-          />
+          <input type="file" name={name} onChange={onChange} className="hidden" />
         </label>
 
         <span className="text-sm text-[#1E293B]">
@@ -492,7 +457,6 @@ function DocumentUpload({ label, name, file, onChange }) {
   );
 }
 
-// Reusable checkbox component for special instructions
 function CheckboxInstruction({ label, name, checked, onChange }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
