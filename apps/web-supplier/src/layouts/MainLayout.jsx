@@ -1,34 +1,28 @@
-import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Header } from './Header';
-import { Sidebar } from './Sidebar';
+import React, { useState } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import { Header } from './Header'
+import { Sidebar } from './Sidebar'
 
-export function MainLayout() {
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-  const currentRoute = useLocation();
-
-  const handleMenuClick = () => {
-    setIsSidebarVisible(!isSidebarVisible);
-  };
+export const MainLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const location = useLocation()
 
   return (
-    <div className="min-h-screen bg-surface-light">
-      <Header onMenuClick={handleMenuClick} />
+    <div className="min-h-screen bg-slate-50">
+      <Header onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
       
-      <Sidebar 
-        isOpen={isSidebarVisible} 
-        currentPath={currentRoute.pathname}
-      />
-      
-      {/* Shift main content container depending on sidebar state */}
-      <main className={`
-        pt-20 transition-all duration-300
-        ${isSidebarVisible ? 'ml-64' : 'ml-0'}
-      `}>
-        <div className="p-6">
-          <Outlet />
-        </div>
-      </main>
+      <div className="flex pt-20">
+        <Sidebar 
+          isOpen={isSidebarOpen} 
+          currentPath={location.pathname} 
+        />
+        
+        <main className={`flex-1 transition-all duration-300 p-6 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
-  );
+  )
 }

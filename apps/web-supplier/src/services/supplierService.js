@@ -1,8 +1,12 @@
 import { BASE_URL } from './api';
 
 export const getDashboardStats = async () => {
-  // Stubbing connection to supplier.routes.js backend
-  // const res = await fetch(`${BASE_URL}/supplier/dashboard`);
-  // return res.json();
-  return new Promise((resolve) => setTimeout(() => resolve({}), 500));
+  try {
+    const res = await fetch(`${BASE_URL}/supplier/dashboard-stats`);
+    if (!res.ok) throw new Error('Failed to fetch stats');
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    throw error;
+  }
 };

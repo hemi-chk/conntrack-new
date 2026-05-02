@@ -26,8 +26,12 @@ export function Sidebar({ isOpen, currentPath }) {
     <aside className={`fixed left-0 top-20 h-[calc(100vh-80px)] bg-white border-r border-slate-200 transition-all duration-300 z-40 overflow-hidden ${isOpen ? 'w-64' : 'w-0'}`}>
       <div className="p-4 border-b border-slate-100 mb-1">
         <div className="flex flex-col">
-          <span className="text-xl font-bold text-primary">Hayleys</span>
-          <span className="text-sm font-medium text-slate-500 uppercase tracking-widest -mt-1">Logistics</span>
+          <span className="text-xl font-bold text-primary truncate">
+            Hayleys Logistics
+          </span>
+          <span className="text-xs font-medium text-slate-400 uppercase tracking-widest -mt-0.5">
+            Portal
+          </span>
         </div>
       </div>
       <div className="p-3">
