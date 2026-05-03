@@ -1,12 +1,12 @@
-import express from 'express'
-const router = express.Router()
+import express from 'express';
+import { getDashboardSummary, getOrdersByType } from '../controllers/logistics.Controller.js';
 
-router.get('/bids', (req, res) => {
-  res.json({ message: 'Get all bids' })
-})
+const router = express.Router();
 
-router.put('/bids/:id', (req, res) => {
-  res.json({ message: 'Update bid status' })
-})
+// Dashboard summary
+router.get('/dashboard-summary', getDashboardSummary);
 
-export default router
+// List orders by type (import/export)
+router.get('/orders', getOrdersByType);
+
+export default router;
