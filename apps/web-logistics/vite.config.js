@@ -11,3 +11,4 @@ export default defineConfig({
     },
   },
 })
+// trigger-restart

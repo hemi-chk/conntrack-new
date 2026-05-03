@@ -6,12 +6,10 @@ import {
   FileText,
   AlertTriangle,
   ChevronRight,
-  ClipboardList,
 } from "lucide-react"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: ClipboardList, label: "Operation Requests", path: "/operations" },
   { icon: Package, label: "Import Orders", path: "/import" },
   { icon: Truck, label: "Export Orders", path: "/export" },
   { icon: AlertTriangle, label: "Clearance Issues", path: "/clearance" },
