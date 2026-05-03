@@ -16,7 +16,8 @@ import {
   sendMessage,
   getVehicleInspections,
   addInspectionRecord,
-  getDashboardStats
+  getDashboardStats,
+  getSupplierProfile
 } from '../controllers/supplier.controller.js'
 
 const router = express.Router()
@@ -49,5 +50,7 @@ router.post('/chats/:chatId/messages', sendMessage)
 // --- Inspection Routes ---
 router.get('/inspections/:vehicleId', getVehicleInspections)
 router.post('/inspections', addInspectionRecord)
+
+router.get('/:id', getSupplierProfile)
 
 export default router

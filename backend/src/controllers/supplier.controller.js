@@ -33,6 +33,25 @@ export const getDashboardStats = async (req, res) => {
 
 // --- Main Supplier Data ---
 
+// GET /api/supplier/:id - Fetch a single supplier profile
+export const getSupplierProfile = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .eq('supplier_id', id)
+      .maybeSingle() // Use maybeSingle to avoid error on zero results
+    
+    if (error) throw error
+    if (!data) return res.status(404).json({ error: `Supplier profile with ID ${id} not found` })
+    
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
 // GET /api/supplier/ - Fetch all supplier data
 export const getSupplierData = async (req, res) => {
   try {

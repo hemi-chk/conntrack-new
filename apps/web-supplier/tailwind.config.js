@@ -18,7 +18,7 @@ export default {
           dark: '#0F172A',
         },
         surface: {
-          light: '#F8FAFC', // Page background
+          light: '#00ff00', // Page background
           DEFAULT: '#FFFFFF', // Card background
         },
         success: '#16A34A',

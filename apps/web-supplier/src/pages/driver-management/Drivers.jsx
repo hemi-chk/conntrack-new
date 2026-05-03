@@ -73,11 +73,11 @@ export const Drivers = () => {
 
   return (
     <div className="flex flex-col gap-6 text-dark">
-      
-      <AddDriverModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdd={handleAddDriver} 
+
+      <AddDriverModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleAddDriver}
       />
 
       <DriverViewModal
@@ -108,11 +108,11 @@ export const Drivers = () => {
       </div>
 
       {/* Action Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        
-        <div className="flex items-center gap-4">
-          <select 
-            className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-dark font-medium outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+      <div className="flex flex-col gap-4 justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm sm:flex-row sm:items-center">
+
+        <div className="flex gap-4 items-center">
+          <select
+            className="px-4 py-2 font-medium bg-white rounded-lg border border-gray-300 cursor-pointer outline-none text-dark focus:ring-2 focus:ring-primary"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -121,13 +121,13 @@ export const Drivers = () => {
             <option value="on trip">On Trip</option>
             <option value="off duty">Off Duty</option>
           </select>
-          
-          <span className="text-sm text-gray-500 font-medium">
+
+          <span className="text-sm font-medium text-gray-500">
             Showing {filteredDrivers.length} of {drivers.length} drivers
           </span>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
         >
@@ -138,24 +138,24 @@ export const Drivers = () => {
 
       {/* Messages */}
       {error && (
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
+        <div className="flex gap-3 items-center px-4 py-3 bg-blue-50 rounded-lg border border-primary text-primary">
           <AlertTriangle size={18} />
           <span>{error}</span>
         </div>
       )}
       {!isLoading && drivers.length === 0 && !error && (
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
+        <div className="flex gap-3 items-center px-4 py-3 bg-blue-50 rounded-lg border border-primary text-primary">
           <AlertTriangle size={18} />
           <span>No data in drivers table (Supabase Status: Connected)</span>
         </div>
       )}
 
       {/* Table Container */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm font-semibold uppercase text-gray-500">
+              <tr className="text-sm font-semibold text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4">EMP ID</th>
                 <th className="px-6 py-4">NAME</th>
                 <th className="px-6 py-4">NIC</th>
@@ -173,25 +173,25 @@ export const Drivers = () => {
                   </td>
                 </tr>
               ) : filteredDrivers.map((driver, idx) => (
-                <tr key={driver.driver_id || idx} className="hover:bg-gray-50 transition-colors">
+                <tr key={driver.driver_id || idx} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-dark">
                     {driver.driver_id}
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     {driver.first_name} {driver.last_name}
                   </td>
-                  <td className="px-6 py-4 text-gray-600 font-mono text-sm">
+                  <td className="px-6 py-4 font-mono text-sm text-gray-600">
                     {driver.nic}
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     {driver.license_expiry_date ? new Date(driver.license_expiry_date).toLocaleDateString('en-GB') : 'N/A'}
                   </td>
                   <td className="px-6 py-4">
-                    <span 
+                    <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-                        ${driver.availability_status?.toLowerCase() === 'available' ? 'bg-success/10 text-success' : 
-                          driver.availability_status?.toLowerCase() === 'off duty' ? 'bg-error/10 text-error' : 
-                          'bg-warning/10 text-warning'}
+                        ${driver.availability_status?.toLowerCase() === 'available' ? 'bg-success/10 text-success' :
+                          driver.availability_status?.toLowerCase() === 'off duty' ? 'bg-error/10 text-error' :
+                            'bg-warning/10 text-warning'}
                       `}
                     >
                       {driver.availability_status}
@@ -201,9 +201,9 @@ export const Drivers = () => {
                     {driver.contact_number}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button 
+                    <button
                       onClick={() => handleOpenViewModal(driver)}
-                      className="text-primary hover:underline font-medium text-sm"
+                      className="text-sm font-medium text-primary hover:underline"
                     >
                       View
                     </button>

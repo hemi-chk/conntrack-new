@@ -49,7 +49,6 @@ export const Dashboard = () => {
       {/* Header Title */}
       <div>
         <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
-        <p className="text-gray-500 font-medium mt-1">Welcome back, Hayleys. Here's what's happening today.</p>
       </div>
 
       {/* Supabase Status Messages */}

@@ -1,4 +1,5 @@
 import { Bell, User, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 export function Header({ onMenuClick }) {
   return (
@@ -22,12 +23,12 @@ export function Header({ onMenuClick }) {
           <Bell size={22} />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
         </button>
-        <div className="flex items-center gap-2 bg-blue-700 rounded-lg px-3 py-2">
+        <Link to="/profile" className="flex items-center gap-2 bg-blue-700 rounded-lg px-3 py-2 hover:bg-blue-600 transition-colors">
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
             <User size={16} className="text-primary" />
           </div>
           <span className="text-sm font-medium">Supplier</span>
-        </div>
+        </Link>
       </div>
 
     </nav>
