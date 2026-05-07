@@ -1,8 +1,11 @@
 import { BASE_URL } from './api';
 
-export const getVehicles = async () => {
+export const getVehicles = async (supplierId) => {
   try {
-    const res = await fetch(`${BASE_URL}/supplier/vehicles`);
+    const url = supplierId 
+      ? `${BASE_URL}/supplier/vehicles?supplier_id=${supplierId}`
+      : `${BASE_URL}/supplier/vehicles`;
+    const res = await fetch(url);
     if (!res.ok) {
       throw new Error('Failed to fetch vehicles');
     }
@@ -67,10 +70,13 @@ export const updateVehicle = async (id, vehicleData) => {
   }
 };
 
-export const deleteVehicle = async (id) => {
+export const deleteVehicle = async (id, supplierId) => {
   try {
     console.log(`Service: Deleting vehicle ${id}...`);
-    const res = await fetch(`${BASE_URL}/supplier/vehicles/${id}`, {
+    const url = supplierId 
+      ? `${BASE_URL}/supplier/vehicles/${id}?supplier_id=${supplierId}`
+      : `${BASE_URL}/supplier/vehicles/${id}`;
+    const res = await fetch(url, {
       method: 'DELETE',
     });
     

@@ -51,20 +51,6 @@ export const Dashboard = () => {
         <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
       </div>
 
-      {/* Supabase Status Messages */}
-      <div className="flex flex-col gap-3">
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <CheckCircle2 size={18} />
-          <span className="font-medium text-sm text-primary">Supabase Status: Found {stats?.totalDrivers || 0} drivers</span>
-        </div>
-        {(!stats?.totalDrivers || stats?.totalDrivers === 0) && (
-          <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-            <AlertTriangle size={18} />
-            <span className="font-medium text-sm text-primary">No data in drivers table</span>
-          </div>
-        )}
-      </div>
-
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((card, idx) => (

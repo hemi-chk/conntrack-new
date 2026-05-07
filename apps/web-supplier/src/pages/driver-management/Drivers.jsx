@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, UserPlus } from 'lucide-react';
+import { AlertTriangle, UserPlus, Inbox } from 'lucide-react';
 import { useDrivers } from '../../hooks/useDrivers';
 import { AddDriverModal } from './AddDriverModal';
 import { DriverViewModal } from './DriverViewModal';
@@ -118,8 +118,8 @@ export const Drivers = () => {
           >
             <option value="all">All</option>
             <option value="available">Available</option>
-            <option value="on trip">On Trip</option>
-            <option value="off duty">Off Duty</option>
+            <option value="on_trip">On Trip</option>
+            <option value="unavailable">Unavailable</option>
           </select>
 
           <span className="text-sm font-medium text-gray-500">
@@ -141,12 +141,6 @@ export const Drivers = () => {
         <div className="flex gap-3 items-center px-4 py-3 bg-blue-50 rounded-lg border border-primary text-primary">
           <AlertTriangle size={18} />
           <span>{error}</span>
-        </div>
-      )}
-      {!isLoading && drivers.length === 0 && !error && (
-        <div className="flex gap-3 items-center px-4 py-3 bg-blue-50 rounded-lg border border-primary text-primary">
-          <AlertTriangle size={18} />
-          <span>No data in drivers table (Supabase Status: Connected)</span>
         </div>
       )}
 
@@ -172,25 +166,39 @@ export const Drivers = () => {
                     Loading drivers...
                   </td>
                 </tr>
+              ) : filteredDrivers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="bg-gray-50 p-4 rounded-full">
+                        <Inbox size={40} className="text-gray-300" strokeWidth={1.5} />
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <p className="text-gray-500 font-bold text-lg tracking-tight">No drivers found</p>
+                        <p className="text-gray-400 text-sm max-w-xs text-center">Add a new driver or try changing your filters.</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               ) : filteredDrivers.map((driver, idx) => (
                 <tr key={driver.driver_id || idx} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-dark">
-                    {driver.driver_id}
+                    {driver.emp_id}
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     {driver.first_name} {driver.last_name}
                   </td>
                   <td className="px-6 py-4 font-mono text-sm text-gray-600">
-                    {driver.nic}
+                    {driver.national_id}
                   </td>
                   <td className="px-6 py-4 text-gray-600">
-                    {driver.license_expiry_date ? new Date(driver.license_expiry_date).toLocaleDateString('en-GB') : 'N/A'}
+                    {driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString('en-GB') : 'N/A'}
                   </td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
                         ${driver.availability_status?.toLowerCase() === 'available' ? 'bg-success/10 text-success' :
-                          driver.availability_status?.toLowerCase() === 'off duty' ? 'bg-error/10 text-error' :
+                          driver.availability_status?.toLowerCase() === 'unavailable' ? 'bg-error/10 text-error' :
                             'bg-warning/10 text-warning'}
                       `}
                     >

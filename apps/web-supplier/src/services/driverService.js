@@ -1,8 +1,9 @@
 import { BASE_URL } from './api';
 
-export const getDrivers = async () => {
+export const getDrivers = async (supplierId) => {
   try {
-    const res = await fetch(`${BASE_URL}/supplier/drivers`);
+    const url = supplierId ? `${BASE_URL}/supplier/drivers?supplier_id=${supplierId}` : `${BASE_URL}/supplier/drivers`;
+    const res = await fetch(url);
     if (!res.ok) {
       throw new Error('Failed to fetch drivers');
     }

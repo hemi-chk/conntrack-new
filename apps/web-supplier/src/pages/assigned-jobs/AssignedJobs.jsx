@@ -39,19 +39,7 @@ export const AssignedJobs = () => {
         </div>
       </div>
 
-      {/* Messages - Supabase Status */}
-      <div className="flex flex-col gap-3">
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <CheckCircle2 size={18} />
-          <span className="font-medium text-sm text-primary">Supabase Status: Found 0 drivers</span>
-        </div>
-        {!isLoading && assignedJobs.length === 0 && !error && (
-          <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-            <AlertTriangle size={18} />
-            <span className="font-medium text-sm text-primary">No data in drivers table (Supabase Status: Connected)</span>
-          </div>
-        )}
-      </div>
+
 
       {/* Table Container */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle, Plus, Inbox } from 'lucide-react';
 import { useVehicles } from '../../hooks/useVehicles';
+import { useProfile } from '../../hooks/useProfile';
 import { AddVehicleModal } from './AddVehicleModal';
 import { VehicleViewModal } from './VehicleViewModal';
 import { EditVehicleModal } from './EditVehicleModal';
@@ -8,8 +9,10 @@ import { DeleteVehicleModal } from './DeleteVehicleModal';
 import { addVehicle, updateVehicle, deleteVehicle } from '../../services/vehicleService';
 
 export const Vehicles = () => {
+  const { profileData } = useProfile();
   const { vehicles, isLoading, error, refreshVehicles } = useVehicles();
   const [filterType, setFilterType] = useState('all');
+  // ... rest of state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -50,7 +53,8 @@ export const Vehicles = () => {
 
   const handleDeleteVehicle = async (id) => {
     try {
-      await deleteVehicle(id);
+      const supplierId = profileData?.id || profileData?.supplier_id;
+      await deleteVehicle(id, supplierId);
       alert("Vehicle Deleted Successfully!");
       setIsDeleteModalOpen(false);
       refreshVehicles();
@@ -78,11 +82,11 @@ export const Vehicles = () => {
 
   return (
     <div className="flex flex-col gap-6 text-dark">
-      
-      <AddVehicleModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdd={handleAddVehicle} 
+
+      <AddVehicleModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleAddVehicle}
       />
 
       <VehicleViewModal
@@ -113,26 +117,25 @@ export const Vehicles = () => {
       </div>
 
       {/* Action Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        
-        <div className="flex items-center gap-4">
-          <select 
-            className="border border-gray-300 rounded-lg px-4 py-2 bg-white text-dark font-medium outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+      <div className="flex flex-col gap-4 justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm sm:flex-row sm:items-center">
+
+        <div className="flex gap-4 items-center">
+          <select
+            className="px-4 py-2 font-medium bg-white rounded-lg border border-gray-300 cursor-pointer outline-none text-dark focus:ring-2 focus:ring-primary"
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
           >
-            <option value="all">All</option>
-            <option value="container">Container</option>
-            <option value="flatbed">Flatbed</option>
-            <option value="refrigerated">Refrigerated</option>
+            <option value="all">All Types</option>
+            <option value="LCV">LCV</option>
+            <option value="HCV">HCV</option>
           </select>
-          
-          <span className="text-sm text-gray-500 font-medium">
+
+          <span className="text-sm font-medium text-gray-500">
             Showing {filteredVehicles.length} of {vehicles.length} vehicles
           </span>
         </div>
-        
-        <button 
+
+        <button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
         >
@@ -143,32 +146,22 @@ export const Vehicles = () => {
 
       {/* Messages */}
       {error && (
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
+        <div className="flex gap-3 items-center px-4 py-3 bg-blue-50 rounded-lg border border-primary text-primary">
           <AlertTriangle size={18} />
           <span>{error}</span>
         </div>
       )}
-      {!isLoading && vehicles.length === 0 && !error && (
-        <div className="bg-blue-50 border border-primary text-primary px-4 py-3 rounded-lg flex items-center gap-3">
-          <AlertTriangle size={18} />
-          <span>No data in vehicles table (Supabase Status: Connected)</span>
-        </div>
-      )}
-      {!isLoading && vehicles.length > 0 && filteredVehicles.length === 0 && (
-        <div className="bg-gray-50 border border-gray-200 text-gray-500 px-4 py-3 rounded-lg flex items-center gap-3">
-          No vehicles map to the selected filter "{filterType}".
-        </div>
-      )}
 
       {/* Table Container */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm font-semibold uppercase text-gray-500">
+              <tr className="text-sm font-semibold text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4">VEHICLE NO</th>
                 <th className="px-6 py-4">TYPE</th>
-                <th className="px-6 py-4">INSURANCE EXPIRY</th>
+                <th className="px-6 py-4">CONDITION</th>
+                <th className="px-6 py-4">INSURANCE</th>
                 <th className="px-6 py-4">PORT PASS</th>
                 <th className="px-6 py-4">STATUS</th>
                 <th className="px-6 py-4 text-center">ACTION</th>
@@ -177,39 +170,62 @@ export const Vehicles = () => {
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     Loading vehicles...
                   </td>
                 </tr>
+              ) : filteredVehicles.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
+                    <div className="flex flex-col gap-3 items-center">
+                      <div className="p-4 bg-gray-50 rounded-full">
+                        <Inbox size={40} className="text-gray-300" strokeWidth={1.5} />
+                      </div>
+                      <div className="flex flex-col gap-1 items-center">
+                        <p className="text-lg font-bold tracking-tight text-gray-500">No vehicles found</p>
+                        <p className="max-w-xs text-sm text-center text-gray-400">Add a new vehicle or try changing your filters.</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
               ) : filteredVehicles.map((vehicle) => (
-                <tr key={vehicle.vehicle_number} className="hover:bg-gray-50 transition-colors">
+                <tr key={vehicle.vehicle_number} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-dark">
                     {vehicle.vehicle_number || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-gray-600 capitalize">
+                  <td className="px-6 py-4 font-semibold text-gray-600">
                     {vehicle.type || vehicle.vehicle_type || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      vehicle.condition_status === 'good' ? 'bg-green-50 text-green-700' :
+                      vehicle.condition_status === 'maintenance' ? 'bg-amber-50 text-amber-700' :
+                      'bg-red-50 text-red-700'
+                    }`}>
+                      {vehicle.condition_status || 'good'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">
                     {vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toLocaleDateString('en-GB') : 'N/A'}
                   </td>
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-gray-600 text-sm">
                     {vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toLocaleDateString('en-GB') : 'N/A'}
                   </td>
                   <td className="px-6 py-4">
-                    <span 
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-                        ${(vehicle.availability_status || vehicle.status)?.toLowerCase() === 'active' ? 'bg-success/10 text-success' : 
-                          (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'repair' ? 'bg-error/10 text-error' : 
-                          'bg-warning/10 text-warning'}
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize
+                        ${(vehicle.availability_status || vehicle.status)?.toLowerCase() === 'available' ? 'bg-success/10 text-success' :
+                          (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'on_trip' ? 'bg-warning/10  text-warning' :
+                            'bg-error/10 text-error'}
                       `}
                     >
                       {vehicle.availability_status || vehicle.status || 'Unknown'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button 
+                    <button
                       onClick={() => handleOpenViewModal(vehicle)}
-                      className="text-primary hover:underline font-medium text-sm"
+                      className="text-sm font-medium text-primary hover:underline"
                     >
                       View
                     </button>

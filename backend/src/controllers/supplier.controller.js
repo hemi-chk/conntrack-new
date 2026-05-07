@@ -103,10 +103,16 @@ export const createSupplierRecord = async (req, res) => {
 
 export const getVehicles = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { supplier_id } = req.query
+    let query = supabase
       .from('vehicles')
       .select('*')
-      .order('vehicle_number', { ascending: true })
+    
+    if (supplier_id) {
+      query = query.eq('supplier_id', supplier_id)
+    }
+
+    const { data, error } = await query.order('vehicle_number', { ascending: true })
 
     if (error) throw error
     res.json(data)
@@ -125,7 +131,8 @@ export const addVehicle = async (req, res) => {
       insurance_expiry, 
       port_pass_status,
       port_pass_expiry,
-      condition_status
+      condition_status,
+      supplier_id
     } = req.body
     
     const insertData = {
@@ -136,7 +143,8 @@ export const addVehicle = async (req, res) => {
       insurance_expiry,
       port_pass_status: port_pass_status || 'valid',
       port_pass_expiry,
-      condition_status: condition_status || 'good'
+      condition_status: condition_status || 'good',
+      supplier_id
     }
 
     const { data, error } = await supabase
@@ -162,7 +170,8 @@ export const updateVehicle = async (req, res) => {
       insurance_expiry, 
       port_pass_status,
       port_pass_expiry,
-      condition_status
+      condition_status,
+      supplier_id
     } = req.body
 
     const updateData = {
@@ -176,14 +185,19 @@ export const updateVehicle = async (req, res) => {
       condition_status
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('vehicles')
       .update(updateData)
       .eq('vehicle_number', id)
-      .select()
+    
+    if (supplier_id) {
+      query = query.eq('supplier_id', supplier_id)
+    }
+
+    const { data, error } = await query.select()
 
     if (error) throw error
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Vehicle not found' })
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Vehicle not found or unauthorized' })
     
     res.json(data[0])
   } catch (err) {
@@ -194,10 +208,18 @@ export const updateVehicle = async (req, res) => {
 export const deleteVehicle = async (req, res) => {
   try {
     const { id } = req.params
-    const { error } = await supabase
+    const { supplier_id } = req.query
+
+    let query = supabase
       .from('vehicles')
       .delete()
       .eq('vehicle_number', id)
+    
+    if (supplier_id) {
+      query = query.eq('supplier_id', supplier_id)
+    }
+
+    const { error } = await query
 
     if (error) throw error
     res.json({ message: 'Vehicle deleted successfully' })
@@ -210,10 +232,18 @@ export const deleteVehicle = async (req, res) => {
 
 export const getDrivers = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { supplier_id } = req.query;
+    
+    let query = supabase
       .from('drivers')
       .select('*')
       .order('driver_id', { ascending: true })
+
+    if (supplier_id) {
+      query = query.eq('supplier_id', supplier_id);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error
     res.json(data)
