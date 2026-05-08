@@ -74,8 +74,8 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl animate-in fade-in zoom-in duration-200">
+    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-gray-900/40">
+      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl duration-200 animate-in fade-in zoom-in">
 
         {/* Header */}
         <div className="px-6 pt-5 pb-3 border-b border-gray-100">
@@ -85,7 +85,7 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
 
         {/* Form Body */}
         <div className="px-6 py-4">
-          <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-3 gap-y-3 gap-x-4">
 
             {/* Row 1: Identity & Type */}
             <div>
@@ -130,18 +130,18 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
 
           {/* Error */}
           {error && (
-            <div className="mt-3 text-red-600 text-xs font-medium bg-red-50 px-3 py-2 rounded-lg border border-red-100 flex items-center gap-2">
+            <div className="flex gap-2 items-center px-3 py-2 mt-3 text-xs font-medium text-red-600 bg-red-50 rounded-lg border border-red-100">
               <AlertTriangle size={14} /> {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-semibold transition-colors">
+        <div className="flex gap-3 justify-end px-6 py-3 border-t border-gray-100">
+          <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white rounded-lg border border-gray-300 transition-colors hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleUpdate} className="px-5 py-2 text-sm bg-primary hover:bg-blue-800 text-white rounded-lg font-semibold transition-colors shadow-sm">
+          <button onClick={handleUpdate} className="px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors bg-primary hover:bg-blue-800">
             Save Changes
           </button>
         </div>

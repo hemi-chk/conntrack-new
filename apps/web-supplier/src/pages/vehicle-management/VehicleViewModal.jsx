@@ -12,19 +12,19 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
     <div className="flex flex-col">
       <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5">{label}</p>
       <p className={`text-sm font-medium text-dark truncate ${mono ? 'font-mono' : ''}`}>
-        {value || <span className="text-gray-300 italic">Not set</span>}
+        {value || <span className="italic text-gray-300">Not set</span>}
       </p>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
-        
+    <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-gray-900/40">
+      <div className="overflow-hidden w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl duration-200 animate-in fade-in zoom-in">
+
         {/* Header */}
-        <div className="bg-primary px-6 py-3 flex justify-between items-center text-white">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full border-2 border-white/20 overflow-hidden bg-white/10 flex items-center justify-center">
+        <div className="flex justify-between items-center px-6 py-3 text-white bg-primary">
+          <div className="flex gap-3 items-center">
+            <div className="flex overflow-hidden justify-center items-center w-12 h-12 rounded-full border-2 border-white/20 bg-white/10">
               <Truck size={24} className="text-white opacity-80" />
             </div>
             <div>
@@ -32,7 +32,7 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
               <p className="text-blue-100 text-[10px] opacity-80">TYPE: {vehicle.type || vehicle.vehicle_type || 'N/A'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors">
+          <button onClick={onClose} className="transition-colors text-white/80 hover:text-white">
             <X size={20} />
           </button>
         </div>
@@ -45,15 +45,15 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
               <div>
                 <p className="text-[10px] font-black text-error uppercase tracking-tight">Maintenance Alert</p>
                 <p className="text-xs text-red-700">
-                  {!isInsuranceValid && !isPortPassValid ? 'Both Insurance and Port Pass have expired.' : 
-                   !isInsuranceValid ? 'Insurance coverage has expired.' : 'Port Pass has expired.'}
+                  {!isInsuranceValid && !isPortPassValid ? 'Both Insurance and Port Pass have expired.' :
+                    !isInsuranceValid ? 'Insurance coverage has expired.' : 'Port Pass has expired.'}
                 </p>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-x-12 gap-y-6">
-            
+          <div className="grid grid-cols-3 gap-y-6 gap-x-12">
+
             {/* Identity Details */}
             <div className="space-y-4">
               <h3 className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 pb-0.5 flex items-center gap-1.5">
@@ -77,13 +77,13 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
               <h3 className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 pb-0.5 flex items-center gap-1.5">
                 <Calendar size={10} /> Documentation
               </h3>
-              <DetailItem 
-                label="Insurance Expiry" 
-                value={vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toLocaleDateString('en-GB') : ''} 
+              <DetailItem
+                label="Insurance Expiry"
+                value={vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toLocaleDateString('en-GB') : ''}
               />
-              <DetailItem 
-                label="Port Pass Expiry" 
-                value={vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toLocaleDateString('en-GB') : ''} 
+              <DetailItem
+                label="Port Pass Expiry"
+                value={vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toLocaleDateString('en-GB') : ''}
               />
             </div>
 
@@ -105,17 +105,15 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
               </span>
             </div>
 
-            <div className={`flex flex-col items-center p-2 rounded-xl border border-gray-100 shadow-sm ${
-              (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'available' ? 'bg-success/10' :
+            <div className={`flex flex-col items-center p-2 rounded-xl border border-gray-100 shadow-sm ${(vehicle.availability_status || vehicle.status)?.toLowerCase() === 'available' ? 'bg-success/10' :
               (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'on_trip' ? 'bg-warning/10' :
-              'bg-error/10'
-            }`}>
-              <p className="text-[8px] text-gray-400 uppercase font-black mb-0.5">Current Status</p>
-              <span className={`text-xs font-black ${
-                (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'available' ? 'text-success' :
-                (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'on_trip' ? 'text-warning' :
-                'text-error'
+                'bg-error/10'
               }`}>
+              <p className="text-[8px] text-gray-400 uppercase font-black mb-0.5">Current Status</p>
+              <span className={`text-xs font-black ${(vehicle.availability_status || vehicle.status)?.toLowerCase() === 'available' ? 'text-success' :
+                (vehicle.availability_status || vehicle.status)?.toLowerCase() === 'on_trip' ? 'text-warning' :
+                  'text-error'
+                }`}>
                 {(vehicle.availability_status || 'available').toUpperCase()}
               </span>
             </div>
@@ -124,22 +122,22 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
 
         {/* Action Footer */}
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex flex-col sm:flex-row gap-2.5">
-          <button 
+          <button
             onClick={onClose}
-            className="flex-1 order-3 sm:order-1 px-4 py-2 text-xs font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+            className="flex-1 order-3 px-4 py-2 text-xs font-bold text-gray-600 bg-white rounded-xl border border-gray-200 shadow-sm transition-all sm:order-1 hover:bg-gray-50"
           >
             Back
           </button>
           <div className="flex-[2] order-1 sm:order-2 flex gap-2.5">
-            <button 
+            <button
               onClick={() => onEdit(vehicle)}
-              className="flex-1 px-4 py-2 text-xs font-bold text-primary bg-white border border-primary/30 rounded-xl hover:bg-blue-50 transition-all shadow-sm"
+              className="flex-1 px-4 py-2 text-xs font-bold bg-white rounded-xl border shadow-sm transition-all text-primary border-primary/30 hover:bg-blue-50"
             >
               Edit Vehicle
             </button>
-            <button 
+            <button
               onClick={() => onDelete(vehicle)}
-              className="flex-1 px-4 py-2 text-xs font-bold text-error bg-error/5 border border-error/20 rounded-xl hover:bg-error/10 transition-all shadow-sm"
+              className="flex-1 px-4 py-2 text-xs font-bold rounded-xl border shadow-sm transition-all text-error bg-error/5 border-error/20 hover:bg-error/10"
             >
               Remove Vehicle
             </button>

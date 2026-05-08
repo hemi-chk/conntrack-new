@@ -12,6 +12,8 @@ import {
   deleteDriver,
   getBids,
   submitBid,
+  updateBid,
+  deleteBid,
   getOpenBiddings,
   getChatMessages,
   sendMessage,
@@ -44,6 +46,8 @@ router.delete('/drivers/:id', deleteDriver)
 router.get('/bids', getBids)
 router.get('/open-biddings', getOpenBiddings)
 router.post('/bids', submitBid)
+router.put('/bids/:id', updateBid)
+router.delete('/bids/:id', deleteBid)
 
 // --- Chat Routes ---
 router.get('/chats/:chatId/messages', getChatMessages)

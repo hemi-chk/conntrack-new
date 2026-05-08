@@ -77,7 +77,13 @@ export const PlaceBidModal = ({ isOpen, onClose, bid, onBidSuccess }) => {
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-xl font-bold text-primary">Place Bid</h2>
-              <p className="text-xs text-primary/70 mt-0.5">Review order details and submit your price for Bidding #{bid.bidding_id}</p>
+              <div className="flex flex-col mt-0.5">
+                <p className="text-xs text-primary/70 font-medium">Review order details and submit your price for Bidding #{bid.bidding_id}</p>
+                <div className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-error">
+                  <AlertTriangle size={12} />
+                  <span>BID CLOSE AT: {bid.end_time ? new Date(bid.end_time).toLocaleString('en-GB') : 'N/A'}</span>
+                </div>
+              </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
               <X size={20} />

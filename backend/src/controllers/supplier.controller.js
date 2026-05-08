@@ -304,7 +304,15 @@ export const deleteDriver = async (req, res) => {
 export const getBids = async (req, res) => {
   try {
     const { supplier_id } = req.query
-    let query = supabase.from('bids').select('*')
+    let query = supabase
+      .from('bids')
+      .select(`
+        *,
+        bidding (
+          *,
+          orders (*)
+        )
+      `)
     
     if (supplier_id) {
       query = query.eq('supplier_id', supplier_id)
@@ -351,6 +359,39 @@ export const submitBid = async (req, res) => {
     res.status(201).json(data[0])
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+}
+
+export const updateBid = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { data, error } = await supabase
+      .from('bids')
+      .update(req.body)
+      .eq('bid_id', id)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Bid not found' })
+    
+    res.json(data[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+export const deleteBid = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { error } = await supabase
+      .from('bids')
+      .delete()
+      .eq('bid_id', id)
+
+    if (error) throw error
+    res.json({ message: 'Bid deleted successfully' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 }
 

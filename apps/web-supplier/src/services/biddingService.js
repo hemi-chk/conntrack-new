@@ -45,3 +45,37 @@ export const getSupplierBids = async (supplierId) => {
     throw error;
   }
 };
+
+export const updateBid = async (bidId, updateData) => {
+  try {
+    const res = await fetch(`${BASE_URL}/supplier/bids/${bidId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updateData)
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to update bid');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Service: updateBid error:", error);
+    throw error;
+  }
+};
+
+export const deleteBid = async (bidId) => {
+  try {
+    const res = await fetch(`${BASE_URL}/supplier/bids/${bidId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to delete bid');
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Service: deleteBid error:", error);
+    throw error;
+  }
+};

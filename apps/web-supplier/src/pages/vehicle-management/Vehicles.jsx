@@ -160,7 +160,6 @@ export const Vehicles = () => {
               <tr className="text-sm font-semibold text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4">VEHICLE NO</th>
                 <th className="px-6 py-4">TYPE</th>
-                <th className="px-6 py-4">CONDITION</th>
                 <th className="px-6 py-4">INSURANCE</th>
                 <th className="px-6 py-4">PORT PASS</th>
                 <th className="px-6 py-4">STATUS</th>
@@ -170,13 +169,13 @@ export const Vehicles = () => {
             <tbody className="divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                     Loading vehicles...
                   </td>
                 </tr>
               ) : filteredVehicles.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col gap-3 items-center">
                       <div className="p-4 bg-gray-50 rounded-full">
                         <Inbox size={40} className="text-gray-300" strokeWidth={1.5} />
@@ -195,15 +194,6 @@ export const Vehicles = () => {
                   </td>
                   <td className="px-6 py-4 font-semibold text-gray-600">
                     {vehicle.type || vehicle.vehicle_type || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      vehicle.condition_status === 'good' ? 'bg-green-50 text-green-700' :
-                      vehicle.condition_status === 'maintenance' ? 'bg-amber-50 text-amber-700' :
-                      'bg-red-50 text-red-700'
-                    }`}>
-                      {vehicle.condition_status || 'good'}
-                    </span>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">
                     {vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toLocaleDateString('en-GB') : 'N/A'}
