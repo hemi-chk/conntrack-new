@@ -303,14 +303,40 @@ export const deleteDriver = async (req, res) => {
 
 export const getBids = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('bids')
-      .select('*')
+    const { supplier_id } = req.query
+    let query = supabase.from('bids').select('*')
+    
+    if (supplier_id) {
+      query = query.eq('supplier_id', supplier_id)
+    }
+
+    const { data, error } = await query
     
     if (error) throw error
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+}
+
+export const getOpenBiddings = async (req, res) => {
+  try {
+    const now = new Date().toISOString()
+    
+    const { data, error } = await supabase
+      .from('bidding')
+      .select(`
+        *,
+        orders (*)
+      `)
+      .eq('status', 'open')
+      .lte('start_time', now)
+      .gte('end_time', now)
+    
+    if (error) throw error
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 }
 
