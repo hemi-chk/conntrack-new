@@ -311,6 +311,13 @@ export const getBids = async (req, res) => {
         bidding (
           *,
           orders (*)
+        ),
+        drivers (
+          first_name,
+          last_name
+        ),
+        vehicles (
+          vehicle_number
         )
       `)
     
