@@ -13,23 +13,32 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
 
   useEffect(() => {
     if (bid && isOpen) {
-      setSelectedDriver(bid.driver_id || '');
-      setSelectedVehicle(bid.vehicle_id || '');
+      // Use driver_id from bid, or fallback to the joined drivers object's id
+      const initialDriver = bid.driver_id || (bid.drivers?.id || bid.drivers?.driver_id);
+      const initialVehicle = bid.vehicle_id || (bid.vehicles?.id || bid.vehicles?.vehicle_id);
+      
+      setSelectedDriver(initialDriver || '');
+      setSelectedVehicle(initialVehicle || '');
     }
   }, [bid, isOpen]);
 
   if (!isOpen || !bid) return null;
 
-  const bidding = bid.bidding || {};
-  const order = bidding.orders || {};
+  // Handle both object and array-of-one cases from Supabase joins
+  const bidding = Array.isArray(bid.bidding) ? bid.bidding[0] : (bid.bidding || {});
+  const order = Array.isArray(bidding.orders) ? bidding.orders[0] : (bidding.orders || {});
 
   const handleAssign = async () => {
     try {
       setIsUpdating(true);
-      await updateBid(bid.bid_id, {
-        driver_id: selectedDriver || null,
-        vehicle_id: selectedVehicle || null
-      });
+      
+      // Ensure we send numeric IDs if the database expects them
+      const payload = {
+        driver_id: selectedDriver ? (isNaN(selectedDriver) ? selectedDriver : parseInt(selectedDriver)) : null,
+        vehicle_id: selectedVehicle ? (isNaN(selectedVehicle) ? selectedVehicle : parseInt(selectedVehicle)) : null
+      };
+
+      await updateBid(bid.bid_id || bid.id, payload);
       alert('Assignment updated successfully!');
       if (onUpdateSuccess) onUpdateSuccess();
       onClose();
@@ -41,14 +50,15 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
   };
 
   // Filter drivers for the supplier and with PASSED compliance status
-  // System logic for "PASSED": Has user_id AND no removal/deactivation reasons
   const filteredDrivers = drivers.filter(d => {
+    const dId = (d.id || d.driver_id)?.toString();
+    const isCurrentlySelected = dId === selectedDriver?.toString();
+    if (isCurrentlySelected) return true;
+
     const hasUserId = d.user_id !== null && d.user_id !== undefined && d.user_id !== '';
     const isNotRemoved = !d.removal_reason;
     const isNotDeactivated = !d.deactivation_reason;
     
-    // As per user: "show drivers work under login supplier and not null user_id"
-    // AND "Compliance Status as PASSED"
     return hasUserId && isNotRemoved && isNotDeactivated;
   });
 
@@ -90,8 +100,8 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
             <ReadOnlyField label="Order Type" value={order.order_type} icon={Package} />
             <ReadOnlyField label="Pickup Date" value={order.pickup_date ? new Date(order.pickup_date).toLocaleDateString('en-GB') : ''} icon={Calendar} />
 
-            <ReadOnlyField label="Pickup Location" value={`${order.pickup_state}, ${order.pickup_country}`} icon={MapPin} />
-            <ReadOnlyField label="Destination" value={`${order.destination_state}, ${order.destination_country}`} icon={MapPin} />
+            <ReadOnlyField label="Pickup Location" value={order.pickup_state ? `${order.pickup_state}, ${order.pickup_country}` : ''} icon={MapPin} />
+            <ReadOnlyField label="Destination" value={order.destination_state ? `${order.destination_state}, ${order.destination_country}` : ''} icon={MapPin} />
             <ReadOnlyField label="Cargo Type" value={order.cargo_type} />
             <ReadOnlyField label="Expected Arrival" value={order.expected_arrival ? new Date(order.expected_arrival).toLocaleDateString('en-GB') : ''} icon={Calendar} />
 
@@ -121,7 +131,7 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
                 >
                   <option value="">Select Driver (Empty)</option>
                   {filteredDrivers.map(d => (
-                    <option key={d.driver_id} value={d.driver_id}>
+                    <option key={d.id || d.driver_id} value={d.id || d.driver_id}>
                       {d.first_name} {d.last_name} ({d.emp_id})
                     </option>
                   ))}
@@ -138,8 +148,8 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
                 >
                   <option value="">Select Vehicle (Empty)</option>
                   {vehicles.map(v => (
-                    <option key={v.vehicle_number} value={v.id || v.vehicle_id || v.vehicle_number}>
-                      {v.vehicle_number} ({v.vehicle_type})
+                    <option key={v.id || v.vehicle_id || v.vehicle_number} value={v.id || v.vehicle_id || v.vehicle_number}>
+                      {v.vehicle_number} ({v.type || v.vehicle_type || 'N/A'})
                     </option>
                   ))}
                 </select>

@@ -104,7 +104,7 @@ export const AssignedJobs = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm font-semibold uppercase text-gray-500 tracking-wider">
+              <tr className="text-sm font-semibold tracking-wider text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
                 <th className="px-6 py-4">BIDDING ID</th>
                 <th className="px-6 py-4">PICKUP</th>
                 <th className="px-6 py-4">DESTINATION</th>
@@ -147,7 +147,7 @@ export const AssignedJobs = () => {
                   const order = bid.bidding?.orders || {};
                   const driverName = bid.drivers ? `${bid.drivers.first_name} ${bid.drivers.last_name}` : "Assign driver";
                   const vehicleNum = bid.vehicles?.vehicle_number || "Assign Vehicle";
- 
+
                   return (
                     <tr key={bid.bid_id} className="transition-colors hover:bg-gray-50">
                       <td className="px-6 py-4">
@@ -193,7 +193,7 @@ export const AssignedJobs = () => {
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => handleViewDetails(bid)}
-                          className="px-5 py-2 text-xs font-bold text-white bg-primary hover:bg-blue-800 rounded-lg shadow-sm transition-all flex items-center gap-2 mx-auto active:scale-95 uppercase tracking-tight"
+                          className="text-sm font-medium text-primary hover:underline"
                         >
                           View
                         </button>
