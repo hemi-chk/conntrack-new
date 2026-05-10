@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Country, State } from "country-state-city";
 
 function CreateOrder({ onNavigate }) {
+  // Initial form structure used to reset the form after submit/cancel
   const initialState = {
-    orderId: "",
+    orderId: "Auto-generated",
     orderType: "Export",
     cargoType: "",
     cargoWeight: "",
@@ -24,15 +25,43 @@ function CreateOrder({ onNavigate }) {
     },
     documents: {
       commercialInvoice: null,
-      boiClearance: null,
-      portGatePass: null,
       packingList: null,
     },
   };
 
-  const [form, setForm] = useState(initialState);
+  // Fixed cargo category list shown in the Cargo Type dropdown
+  const cargoTypes = [
+    "Electronics",
+    "Furniture",
+    "Food Products",
+    "Textiles",
+    "Automobile Parts",
+    "Machinery",
+    "Construction Materials",
+    "Chemicals",
+    "Medical Supplies",
+    "Agricultural Products",
+    "Garments",
+    "Plastic Products",
+    "Rubber Products",
+    "Paper Products",
+    "Metal Products",
+    "Wood Products",
+    "Glass Products",
+    "Cosmetics",
+    "Pharmaceuticals",
+    "Frozen Goods",
+    "General Cargo",
+  ];
 
+  const [form, setForm] = useState(initialState);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingId, setIsGeneratingId] = useState(false);
+
+  // Prevents selecting previous dates for pickup/arrival
   const today = new Date().toISOString().split("T")[0];
+
+  // Country and state data are loaded from country-state-city package
   const countries = Country.getAllCountries();
 
   const pickupStates = form.pickupCountry
@@ -43,13 +72,63 @@ function CreateOrder({ onNavigate }) {
     ? State.getStatesOfCountry(form.destinationCountry)
     : [];
 
-  const generateOrderId = (type) => {
-    const random = Math.floor(1000 + Math.random() * 9000);
-    return `${type === "Import" ? "IMP" : "EXP"}-${random}`;
+  // Converts country ISO code into readable country name before saving to database
+  const getCountryName = (code) => {
+    return Country.getCountryByCode(code)?.name || code;
   };
 
+  // Calls backend API to generate the next Import/Export order ID
+  const generateOrderId = async (type) => {
+    try {
+      setIsGeneratingId(true);
+
+      const response = await fetch(
+        `http://localhost:5000/api/operations/orders/next-id?type=${type.toLowerCase()}`
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to generate order ID");
+      }
+
+      // Updates order type and auto-generated order reference
+      setForm((prev) => ({
+        ...prev,
+        orderType: type,
+        orderId: result.orderId,
+      }));
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setIsGeneratingId(false);
+    }
+  };
+
+  // Handles normal input/select changes and validates cargo weight
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "cargoWeight") {
+      if (value === "") {
+        setForm({
+          ...form,
+          cargoWeight: "",
+        });
+        return;
+      }
+
+      const numericValue = Number(value);
+
+      if (numericValue <= 0) {
+        setForm({
+          ...form,
+          cargoWeight: "",
+        });
+        alert("Cargo weight must be greater than 0 kg");
+        return;
+      }
+    }
 
     setForm({
       ...form,
@@ -57,6 +136,7 @@ function CreateOrder({ onNavigate }) {
     });
   };
 
+  // Updates special instruction checkbox values
   const handleInstructionChange = (e) => {
     const { name, checked } = e.target;
 
@@ -69,6 +149,7 @@ function CreateOrder({ onNavigate }) {
     });
   };
 
+  // Stores selected document files in form state
   const handleDocumentChange = (e) => {
     const { name, files } = e.target;
 
@@ -81,65 +162,93 @@ function CreateOrder({ onNavigate }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  // Validates form, prepares payload, and sends new order to backend
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.orderId || !form.cargoType) {
-      alert("Please fill required fields");
+    // Required field validation before sending data to backend
+    if (
+      !form.orderId ||
+      form.orderId === "Auto-generated" ||
+      !form.orderType ||
+      !form.cargoType ||
+      !form.cargoWeight ||
+      Number(form.cargoWeight) <= 0 ||
+      !form.pickupCountry ||
+      !form.pickupState ||
+      !form.destinationCountry ||
+      !form.destinationState ||
+      !form.pickupDate ||
+      !form.arrivalDate ||
+      !form.vehicleSize ||
+      !form.vehicleNo
+    ) {
+      alert(
+        "Please select Import or Export to generate Order ID and fill all required fields correctly"
+      );
       return;
     }
 
+    // Converts selected checkbox instructions into an array
     const selectedInstructions = Object.entries(form.instructions)
       .filter(([, value]) => value)
       .map(([key]) => key);
 
-    const newOrder = {
-      id: form.orderId,
-      type: form.orderType,
-      supplier: "-",
-      driver: "-",
-      pickup: form.pickupState || "-",
-      destination: form.destinationState || "-",
-      status: "Created",
-      cargoType: form.cargoType,
-      cargoWeight: form.cargoWeight,
-      pickupDate: form.pickupDate,
-      arrivalDate: form.arrivalDate,
-      vehicleSize: form.vehicleSize,
-      vehicleNo: form.vehicleNo,
-      notes: form.notes,
-      selectedInstructions,
-      vehicle: {
-        insurance: "-",
-        portPass: "-",
-        condition: "-",
-      },
-      driverDetails: {
-        name: "-",
-        license: "-",
-        policeReport: "-",
-      },
-      progress: ["Created", "Bidding", "Pickup", "In Transit", "Delivered"],
-      currentStep: 0,
+    // Payload format matches backend/database column names
+    const payload = {
+      order_reference: form.orderId,
+      order_type: form.orderType.toLowerCase(),
+      cargo_type: form.cargoType,
+      cargo_weight: Number(form.cargoWeight),
+      pickup_country: getCountryName(form.pickupCountry),
+      pickup_state: form.pickupState,
+      destination_country: getCountryName(form.destinationCountry),
+      destination_state: form.destinationState,
+      pickup_date: form.pickupDate,
+      expected_arrival: form.arrivalDate,
+      vehicle_type: form.vehicleSize,
+      container_no: form.vehicleNo,
+
+      // Combines checkbox instructions and additional notes into one text field
+      special_instructions: [...selectedInstructions, form.notes]
+        .filter(Boolean)
+        .join(", "),
     };
 
-    const existingOrders =
-      JSON.parse(localStorage.getItem("createdOrders")) || [];
+    try {
+      setIsSubmitting(true);
 
-    localStorage.setItem(
-      "createdOrders",
-      JSON.stringify([newOrder, ...existingOrders])
-    );
+      const response = await fetch("http://localhost:5000/api/operations/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
-    alert("Order Created Successfully!");
+      const result = await response.json();
 
-    setForm(initialState);
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create order");
+      }
 
-    if (onNavigate) {
-      onNavigate("/orders");
+      alert("Order created successfully and saved to database!");
+
+      // Clears form after successful order creation
+      setForm(initialState);
+
+      // Redirects user to Orders page after order is created
+      if (onNavigate) {
+        onNavigate("/orders");
+      }
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Clears all form fields without submitting
   const handleCancel = () => {
     setForm(initialState);
   };
@@ -159,14 +268,9 @@ function CreateOrder({ onNavigate }) {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    orderType: "Import",
-                    orderId: generateOrderId("Import"),
-                  })
-                }
-                className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 ${
+                onClick={() => generateOrderId("Import")}
+                disabled={isGeneratingId || isSubmitting}
+                className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 disabled:opacity-50 ${
                   form.orderType === "Import"
                     ? "bg-[#1E40AF] text-[#FFFFFF] border-[#1E40AF]"
                     : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EFF6FF]"
@@ -177,14 +281,9 @@ function CreateOrder({ onNavigate }) {
 
               <button
                 type="button"
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    orderType: "Export",
-                    orderId: generateOrderId("Export"),
-                  })
-                }
-                className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 ${
+                onClick={() => generateOrderId("Export")}
+                disabled={isGeneratingId || isSubmitting}
+                className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 disabled:opacity-50 ${
                   form.orderType === "Export"
                     ? "bg-[#1E40AF] text-[#FFFFFF] border-[#1E40AF]"
                     : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EFF6FF]"
@@ -198,10 +297,10 @@ function CreateOrder({ onNavigate }) {
           <Field label="Order ID">
             <input
               name="orderId"
-              value={form.orderId}
-              onChange={handleChange}
-              placeholder="EXP-1023"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
+              value={isGeneratingId ? "Generating..." : form.orderId}
+              disabled
+              placeholder="Auto-generated by system"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#EFF6FF] text-[#1E293B] outline-none cursor-not-allowed"
             />
           </Field>
 
@@ -213,11 +312,11 @@ function CreateOrder({ onNavigate }) {
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Cargo Type</option>
-              <option>Electronics</option>
-              <option>Furniture</option>
-              <option>Food Products</option>
-              <option>Textiles</option>
-              <option>Automobile Parts</option>
+              {cargoTypes.map((cargoType) => (
+                <option key={cargoType} value={cargoType}>
+                  {cargoType}
+                </option>
+              ))}
             </select>
           </Field>
 
@@ -227,6 +326,8 @@ function CreateOrder({ onNavigate }) {
               name="cargoWeight"
               value={form.cargoWeight}
               onChange={handleChange}
+              min="1"
+              step="1"
               placeholder="Enter Cargo Weight"
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
@@ -340,26 +441,19 @@ function CreateOrder({ onNavigate }) {
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Vehicle</option>
-              <option>20ft Container</option>
-              <option>40ft Container</option>
-              <option>Flatbed Trailer</option>
-              <option>Special Vehicle</option>
+              <option value="HCV">HCV</option>
+              <option value="LCV">LCV</option>
             </select>
           </Field>
 
           <Field label="Container No">
-            <select
+            <input
               name="vehicleNo"
               value={form.vehicleNo}
               onChange={handleChange}
+              placeholder="Enter Container No"
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
-            >
-              <option value="">Select Container No</option>
-              <option>WP-AB-1234</option>
-              <option>CP-CD-5678</option>
-              <option>SP-EF-9012</option>
-              <option>NP-GH-3456</option>
-            </select>
+            />
           </Field>
         </div>
 
@@ -369,10 +463,19 @@ function CreateOrder({ onNavigate }) {
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DocumentUpload label="1. Commercial Invoice" name="commercialInvoice" file={form.documents.commercialInvoice} onChange={handleDocumentChange} />
-            <DocumentUpload label="2. BOI Clearance" name="boiClearance" file={form.documents.boiClearance} onChange={handleDocumentChange} />
-            <DocumentUpload label="3. Port Gate Pass" name="portGatePass" file={form.documents.portGatePass} onChange={handleDocumentChange} />
-            <DocumentUpload label="4. Packing List" name="packingList" file={form.documents.packingList} onChange={handleDocumentChange} />
+            <DocumentUpload
+              label="1. Commercial Invoice"
+              name="commercialInvoice"
+              file={form.documents.commercialInvoice}
+              onChange={handleDocumentChange}
+            />
+
+            <DocumentUpload
+              label="2. Packing List"
+              name="packingList"
+              file={form.documents.packingList}
+              onChange={handleDocumentChange}
+            />
           </div>
         </div>
 
@@ -383,10 +486,33 @@ function CreateOrder({ onNavigate }) {
 
           <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#EFF6FF]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <CheckboxInstruction label="Fragile cargo" name="fragileCargo" checked={form.instructions.fragileCargo} onChange={handleInstructionChange} />
-              <CheckboxInstruction label="Temperature sensitive" name="temperatureSensitive" checked={form.instructions.temperatureSensitive} onChange={handleInstructionChange} />
-              <CheckboxInstruction label="Handle with crane" name="handleWithCrane" checked={form.instructions.handleWithCrane} onChange={handleInstructionChange} />
-              <CheckboxInstruction label="Priority shipment" name="priorityShipment" checked={form.instructions.priorityShipment} onChange={handleInstructionChange} />
+              <CheckboxInstruction
+                label="Fragile cargo"
+                name="fragileCargo"
+                checked={form.instructions.fragileCargo}
+                onChange={handleInstructionChange}
+              />
+
+              <CheckboxInstruction
+                label="Temperature sensitive"
+                name="temperatureSensitive"
+                checked={form.instructions.temperatureSensitive}
+                onChange={handleInstructionChange}
+              />
+
+              <CheckboxInstruction
+                label="Handle with crane"
+                name="handleWithCrane"
+                checked={form.instructions.handleWithCrane}
+                onChange={handleInstructionChange}
+              />
+
+              <CheckboxInstruction
+                label="Priority shipment"
+                name="priorityShipment"
+                checked={form.instructions.priorityShipment}
+                onChange={handleInstructionChange}
+              />
             </div>
           </div>
         </div>
@@ -395,6 +521,7 @@ function CreateOrder({ onNavigate }) {
           <label className="block mb-2 font-medium text-sm text-[#1E293B]">
             Additional Instructions
           </label>
+
           <textarea
             name="notes"
             value={form.notes}
@@ -408,16 +535,18 @@ function CreateOrder({ onNavigate }) {
           <button
             type="button"
             onClick={handleCancel}
-            className="px-6 py-2 border border-[#BFDBFE] rounded-md text-[#1E293B] bg-[#FFFFFF] hover:bg-[#EFF6FF] transition"
+            disabled={isSubmitting || isGeneratingId}
+            className="px-6 py-2 border border-[#BFDBFE] rounded-md text-[#1E293B] bg-[#FFFFFF] hover:bg-[#EFF6FF] transition disabled:opacity-50"
           >
             Cancel
           </button>
 
           <button
             type="submit"
-            className="px-6 py-2 bg-[#1E40AF] text-[#FFFFFF] rounded-md hover:opacity-90 transition"
+            disabled={isSubmitting || isGeneratingId}
+            className="px-6 py-2 bg-[#1E40AF] text-[#FFFFFF] rounded-md hover:opacity-90 transition disabled:opacity-50"
           >
-            Create & Submit to Logistics
+            {isSubmitting ? "Creating..." : "Create & Submit to Logistics"}
           </button>
         </div>
       </form>
@@ -425,17 +554,20 @@ function CreateOrder({ onNavigate }) {
   );
 }
 
+// Reusable wrapper for form label + input/select field
 function Field({ label, children }) {
   return (
     <div>
       <label className="block mb-2 font-medium text-sm text-[#1E293B]">
         {label}
       </label>
+
       {children}
     </div>
   );
 }
 
+// Reusable upload component for order documents
 function DocumentUpload({ label, name, file, onChange }) {
   return (
     <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#FFFFFF]">
@@ -446,7 +578,13 @@ function DocumentUpload({ label, name, file, onChange }) {
       <div className="flex items-center gap-4">
         <label className="px-4 py-2 bg-[#EFF6FF] text-[#1E293B] border border-[#BFDBFE] rounded-md cursor-pointer hover:border-[#1E40AF] transition">
           Choose File
-          <input type="file" name={name} onChange={onChange} className="hidden" />
+
+          <input
+            type="file"
+            name={name}
+            onChange={onChange}
+            className="hidden"
+          />
         </label>
 
         <span className="text-sm text-[#1E293B]">
@@ -457,6 +595,7 @@ function DocumentUpload({ label, name, file, onChange }) {
   );
 }
 
+// Reusable checkbox component for special instruction options
 function CheckboxInstruction({ label, name, checked, onChange }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
@@ -467,6 +606,7 @@ function CheckboxInstruction({ label, name, checked, onChange }) {
         onChange={onChange}
         className="w-4 h-4 accent-[#1E40AF]"
       />
+
       <span className="text-[#1E293B]">{label}</span>
     </label>
   );

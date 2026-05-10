@@ -2,11 +2,9 @@ import {
   LayoutDashboard,
   PlusSquare,
   Package,
-  Building2,
   Truck,
   AlertCircle,
   Gavel,
-  FileBarChart,
   ChevronRight,
 } from 'lucide-react'
 
@@ -14,11 +12,9 @@ const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: PlusSquare, label: 'Create Order', path: '/create' },
   { icon: Package, label: 'Orders', path: '/orders' },
-  { icon: Building2, label: 'Suppliers', path: '/suppliers' },
+  { icon: Gavel, label: 'Bidding', path: '/bidding' },
   { icon: Truck, label: 'Tracking', path: '/tracking' },
   { icon: AlertCircle, label: 'Issues', path: '/issues' },
-  { icon: Gavel, label: 'Bidding', path: '/bidding' },
-  { icon: FileBarChart, label: 'Reports', path: '/reports' },
 ]
 
 function Sidebar({ isOpen, currentPath, onNavigate }) {
