@@ -277,8 +277,7 @@ exports.updateMissionStatus = async (req, res) => {
         const { error: assignmentError } = await supabase
             .from('order_assignments')
             .update({
-                status: status,
-                updated_at: new Date()
+                status: status
             })
             .eq('assignment_id', assignmentId);
 
