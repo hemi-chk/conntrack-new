@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, ActivityIndicator, RefreshControl, Linking } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
