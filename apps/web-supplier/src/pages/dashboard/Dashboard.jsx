@@ -1,162 +1,212 @@
 import React from 'react';
-import { useDashboard } from '../../hooks/useDashboard';
-import { 
-  ClipboardList, 
-  Truck, 
-  Users, 
-  FileText, 
-  ArrowRight,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Package,
+import { useProfile } from '../../hooks/useProfile';
+import { useBiddings } from '../../hooks/useBiddings';
+import { useVehicles } from '../../hooks/useVehicles';
+import { useDrivers } from '../../hooks/useDrivers';
+import {
+  ClipboardList,
+  Truck,
+  Users,
+  FileText,
+  MapPin,
   Inbox
 } from 'lucide-react';
 
 export const Dashboard = () => {
-  const { stats } = useDashboard();
+  const { profileData } = useProfile();
+  const { myBids, isLoading: loadingBids } = useBiddings(profileData);
+  const { vehicles, isLoading: loadingVehicles } = useVehicles();
+  const { drivers, isLoading: loadingDrivers } = useDrivers();
+
+  // Active Jobs (Tracking logic: accepted & pickup date is today)
+  const activeJobsData = myBids.filter(bid => {
+    const status = (bid.bid_status || bid.status || '').toLowerCase();
+    if (status !== 'accepted') return false;
+
+    const bidding = Array.isArray(bid.bidding) ? bid.bidding[0] : (bid.bidding || {});
+    const order = Array.isArray(bidding.orders) ? bidding.orders[0] : (bidding.orders || {});
+    const pickupStr = order.pickup_date || bid.bidding?.orders?.pickup_date;
+
+    if (!pickupStr) return false;
+
+    const pickupDate = new Date(pickupStr);
+    pickupDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return pickupDate.getTime() === today.getTime();
+  });
+
+  // Under Review Bids
+  const bidsSubmittedCount = myBids.filter(bid =>
+    (bid.bid_status || bid.status || '').toLowerCase() === 'under_review'
+  ).length;
+
+  // Vehicles Stats
+  const totalVehicles = vehicles.length;
+  const availableVehiclesCount = vehicles.filter(v => (v.availability_status || v.status)?.toLowerCase() !== 'unavailable').length;
+
+  // Drivers Stats
+  const totalDrivers = drivers.length;
+  const availableDriversCount = drivers.filter(d => (d.availability_status || d.status)?.toLowerCase() !== 'unavailable').length;
 
   const statCards = [
     {
       title: 'Active Jobs',
-      value: stats?.activeJobs || 0,
+      value: activeJobsData.length,
       icon: <ClipboardList className="w-6 h-6 text-primary" />,
       label: 'Currently ongoing',
     },
     {
       title: 'Vehicles',
-      value: `${stats?.availableVehicles || 0}/${stats?.totalVehicles || 0}`,
+      value: `${availableVehiclesCount}/${totalVehicles}`,
       icon: <Truck className="w-6 h-6 text-primary" />,
       label: 'Available for work',
     },
     {
       title: 'Drivers',
-      value: `${stats?.availableDrivers || 0}/${stats?.totalDrivers || 0}`,
+      value: `${availableDriversCount}/${totalDrivers}`,
       icon: <Users className="w-6 h-6 text-primary" />,
       label: 'Active on duty',
     },
     {
       title: 'Bids Submitted',
-      value: String(stats?.bidsSubmitted || 0).padStart(2, '0'),
+      value: bidsSubmittedCount,
       icon: <FileText className="w-6 h-6 text-primary" />,
       label: 'Pending approval',
     },
   ];
 
+  const isLoading = loadingBids || loadingVehicles || loadingDrivers;
+  const todayStr = new Date().toLocaleDateString('en-GB');
+
   return (
-    <div className="flex flex-col gap-6 text-dark animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+    <div className="flex flex-col gap-6 duration-500 text-dark animate-in fade-in slide-in-from-bottom-4">
+
       {/* Header Title */}
       <div>
         <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card, idx) => (
-          <div 
-            key={idx} 
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4"
+          <div
+            key={idx}
+            className="flex flex-col gap-4 p-6 bg-white rounded-xl border border-gray-200 shadow-sm"
           >
-            <div className="flex items-center justify-between">
-              <div className="bg-blue-50 p-3 rounded-lg text-primary">
+            <div className="flex justify-between items-center">
+              <div className="p-3 bg-blue-50 rounded-lg text-primary">
                 {card.icon}
               </div>
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{card.title}</span>
+              <span className="text-sm font-semibold tracking-wider text-gray-500 uppercase">{card.title}</span>
               <span className="text-2xl font-bold text-dark">{card.value}</span>
-              <span className="text-xs text-gray-400 mt-1 font-medium">{card.label}</span>
+              <span className="mt-1 text-xs font-medium text-gray-400">{card.label}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Recent Activity Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* Recent Activity Table (Tracking Style) */}
+      <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm transition-shadow hover:shadow-md">
+        <div className="flex justify-between items-center p-5 border-b border-gray-200">
+          <div className="flex gap-2 items-center">
             <h2 className="text-xl font-bold text-primary">Recent Activity</h2>
           </div>
-          <button className="text-primary hover:text-blue-800 font-bold text-sm flex items-center gap-1 group transition-colors">
-            View All 
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-          </button>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-sm font-semibold uppercase text-gray-500">
-                <th className="px-6 py-4">ORDER ID</th>
-                <th className="px-6 py-4">TYPE</th>
-                <th className="px-6 py-4">STATUS</th>
-                <th className="px-6 py-4">TIME</th>
-                <th className="px-6 py-4 text-center">ACTION</th>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[11px] font-bold uppercase text-gray-500 tracking-wider">
+                <th className="px-6 py-3">BIDDING ID</th>
+                <th className="px-6 py-3">PICKUP</th>
+                <th className="px-6 py-3">DESTINATION</th>
+                <th className="px-6 py-3">DRIVER</th>
+                <th className="px-6 py-3">VEHICLE</th>
+                <th className="px-6 py-3">LAST UPDATE</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {stats?.recentActivity?.length > 0 ? (
-                stats.recentActivity.map((activity, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-primary text-sm tracking-tight">
-                        {activity.order_id || `ORD-${1000 + idx}`}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <Package size={16} className="text-gray-400" />
-                        <span className="capitalize">{activity.type || 'Import'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={activity.status} />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 font-medium">
-                      {new Date(activity.created_at || Date.now()).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button className="text-primary hover:underline font-bold text-sm">View Details</button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+              {isLoading ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="bg-gray-50 p-4 rounded-full">
+                  <td colSpan="6" className="px-6 py-10 text-center text-gray-400">
+                    <div className="flex flex-col gap-2 items-center">
+                      <div className="w-6 h-6 rounded-full border-2 animate-spin border-primary border-t-transparent"></div>
+                      <p className="text-sm font-medium">Loading activity data...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : activeJobsData.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-10 text-center text-gray-400">
+                    <div className="flex flex-col gap-3 items-center">
+                      <div className="p-4 bg-gray-50 rounded-full">
                         <Inbox size={40} className="text-gray-300" strokeWidth={1.5} />
                       </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <p className="text-gray-500 font-bold text-lg tracking-tight">No recent activity</p>
-                        <p className="text-gray-400 text-sm">Recent orders and status changes will appear here.</p>
+                      <div className="flex flex-col gap-1 items-center">
+                        <p className="text-lg font-bold tracking-tight text-gray-500">No shipments for today</p>
+                        <p className="max-w-xs text-sm text-center text-gray-400">Only jobs scheduled for pickup today ({todayStr}) will appear here.</p>
                       </div>
                     </div>
                   </td>
                 </tr>
+              ) : (
+                activeJobsData.map((bid) => {
+                  const bidding = Array.isArray(bid.bidding) ? bid.bidding[0] : (bid.bidding || {});
+                  const order = Array.isArray(bidding.orders) ? bidding.orders[0] : (bidding.orders || {});
+                  const driver = Array.isArray(bid.drivers) ? bid.drivers[0] : (bid.drivers || {});
+                  const vehicle = Array.isArray(bid.vehicles) ? bid.vehicles[0] : (bid.vehicles || {});
+
+                  const driverName = driver.first_name ? `${driver.first_name} ${driver.last_name}` : "Not Assigned";
+                  const vehicleNum = vehicle.vehicle_number || "Not Assigned";
+
+                  const lastUpdate = order.container_tracking?.[0]?.current_location || "In Transit";
+
+                  return (
+                    <tr key={bid.bid_id} className="transition-colors hover:bg-gray-50">
+                      <td className="px-6 py-2.5">
+                        <span className="text-sm font-bold tracking-tight text-primary">#{bid.bidding_id}</span>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <div className="flex gap-2 items-center">
+                          <MapPin size={14} className="text-success" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold leading-tight text-dark">{order.pickup_state || 'N/A'}</span>
+                            <span className="text-[10px] text-gray-400 uppercase font-semibold">{order.pickup_country || 'N/A'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <div className="flex gap-2 items-center">
+                          <MapPin size={14} className="text-error" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold leading-tight text-dark">{order.destination_state || 'N/A'}</span>
+                            <span className="text-[10px] text-gray-400 uppercase font-semibold">{order.destination_country || 'N/A'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <span className="text-sm font-bold text-dark">{driverName}</span>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <span className="text-sm font-bold text-dark">{vehicleNum}</span>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-tight">
+                          {lastUpdate}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
       </div>
     </div>
-  );
-};
-
-const StatusBadge = ({ status }) => {
-  const styles = {
-    'Accepted': 'bg-green-50 text-green-700 border-green-200',
-    'Pending': 'bg-orange-50 text-orange-700 border-orange-200',
-    'In Transit': 'bg-blue-50 text-blue-700 border-blue-200',
-    'Completed': 'bg-gray-50 text-gray-700 border-gray-200',
-  };
-
-  const currentStyle = styles[status] || 'bg-gray-50 text-gray-600 border-gray-200';
-  
-  return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${currentStyle}`}>
-      {status || 'Unknown'}
-    </span>
   );
 };
