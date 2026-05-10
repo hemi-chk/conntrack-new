@@ -26,5 +26,6 @@ router.post('/change-password', driverController.changePassword);
 router.get('/history/:driverId', driverController.getDriverHistory);
 router.get('/vehicle-info/:supplierId', driverController.getVehicleInfo);
 router.get('/order-documents/:orderId', driverController.getOrderDocuments);
+router.post('/update-push-token', driverController.updatePushToken);
 
 module.exports = router;

@@ -709,3 +709,33 @@ exports.getOrderDocuments = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+/**
+ * 17. Update Expo Push Token
+ * Stores the unique device token for sending push notifications.
+ */
+exports.updatePushToken = async (req, res) => {
+    try {
+        const { driverId, pushToken } = req.body;
+
+        if (!driverId || !pushToken) {
+            return res.status(400).json({ success: false, message: 'Missing driverId or pushToken' });
+        }
+
+        console.log(`Updating Push Token for Driver ${driverId}`);
+
+        const { error } = await supabase
+            .from('drivers')
+            .update({
+                expo_push_token: pushToken,
+                updated_at: new Date()
+            })
+            .eq('driver_id', parseInt(driverId));
+
+        if (error) throw error;
+
+        res.status(200).json({ success: true, message: 'Push token updated successfully' });
+    } catch (error) {
+        console.error('Push Token Update Error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
