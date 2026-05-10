@@ -1,71 +1,104 @@
-# Logistics Management System - Driver App 🚚
+# ConnTrack - Logistics Management System 🚚
 
-Welcome to the **Driver App** interface for the Logistics Management System. This mobile application is built using **React Native** and **Expo**, designed to provide a seamless, real-time experience for delivery drivers.
+Welcome to the **ConnTrack** platform. This repository contains the **Driver Mobile Application** and its associated **Node.js Backend**, providing a real-time, professional solution for logistics operations.
 
-## 📱 About the Project
+## 📱 Project Overview
 
-This application is one of the five core interfaces in the broader Logistics Management System (which will eventually be structured as a Turborepo monorepo). It handles everything a driver needs on the road, including:
-- Real-time route tracking and navigation.
-- Order details and delivery management.
-- Driver profile and vehicle information.
-- Push notifications for new assignments.
+The ConnTrack Driver system is designed to streamline delivery workflows. It focuses on high-accuracy tracking, robust document management, and professional user experiences.
 
-## 🛠️ Tech Stack
+### Key Features
+- **Real-time GPS Tracking**: Integrated `expo-location` with live coordinate reporting and reverse-geocoded location names.
+- **Dynamic Document Management**: Access to clearance documents (Gate Pass, Clearance Permits, etc.) with support for multiple location checkpoints (Port, Warehouse, BOI).
+- **Driver Profile & Security**: 
+    - Profile photo upload and management.
+    - Duty status toggling (Active/Inactive).
+    - Secure password update flow.
+- **Multi-language Support (i18n)**: Full localization for English, Sinhala, and Tamil.
+- **Notification System**: Real-time reporting and monitoring of issues (Vehicle issues, delays, etc.).
 
-- **Framework:** [React Native](https://reactnative.dev/)
-- **Toolchain:** [Expo](https://expo.dev/)
-- **Routing:** Expo Router / React Navigation
-- **Architecture (Planned):** Will integrate with **Supabase** for real-time Postgres DB/Auth and **RabbitMQ** (via a Node.js backend) for scalable asynchronous task queueing.
+## 🛠️ Technology Stack
+
+### Frontend (Mobile)
+- **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/)
+- **Navigation**: React Navigation (Stack & Tabs)
+- **Localization**: `react-i18next`
+- **Location Services**: `expo-location`
+
+### Backend (Server)
+- **Runtime**: Node.js & Express
+- **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
+- **Storage**: Supabase Storage (for documents and profile photos)
+- **Authentication**: Custom identifier-based logic (Driver ID / Employee ID)
+
+---
 
 ## 🚀 Getting Started
 
-Follow these steps to run the application locally on your machine.
+### 1. Repository Setup
+```bash
+git clone https://github.com/hemi-chk/conntrack-new.git
+cd conntrack-new
+git checkout feature/driver-ui
+```
 
-### Prerequisites
-
-Make sure you have the following installed:
-- [Node.js](https://nodejs.org/) (v18 or newer recommended)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
-- Expo Go app installed on your physical device (iOS/Android), or an Android Emulator / iOS Simulator running on your computer.
-
-### Installation
-
-1. Clone the repository and checkout the driver UI branch:
+### 2. Backend Setup
+1. Navigate to the backend directory:
    ```bash
-   git clone https://github.com/hemi-chk/conntrack-new.git
-   cd conntrack-new
-   git checkout feature/driver-ui
+   cd backend
    ```
-
-2. Install the project dependencies:
+2. Install dependencies:
    ```bash
    npm install
    ```
-
-### Running the App
-
-1. Start the Expo development server:
+3. Configure environment variables:
+   - Copy `.env.example` to `.env`.
+   - Add your `SUPABASE_URL` and `SUPABASE_KEY`.
+4. Start the server:
    ```bash
-   npm start
+   npm run dev
    ```
 
-2. Open the app:
-   - **On a physical device:** Scan the QR code generated in your terminal using the Expo Go app.
-   - **On Android Emulator:** Press `a` in the terminal.
-   - **On iOS Simulator:** Press `i` in the terminal.
+### 3. Mobile App Setup
+1. Navigate to the mobile driver directory:
+   ```bash
+   cd apps/mobile-driver
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Configure API endpoint:
+   - Update `src/constants/config.js` with your local IP or server URL.
+4. Start Expo:
+   ```bash
+   npx expo start
+   ```
+
+---
 
 ## 📂 Project Structure
 
 ```text
-src/
-├── components/      # Reusable UI elements (Buttons, Typography, Cards)
-├── constants/       # Global constants like Colors, Theme, Styles
-├── context/         # React Context providers (e.g., OrderContext)
-├── i18n/            # Internationalization (en, si, ta)
-├── navigation/      # Stack and Tab Navigators
-└── screens/         # App screens (Dashboard, Tracking, Login, etc.)
+conntrack-new/
+├── apps/
+│   └── mobile-driver/       # Expo React Native application
+│       ├── src/
+│       │   ├── components/  # Atomic UI elements
+│       │   ├── constants/   # Theme & Global Config
+│       │   ├── i18n/        # Translation JSONs
+│       │   ├── navigation/  # Navigation logic
+│       │   └── screens/     # Dashboard, Tracking, Profile, etc.
+├── backend/                 # Node.js Express server
+│   ├── src/
+│   │   ├── config/          # Supabase & DB connections
+│   │   ├── controllers/     # Professional JSDoc documented logic
+│   │   ├── routes/          # API endpoint definitions
+│   └── scratch/             # Utility scripts
+└── package.json             # Root monorepo configuration
 ```
 
-## 🤝 Contributing
+## 🤝 Contribution Guidelines
+When contributing, ensure all core logic is documented using JSDoc. Maintain modular UI components and follow the established color palette defined in `theme.js`.
 
-When contributing to this project, please ensure UI components remain modular and decoupled from complex business logic, as they will eventually be migrated to a shared `ui-components` package within our Turborepo architecture.
+---
+© 2026 ConnTrack Logistics Management Systems
