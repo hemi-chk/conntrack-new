@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { AlertTriangle, UserPlus, Inbox } from 'lucide-react';
+import { AlertTriangle, UserPlus } from 'lucide-react';
 import { useDrivers } from '../../hooks/useDrivers';
 import { AddDriverModal } from './AddDriverModal';
 import { DriverViewModal } from './DriverViewModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DeleteDriverModal } from './DeleteDriverModal';
 import { addDriver, updateDriver, deleteDriver } from '../../services/driverService';
+import { Table } from '../../components/common/Table';
+import { Button } from '../../components/common/Button';
+import { Badge } from '../../components/common/Badge';
+import { Select } from '../../components/common/Select';
 
 export const Drivers = () => {
   const { drivers, isLoading, error, refreshDrivers } = useDrivers();
@@ -71,6 +75,41 @@ export const Drivers = () => {
     setIsDeleteModalOpen(true);
   };
 
+  const columns = [
+    { header: 'EMP ID', accessor: 'emp_id', cellClassName: 'font-medium text-dark' },
+    { header: 'NAME', render: (row) => `${row.first_name} ${row.last_name}` },
+    { header: 'NIC', accessor: 'national_id', cellClassName: 'font-mono text-sm' },
+    { header: 'LICENSE EXP', render: (row) => row.license_expiry ? new Date(row.license_expiry).toLocaleDateString('en-GB') : 'N/A' },
+    { 
+      header: 'AVAILABILITY', 
+      render: (row) => {
+        const status = row.availability_status?.toLowerCase();
+        const variant = status === 'available' ? 'success' : status === 'unavailable' ? 'error' : 'warning';
+        return <Badge variant={variant}>{row.availability_status}</Badge>;
+      } 
+    },
+    { header: 'CONTACT', accessor: 'contact_number' },
+    { 
+      header: 'ACTION', 
+      cellClassName: 'text-center',
+      render: (row) => (
+        <button
+          onClick={() => handleOpenViewModal(row)}
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          View
+        </button>
+      )
+    }
+  ];
+
+  const filterOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'available', label: 'Available' },
+    { value: 'on_trip', label: 'On Trip' },
+    { value: 'unavailable', label: 'Unavailable' }
+  ];
+
   return (
     <div className="flex flex-col gap-6 text-dark">
 
@@ -111,29 +150,26 @@ export const Drivers = () => {
       <div className="flex flex-col gap-4 justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm sm:flex-row sm:items-center">
 
         <div className="flex gap-4 items-center">
-          <select
-            className="px-4 py-2 font-medium bg-white rounded-lg border border-gray-300 cursor-pointer outline-none text-dark focus:ring-2 focus:ring-primary"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="available">Available</option>
-            <option value="on_trip">On Trip</option>
-            <option value="unavailable">Unavailable</option>
-          </select>
+          <div className="w-40">
+            <Select
+              options={filterOptions}
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="py-2"
+            />
+          </div>
 
           <span className="text-sm font-medium text-gray-500">
             Showing {filteredDrivers.length} of {drivers.length} drivers
           </span>
         </div>
 
-        <button
+        <Button
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
+          leftIcon={<UserPlus size={20} />}
         >
-          <UserPlus size={20} />
           Add Driver
-        </button>
+        </Button>
       </div>
 
       {/* Messages */}
@@ -144,84 +180,17 @@ export const Drivers = () => {
         </div>
       )}
 
-      {/* Table Container */}
-      <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-sm font-semibold text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
-                <th className="px-6 py-4">EMP ID</th>
-                <th className="px-6 py-4">NAME</th>
-                <th className="px-6 py-4">NIC</th>
-                <th className="px-6 py-4">LICENSE EXP</th>
-                <th className="px-6 py-4">AVAILABILITY</th>
-                <th className="px-6 py-4">CONTACT</th>
-                <th className="px-6 py-4 text-center">ACTION</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {isLoading ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                    Loading drivers...
-                  </td>
-                </tr>
-              ) : filteredDrivers.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="bg-gray-50 p-4 rounded-full">
-                        <Inbox size={40} className="text-gray-300" strokeWidth={1.5} />
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <p className="text-gray-500 font-bold text-lg tracking-tight">No drivers found</p>
-                        <p className="text-gray-400 text-sm max-w-xs text-center">Add a new driver or try changing your filters.</p>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredDrivers.map((driver, idx) => (
-                <tr key={driver.driver_id || idx} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-dark">
-                    {driver.emp_id}
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">
-                    {driver.first_name} {driver.last_name}
-                  </td>
-                  <td className="px-6 py-4 font-mono text-sm text-gray-600">
-                    {driver.national_id}
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">
-                    {driver.license_expiry ? new Date(driver.license_expiry).toLocaleDateString('en-GB') : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold
-                        ${driver.availability_status?.toLowerCase() === 'available' ? 'bg-success/10 text-success' :
-                          driver.availability_status?.toLowerCase() === 'unavailable' ? 'bg-error/10 text-error' :
-                            'bg-warning/10 text-warning'}
-                      `}
-                    >
-                      {driver.availability_status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">
-                    {driver.contact_number}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => handleOpenViewModal(driver)}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Table Component */}
+      <Table 
+        columns={columns} 
+        data={filteredDrivers} 
+        isLoading={isLoading} 
+        loadingMessage="Loading drivers..."
+        emptyTitle="No drivers found"
+        emptyMessage="Add a new driver or try changing your filters."
+        keyField="driver_id"
+      />
+
     </div>
   );
-};
+};

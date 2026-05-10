@@ -310,7 +310,27 @@ export const getBids = async (req, res) => {
         *,
         bidding (
           *,
-          orders (*)
+          orders (
+            *,
+            container_tracking (
+              current_location
+            )
+          )
+        ),
+        drivers (
+          first_name,
+          last_name,
+          emp_id,
+          contact_number,
+          license_expiry,
+          license_class
+        ),
+        vehicles (
+          vehicle_number,
+          vehicle_type,
+          condition_status,
+          insurance_expiry,
+          port_pass_expiry
         )
       `)
     
