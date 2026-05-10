@@ -6,6 +6,8 @@
 import React, { useEffect, useState } from "react";
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, ActivityIndicator, RefreshControl, Linking } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -76,16 +78,46 @@ export default function Documents({ route, navigation }) {
   };
 
   /**
-   * Triggers a system-level download/open request for the file.
+   * Downloads the file to the app's cache and opens the system share/save menu.
    * @param {string} url - The public URL of the document file.
+   * @param {string} fileName - The suggested name for the saved file.
    */
-  const handleDownload = (url) => {
-    if (url) {
-      Linking.openURL(url).catch(err => {
-        Alert.alert("Error", "Could not trigger download");
-      });
-    } else {
+  const handleDownload = async (url, fileName = "document") => {
+    if (!url) {
       Alert.alert("Error", "No file URL available");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // 1. Prepare file info
+      const extension = url.split('.').pop().split(/\#|\?/)[0] || 'pdf';
+      const cleanFileName = `${fileName.replace(/[^a-z0-9]/gi, '_')}.${extension}`;
+      const fileUri = `${FileSystem.cacheDirectory}${cleanFileName}`;
+
+      // 2. Download the file
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+      
+      if (downloadResult.status !== 200) {
+        throw new Error("Download failed");
+      }
+
+      // 3. Open the system sharing/saving dialog
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(downloadResult.uri, {
+          mimeType: downloadResult.headers['Content-Type'] || 'application/pdf',
+          dialogTitle: t("save_document", "Save Document"),
+          UTI: `public.${extension}`
+        });
+      } else {
+        Alert.alert("Error", "Sharing is not available on this device");
+      }
+    } catch (error) {
+      console.error("Download Error:", error);
+      Alert.alert("Download Failed", "There was an issue saving this file. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -183,7 +215,7 @@ export default function Documents({ route, navigation }) {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => handleDownload(fileUrl)}
+                      onPress={() => handleDownload(fileUrl, docType)}
                       style={[styles.actionButton, { marginLeft: 8, backgroundColor: `${theme.colors.primary}10` }]}
                     >
                       <MaterialIcons name="file-download" size={18} color={theme.colors.primary} />
