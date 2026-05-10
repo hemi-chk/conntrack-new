@@ -1,4 +1,5 @@
 const supabase = require('../config/supabase'); // Assuming you have a supabase config
+const bcrypt = require('bcrypt');
 
 // 1. Get all orders assigned to a specific driver
 exports.getAssignedOrders = async (req, res) => {
@@ -102,10 +103,15 @@ exports.getDriverDetails = async (req, res) => {
     }
 };
 
-// 4. Login Driver (Check if Driver ID exists)
+// 4. Login Driver (Verify Driver ID and Password)
 exports.loginDriver = async (req, res) => {
     try {
-        const { driverId } = req.body;
+        const { driverId, password } = req.body;
+        
+        if (!driverId || !password) {
+            return res.status(400).json({ success: false, message: 'Missing Driver ID or password' });
+        }
+
         const isNumeric = /^\d+$/.test(driverId);
 
         console.log('--- Login Attempt ---');
@@ -121,11 +127,24 @@ exports.loginDriver = async (req, res) => {
 
         const { data, error } = await query.maybeSingle();
 
-        console.log("Database Search for Driver ID:", driverId);
-
         if (!data) {
             console.log('No Match Found in Drivers Table');
             return res.status(401).json({ success: false, message: 'Invalid Driver ID' });
+        }
+
+        // Verify Password
+        // If password_hash is not set (legacy or unassigned), we handle it
+        if (!data.password_hash) {
+            // For now, if no password is set in DB, we allow login with any password OR a default '1234'
+            // In production, you would force an initial password setup or check a default.
+            // Let's assume for this transition phase, we log them in and warn.
+            console.log('User has no password set in DB. Allowing entry for setup.');
+        } else {
+            const isMatch = await bcrypt.compare(password, data.password_hash);
+            if (!isMatch) {
+                console.log('Password Mismatch');
+                return res.status(401).json({ success: false, message: 'Invalid password' });
+            }
         }
 
         console.log('Match Found:', data.first_name, data.last_name);
@@ -148,6 +167,59 @@ exports.loginDriver = async (req, res) => {
         });
     } catch (error) {
         console.error('Login Error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
+/**
+ * 4.5 Change Driver Password
+ * Securely updates the driver's password after verifying the old one.
+ */
+exports.changePassword = async (req, res) => {
+    try {
+        const { driverId, oldPassword, newPassword } = req.body;
+
+        if (!driverId || !oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        // 1. Fetch the driver's current password hash
+        const { data, error } = await supabase
+            .from('drivers')
+            .select('password_hash')
+            .eq('driver_id', driverId)
+            .single();
+
+        if (error || !data) {
+            return res.status(404).json({ success: false, message: 'Driver not found' });
+        }
+
+        // 2. Verify Old Password (if one exists)
+        if (data.password_hash) {
+            const isMatch = await bcrypt.compare(oldPassword, data.password_hash);
+            if (!isMatch) {
+                return res.status(400).json({ success: false, message: 'Current password incorrect' });
+            }
+        }
+
+        // 3. Hash New Password
+        const salt = await bcrypt.genSalt(10);
+        const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+        // 4. Update Database
+        const { error: updateError } = await supabase
+            .from('drivers')
+            .update({
+                password_hash: hashedNewPassword,
+                updated_at: new Date()
+            })
+            .eq('driver_id', driverId);
+
+        if (updateError) throw updateError;
+
+        res.status(200).json({ success: true, message: 'Password updated successfully' });
+    } catch (error) {
+        console.error('Change Password Error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };

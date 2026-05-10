@@ -129,7 +129,7 @@ export default function EditProfile({ route, navigation }) {
           {/* SECONDARY ACTIONS: Security and Session Management */}
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => navigation.navigate("ChangePassword")}
+            onPress={() => navigation.navigate("ChangePassword", { user })}
           >
             <MaterialIcons name="lock" size={20} color={theme.colors.primary} />
             <Typography variant="body" color="primary" style={styles.secondaryButtonText}>

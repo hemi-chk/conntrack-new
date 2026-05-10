@@ -73,7 +73,10 @@ export default function LoginScreen({ navigation }) {
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ driverId: driverId }),
+        body: JSON.stringify({ 
+          driverId: driverId,
+          password: password
+        }),
       });
 
       const result = await response.json();

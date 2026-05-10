@@ -22,6 +22,7 @@ router.get('/issues/:driverId', driverController.getDriverIssues);
 router.post('/report-issue', driverController.reportIssue);
 router.post('/upload-profile-photo', driverController.uploadProfilePhoto);
 router.post('/remove-profile-photo', driverController.removeProfilePhoto);
+router.post('/change-password', driverController.changePassword);
 router.get('/history/:driverId', driverController.getDriverHistory);
 router.get('/vehicle-info/:supplierId', driverController.getVehicleInfo);
 router.get('/order-documents/:orderId', driverController.getOrderDocuments);

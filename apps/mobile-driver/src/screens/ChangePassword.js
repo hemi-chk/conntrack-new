@@ -12,8 +12,10 @@ import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
+import { API_BASE_URL } from "../constants/config";
 
-export default function ChangePassword({ navigation }) {
+export default function ChangePassword({ route, navigation }) {
+  const { user } = route.params || {};
   const { t } = useTranslation();
   
   // State for form control
@@ -46,18 +48,29 @@ export default function ChangePassword({ navigation }) {
 
     setIsLoading(true);
     try {
-      /**
-       * SIMULATION: Currently using a timeout to mock the API request.
-       * In production, this should call a dedicated backend endpoint.
-       */
-      setTimeout(() => {
-        setIsLoading(false);
+      const response = await fetch(`${API_BASE_URL}/api/driver/change-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: user?.driver_id,
+          oldPassword: oldPassword,
+          newPassword: newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
         Alert.alert("Success", "Password updated successfully");
         navigation.goBack();
-      }, 1500);
+      } else {
+        Alert.alert("Error", result.message || "Failed to update password");
+      }
     } catch (error) {
+      console.error("Change Password Error:", error);
+      Alert.alert("Error", "Could not connect to server");
+    } finally {
       setIsLoading(false);
-      Alert.alert("Error", "Failed to update password");
     }
   };
 
