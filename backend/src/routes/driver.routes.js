@@ -27,5 +27,6 @@ router.get('/history/:driverId', driverController.getDriverHistory);
 router.get('/vehicle-info/:supplierId', driverController.getVehicleInfo);
 router.get('/order-documents/:orderId', driverController.getOrderDocuments);
 router.post('/update-push-token', driverController.updatePushToken);
+router.post('/test-notification', driverController.sendTestNotification);
 
 module.exports = router;

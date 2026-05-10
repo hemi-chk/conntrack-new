@@ -739,3 +739,28 @@ exports.updatePushToken = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+/**
+ * 18. Send Test Notification
+ * A utility endpoint to verify that push notifications are working for a driver.
+ */
+exports.sendTestNotification = async (req, res) => {
+    try {
+        const { driverId } = req.body;
+        const { sendDriverNotification } = require('../config/notifications');
+
+        if (!driverId) {
+            return res.status(400).json({ success: false, message: 'Missing driverId' });
+        }
+
+        await sendDriverNotification(
+            parseInt(driverId), 
+            "Test Alert 🔔", 
+            "Your ConnTrack notification system is now active!"
+        );
+
+        res.status(200).json({ success: true, message: 'Test notification triggered' });
+    } catch (error) {
+        console.error('Test Notification Error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
