@@ -24,6 +24,11 @@ export default function Tracking({ route, navigation }) {
   const orderType = activeMission.orders?.order_type || "import";
   const orderId = activeMission.orders?.order_reference || "N/A";
 
+  console.log('--- Tracking Debug ---');
+  console.log('Active Mission:', JSON.stringify(activeMission, null, 2));
+  console.log('Order ID:', orderId);
+  console.log('Assignment ID:', activeMission.assignment_id);
+
   const [locationPermission, setLocationPermission] = useState(null);
 
   // Request location permissions immediately on screen entry
@@ -38,22 +43,22 @@ export default function Tracking({ route, navigation }) {
    * Milestone definitions for Import workflows.
    */
   const importSteps = [
-    { title: t("order_started"), status: "completed" },
-    { title: t("arrived_at_port"), status: "completed" },
-    { title: t("custom_clearance"), status: "active" },
-    { title: t("boi_checkpoint"), status: "pending" },
-    { title: t("delivered"), status: "pending" }
+    { title: t("order_started"), dbValue: "order_started", status: "completed" },
+    { title: t("arrived_at_port"), dbValue: "arrived_at_port", status: "completed" },
+    { title: t("custom_clearance"), dbValue: "custom_clearance", status: "active" },
+    { title: t("boi_checkpoint"), dbValue: "boi_checkpoint", status: "pending" },
+    { title: t("delivered"), dbValue: "delivered", status: "pending" }
   ];
 
   /**
    * Milestone definitions for Export workflows.
    */
   const exportSteps = [
-    { title: t("empty_pickup"), status: "completed" },
-    { title: t("loading_at_warehouse"), status: "active" },
-    { title: t("custom_inspection"), status: "pending" },
-    { title: t("port_gate_in"), status: "pending" },
-    { title: t("vessel_loaded"), status: "pending" }
+    { title: t("empty_pickup"), dbValue: "empty_pickup", status: "completed" },
+    { title: t("loading_at_warehouse"), dbValue: "loading_at_warehouse", status: "active" },
+    { title: t("custom_inspection"), dbValue: "custom_inspection", status: "pending" },
+    { title: t("port_gate_in"), dbValue: "port_gate_in", status: "pending" },
+    { title: t("vessel_loaded"), dbValue: "vessel_loaded", status: "pending" }
   ];
 
   // Select the appropriate timeline based on the order type
@@ -64,7 +69,8 @@ export default function Tracking({ route, navigation }) {
    */
   const getInitialStep = () => {
     if (!activeMission.status) return 0;
-    const index = steps.findIndex(s => s.title === activeMission.status);
+    // Match against dbValue instead of translated title
+    const index = steps.findIndex(s => s.dbValue === activeMission.status);
     return index === -1 ? 0 : index;
   };
 
@@ -77,21 +83,35 @@ export default function Tracking({ route, navigation }) {
    */
   const nextStep = async () => {
     if (currentStep < steps.length - 1) {
-      if (!locationPermission) {
-        Alert.alert("Permission Denied", "Location access is required to update status.");
-        return;
+      // Re-check permissions in case they were changed in settings
+      const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
+      if (currentStatus !== 'granted') {
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+        if (newStatus !== 'granted') {
+          Alert.alert("Permission Denied", "Location access is required to update status. Please enable it in your phone settings.");
+          return;
+        }
+        setLocationPermission(true);
       }
 
       const nextIdx = currentStep + 1;
-      const nextStageTitle = steps[nextIdx].title;
+      const nextStageDbValue = steps[nextIdx].dbValue;
 
       try {
         setIsUpdating(true);
         
-        // 📍 Capture real-time high-accuracy GPS coordinates
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        // 📍 Capture real-time GPS coordinates with a fallback for slow signals
+        let location;
+        try {
+          location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+            timeout: 5000 // 5 seconds timeout
+          });
+        } catch (e) {
+          // Fallback to last known position if real-time fix fails (common indoors)
+          location = await Location.getLastKnownPositionAsync({});
+          if (!location) throw new Error("Could not determine location");
+        }
 
         const { latitude, longitude } = location.coords;
 
@@ -99,18 +119,21 @@ export default function Tracking({ route, navigation }) {
         const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
         const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";
 
+        const payload = {
+            assignmentId: activeMission.assignment_id,
+            orderId: activeMission.order_id,
+            status: nextStageDbValue,
+            locationName: locationName, 
+            latitude: latitude,
+            longitude: longitude
+        };
+        console.log('Sending Update Payload:', JSON.stringify(payload, null, 2));
+
         // Push update to the central server
         const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            assignmentId: activeMission.id,
-            orderId: activeMission.order_id,
-            status: nextStageTitle,
-            locationName: locationName, 
-            latitude: latitude,
-            longitude: longitude
-          })
+          body: JSON.stringify(payload)
         });
 
         const result = await response.json();

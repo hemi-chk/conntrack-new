@@ -280,7 +280,7 @@ exports.updateMissionStatus = async (req, res) => {
                 status: status,
                 updated_at: new Date()
             })
-            .eq('id', assignmentId);
+            .eq('assignment_id', assignmentId);
 
         if (assignmentError) throw assignmentError;
 
