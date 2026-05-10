@@ -1,36 +1,136 @@
-import React, { useState } from "react";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+/**
+ * Tracking Screen
+ * Visualizes the shipment journey timeline and allows drivers to update mission stages.
+ * Integrates real-time GPS coordinates and reverse geocoding for accurate reporting.
+ */
+
+import React, { useState, useEffect } from "react";
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Location from "expo-location";
 import { useTranslation } from "react-i18next";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { API_BASE_URL } from "../constants/config";
 
-export default function Tracking({ navigation }) {
+export default function Tracking({ route, navigation }) {
   const { t } = useTranslation();
-  const orderType = "import";
+  
+  // Get mission context from navigation parameters
+  const activeMission = route?.params?.order || {};
+  const orderType = activeMission.orders?.order_type || "import";
+  const orderId = activeMission.orders?.order_reference || "N/A";
 
-  const steps = [
-    { title: t("order_started"), time: "08:30 AM", status: "completed" },
-    { title: t("arrived_at_port"), time: "10:15 AM", status: "completed" },
-    { title: t("custom_clearance"), time: "11:45 AM", status: "active" },
-    { title: t("boi_checkpoint"), time: t("pending"), status: "pending" },
-    { title: t("delivered"), time: t("pending"), status: "pending" }
+  const [locationPermission, setLocationPermission] = useState(null);
+
+  // Request location permissions immediately on screen entry
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+    })();
+  }, []);
+
+  /**
+   * Milestone definitions for Import workflows.
+   */
+  const importSteps = [
+    { title: t("order_started"), status: "completed" },
+    { title: t("arrived_at_port"), status: "completed" },
+    { title: t("custom_clearance"), status: "active" },
+    { title: t("boi_checkpoint"), status: "pending" },
+    { title: t("delivered"), status: "pending" }
   ];
 
-  const [currentStep, setCurrentStep] = useState(2);
+  /**
+   * Milestone definitions for Export workflows.
+   */
+  const exportSteps = [
+    { title: t("empty_pickup"), status: "completed" },
+    { title: t("loading_at_warehouse"), status: "active" },
+    { title: t("custom_inspection"), status: "pending" },
+    { title: t("port_gate_in"), status: "pending" },
+    { title: t("vessel_loaded"), status: "pending" }
+  ];
 
-  const nextStep = () => {
+  // Select the appropriate timeline based on the order type
+  const steps = orderType === "export" ? exportSteps : importSteps;
+
+  /**
+   * Calculates the current progress index based on the status received from the backend.
+   */
+  const getInitialStep = () => {
+    if (!activeMission.status) return 0;
+    const index = steps.findIndex(s => s.title === activeMission.status);
+    return index === -1 ? 0 : index;
+  };
+
+  const [currentStep, setCurrentStep] = useState(getInitialStep());
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  /**
+   * Primary function to advance the mission stage.
+   * Captures GPS location, reverse geocodes the address, and syncs with the backend.
+   */
+  const nextStep = async () => {
     if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+      if (!locationPermission) {
+        Alert.alert("Permission Denied", "Location access is required to update status.");
+        return;
+      }
+
+      const nextIdx = currentStep + 1;
+      const nextStageTitle = steps[nextIdx].title;
+
+      try {
+        setIsUpdating(true);
+        
+        // 📍 Capture real-time high-accuracy GPS coordinates
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const { latitude, longitude } = location.coords;
+
+        // 🗺️ Convert coordinates to human-readable address name (e.g. "Colombo, Sri Lanka")
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";
+
+        // Push update to the central server
+        const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assignmentId: activeMission.id,
+            orderId: activeMission.order_id,
+            status: nextStageTitle,
+            locationName: locationName, 
+            latitude: latitude,
+            longitude: longitude
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          setCurrentStep(nextIdx);
+        } else {
+          Alert.alert("Error", "Failed to update status on server");
+        }
+      } catch (error) {
+        console.error("Update Status Error:", error);
+        Alert.alert("Network Error", "Check your connection or GPS settings");
+      } finally {
+        setIsUpdating(false);
+      }
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
+      {/* HEADER: Displays Shipment ID and Back button */}
       <View style={styles.header}>
         <TouchableOpacity 
           activeOpacity={0.7}
@@ -45,7 +145,7 @@ export default function Tracking({ navigation }) {
             {t("shipment_tracking")}
           </Typography>
           <Typography variant="tiny" color="textMuted">
-            ID: IMP-12345 • {t("assigned")}
+            ID: {orderId} • {t("assigned")}
           </Typography>
         </View>
 
@@ -56,7 +156,7 @@ export default function Tracking({ navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* PROGRESS OVERVIEW */}
+        {/* PROGRESS OVERVIEW: Visual progress bar for overall journey */}
         <Card elevation="md" style={styles.overviewCard}>
           <View style={styles.overviewHeader}>
             <Typography variant="body" color="surface" weight="medium">
@@ -84,7 +184,7 @@ export default function Tracking({ navigation }) {
           </View>
         </Card>
 
-        {/* TIMELINE */}
+        {/* TIMELINE: Vertical list showing journey milestones */}
         <View style={styles.timelineContainer}>
           <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
             {t("journey_timeline")}
@@ -98,6 +198,7 @@ export default function Tracking({ navigation }) {
             return (
               <View key={index} style={styles.timelineItem}>
                 <View style={styles.timelineLeft}>
+                  {/* Indicator Dot (Checkmark if done, Solid if active, Border if pending) */}
                   <View style={[
                     styles.timelineDot,
                     isCompleted ? styles.dotCompleted : isActive ? styles.dotActive : styles.dotPending
@@ -105,6 +206,7 @@ export default function Tracking({ navigation }) {
                     {isCompleted && <MaterialIcons name="check" size={12} color={theme.colors.surface} />}
                     {isActive && <View style={styles.dotInner} />}
                   </View>
+                  {/* Connector line between milestones */}
                   {!isLast && (
                     <View style={[
                       styles.timelineLine,
@@ -129,15 +231,13 @@ export default function Tracking({ navigation }) {
                       >
                         {step.title}
                       </Typography>
-                      <Typography variant="tiny" color="textMuted">
-                        {step.time}
-                      </Typography>
                     </View>
                     
                     <Typography variant="caption" color="textMuted" style={{ marginTop: 4 }}>
                       {isCompleted ? t("successfully_verified") : isActive ? t("current_stage_of_shipment") : t("upcoming_milestone")}
                     </Typography>
 
+                    {/* Active pulse indicator for the current stage */}
                     {isActive && (
                       <View style={styles.activeIndicator}>
                         <View style={styles.pulseDot} />
@@ -153,12 +253,12 @@ export default function Tracking({ navigation }) {
           })}
         </View>
 
-        {/* ACTION */}
+        {/* FOOTER ACTION: The primary button to update stage */}
         <View style={styles.footer}>
           <Button
-            title={t("complete_current_stage")}
+            title={isUpdating ? t("updating") : t("complete_current_stage")}
             onPress={nextStep}
-            disabled={currentStep === steps.length - 1}
+            disabled={isUpdating || currentStep === steps.length - 1}
             style={styles.mainButton}
           />
           <Typography variant="tiny" color="textMuted" align="center" style={{ marginTop: 12 }}>

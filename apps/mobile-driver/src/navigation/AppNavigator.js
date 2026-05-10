@@ -16,6 +16,7 @@ import VehicleInfo from "../screens/VehicleInfo";
 import Settings from "../screens/Settings";
 import Language from "../screens/Language";
 import History from "../screens/History";
+import ChangePassword from "../screens/ChangePassword";
 
 
 const Stack = createNativeStackNavigator();
@@ -38,6 +39,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Settings" component={Settings} />
         <Stack.Screen name="Language" component={Language} />
         <Stack.Screen name="History" component={History} />
+        <Stack.Screen name="ChangePassword" component={ChangePassword} />
 
       </Stack.Navigator>
     </NavigationContainer>

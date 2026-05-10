@@ -12,9 +12,14 @@ import { useOrder } from "../context/OrderContext";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-export default function OrderDetails({ navigation }) {
+export default function OrderDetails({ route: navRoute, navigation }) {
   const { orderStatus, setOrderStatus } = useOrder();
   const { t } = useTranslation();
+  
+  // Get real order data from Dashboard
+  const activeMission = navRoute?.params?.order || {};
+  const orderData = activeMission.orders || {};
+
   const [isExpanded, setIsExpanded] = useState(true);
 
   // Animation for sheet height
@@ -29,22 +34,25 @@ export default function OrderDetails({ navigation }) {
   }, [isExpanded]);
 
   const order = {
-    id: "IMP-12345",
+    id: orderData.order_reference || "IMP-12345",
     pickup: {
-      name: t("freezone_warehouse"),
-      address: t("katunayake_address"),
+      name: orderData.origin_name || t("freezone_warehouse"),
+      address: orderData.origin_address || t("katunayake_address"),
       latitude: 6.933,
       longitude: 79.85
     },
     drop: {
-      name: t("colombo_port_terminal"), // Changed from Colombo Port to be consistent
-      address: t("colombo_port_address"),
+      name: orderData.destination_name || t("colombo_port_terminal"),
+      address: orderData.destination_address || t("colombo_port_address"),
       latitude: 6.948,
       longitude: 79.873
     },
-    instructions: t("temp_sensitive_cargo"),
+    instructions: orderData.special_instructions || orderData.instructions || t("temp_sensitive_cargo"),
     eta: "45 mins",
-    distance: "12.4 km"
+    distance: "12.4 km",
+    type: orderData.order_type || t("container"),
+    cargoType: orderData.cargo_type || t("general"),
+    weight: orderData.cargo_weight ? `${orderData.cargo_weight} ${t("tons")}` : t("n_a")
   };
 
   const route = [
@@ -180,19 +188,41 @@ export default function OrderDetails({ navigation }) {
                 <Card style={styles.infoTile}>
                   <MaterialIcons name="inventory" size={20} color={theme.colors.primary} />
                   <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("type")}</Typography>
-                  <Typography variant="tiny" color="textMuted">{t("container")}</Typography>
+                  <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.type}</Typography>
                 </Card>
                 <Card style={styles.infoTile}>
                   <MaterialIcons name="fitness-center" size={20} color={theme.colors.primary} />
                   <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("weight")}</Typography>
-                  <Typography variant="tiny" color="textMuted">{t("tons")}</Typography>
+                  <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.weight}</Typography>
                 </Card>
                 <Card style={styles.infoTile}>
-                  <MaterialIcons name="warning" size={20} color={theme.colors.warning} />
-                  <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("priority")}</Typography>
-                  <Typography variant="tiny" color="textMuted">{t("high")}</Typography>
+                  <MaterialIcons name="category" size={20} color={theme.colors.warning} />
+                  <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("cargo")}</Typography>
+                  <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.cargoType}</Typography>
                 </Card>
               </View>
+
+              {/* INSTRUCTIONS */}
+              {order.instructions ? (
+                <View style={styles.instructionsSection}>
+                  <View style={styles.instructionsBanner}>
+                    <View style={styles.instructionsAccent} />
+                    <View style={styles.instructionsBody}>
+                      <View style={styles.instructionsHeader}>
+                        <View style={styles.instructionsIconBadge}>
+                          <MaterialIcons name="priority-high" size={16} color="#D97706" />
+                        </View>
+                        <Typography variant="caption" weight="bold" style={{ color: "#92400E" }}>
+                          {t("special_instructions", "Special Instructions")}
+                        </Typography>
+                      </View>
+                      <Typography variant="caption" style={{ color: "#78350F", lineHeight: 20, marginTop: 6 }}>
+                        {order.instructions}
+                      </Typography>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
 
               {/* ACTIONS */}
               <View style={styles.footer}>
@@ -418,5 +448,36 @@ const styles = StyleSheet.create({
   supportButton: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  instructionsSection: {
+    marginTop: 24,
+  },
+  instructionsBanner: {
+    flexDirection: "row",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  instructionsAccent: {
+    width: 4,
+    backgroundColor: "#F59E0B",
+  },
+  instructionsBody: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  instructionsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  instructionsIconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#FEF3C7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
 });

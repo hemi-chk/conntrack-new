@@ -1,3 +1,9 @@
+/**
+ * Edit Profile Screen
+ * Allows drivers to modify their personal contact information.
+ * Handles validation and synchronization with the backend profile system.
+ */
+
 import React, { useState } from "react";
 import {
   View,
@@ -16,13 +22,57 @@ import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
 
-export default function EditProfile({ navigation }) {
+import { API_BASE_URL } from "../constants/config";
+
+export default function EditProfile({ route, navigation }) {
+  // Extract initial user data from navigation parameters
+  const { user } = route.params || {};
   const { t } = useTranslation();
 
-  const [name, setName] = useState("Driver Name");
-  const [username, setUsername] = useState("driver01");
-  const [phone, setPhone] = useState("0771234567");
-  const [email, setEmail] = useState("driver@email.com");
+  // Local state for form fields
+  const [firstName, setFirstName] = useState(user?.first_name || "");
+  const [lastName, setLastName] = useState(user?.last_name || "");
+  const [phone, setPhone] = useState(user?.contact_number || "");
+  const [isLoading, setIsLoading] = useState(false);
+
+  /**
+   * Validates and submits updated profile information to the server.
+   */
+  const handleSave = async () => {
+    // Basic presence validation
+    if (!firstName || !lastName || !phone) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/driver/update-profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: user?.driver_id,
+          empId: user?.emp_id,
+          first_name: firstName,
+          last_name: lastName,
+          contact_number: phone
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        Alert.alert("Success", "Profile updated successfully");
+        navigation.goBack(); // Return to profile overview
+      } else {
+        Alert.alert("Error", "Failed to update profile");
+      }
+    } catch (error) {
+      console.log("Update Error:", error);
+      Alert.alert("Error", "Could not connect to server");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -31,7 +81,7 @@ export default function EditProfile({ navigation }) {
         style={styles.container}
       >
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* HEADER */}
+          {/* HEADER SECTION */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -42,19 +92,19 @@ export default function EditProfile({ navigation }) {
             </Typography>
           </View>
 
-          {/* PERSONAL INFO */}
-          <Typography variant="body" weight="medium" style={styles.label}>{t("name")}</Typography>
+          {/* EDITABLE FORM FIELDS */}
+          <Typography variant="body" weight="medium" style={styles.label}>{t("first_name") || "First Name"}</Typography>
           <TextInput 
-            value={name} 
-            onChangeText={setName} 
+            value={firstName} 
+            onChangeText={setFirstName} 
             style={styles.input} 
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("username")}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("last_name") || "Last Name"}</Typography>
           <TextInput 
-            value={username} 
-            onChangeText={setUsername} 
+            value={lastName} 
+            onChangeText={setLastName} 
             style={styles.input} 
             placeholderTextColor={theme.colors.textMuted}
           />
@@ -68,27 +118,15 @@ export default function EditProfile({ navigation }) {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("email")}</Typography>
-          <TextInput 
-            value={email} 
-            onChangeText={setEmail} 
-            style={styles.input} 
-            keyboardType="email-address"
-            autoCapitalize="none"
-            placeholderTextColor={theme.colors.textMuted}
-          />
-
-          {/* SAVE */}
+          {/* PRIMARY ACTION: Save Changes */}
           <Button 
-            title={t("save_changes")}
+            title={isLoading ? "Saving..." : t("save_changes")}
             style={styles.saveButton}
-            onPress={() => {
-              Alert.alert(t("success"), t("profile_updated_success"));
-              navigation.goBack();
-            }}
+            disabled={isLoading}
+            onPress={handleSave}
           />
 
-          {/* CHANGE PASSWORD */}
+          {/* SECONDARY ACTIONS: Security and Session Management */}
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => navigation.navigate("ChangePassword")}
@@ -99,7 +137,6 @@ export default function EditProfile({ navigation }) {
             </Typography>
           </TouchableOpacity>
 
-          {/* SIGN OUT */}
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={() =>

@@ -1,31 +1,91 @@
+/**
+ * Dashboard Screen
+ * The main landing page for the driver after login. 
+ * Displays the current active mission, quick action buttons, and recent notifications.
+ */
+
+import { useEffect, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   Dimensions,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { theme } from "../constants/theme";
+import { API_BASE_URL } from "../constants/config";
 
 const { width } = Dimensions.get("window");
 
-export default function Dashboard({ navigation }) {
+export default function Dashboard({ route, navigation }) {
   const { t } = useTranslation();
+  
+  // Extract user data passed from Login or previous screen
+  const user = route?.params?.user || {};
+  
+  const [activeMission, setActiveMission] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 🔔 ALERTS
+  // Load mission data on component mount
+  useEffect(() => {
+    fetchActiveMission();
+  }, []);
+
+  /**
+   * Fetches the current active assignment for the driver from the backend.
+   * If a mission exists, it is displayed in the primary card.
+   */
+  const fetchActiveMission = async () => {
+    try {
+      setIsLoading(true);
+
+      if (!user?.driver_id && !user?.emp_id) {
+        setIsLoading(false);
+        return;
+      }
+
+      const idToUse = user.driver_id || user.emp_id;
+      
+      // Implement AbortController to handle potential slow network timeouts
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(`${API_BASE_URL}/api/driver/mission/${idToUse}`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setActiveMission(result.data);
+      }
+    } catch (error) {
+      console.error("Dashboard: Fetch Mission Error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * Mock alerts for demonstration purposes.
+   * In production, these should be fetched from a notifications API.
+   */
   const alerts = [
     {
       id: 1,
       text: t("new_delivery_assigned"),
       type: "info",
       icon: "local-shipping",
-      time: t("10:30 AM") // Time could also be formatted but keeping as is for now
+      time: t("10:30 AM")
     },
     {
       id: 2,
@@ -36,13 +96,39 @@ export default function Dashboard({ navigation }) {
     }
   ];
 
+  /**
+   * Configuration for the 2x2 grid of action buttons.
+   */
   const quickActions = [
-    { icon: "local-shipping", label: t("tracking"), screen: "Tracking", color: "#6366F1" },
-    { icon: "notifications-active", label: t("alerts"), screen: "Notifications", color: "#F59E0B" },
-    { icon: "description", label: t("docs"), screen: "Documents", color: "#10B981" },
-    { icon: "support-agent", label: t("help"), screen: "Support", color: "#EC4899" },
+    { 
+      icon: "local-shipping", 
+      label: t("tracking"), 
+      onPress: () => navigation.navigate("Tracking", { order: activeMission }),
+      color: "#6366F1" 
+    },
+    { 
+      icon: "notifications-active", 
+      label: t("alerts"), 
+      onPress: () => navigation.navigate("Notifications", { user }),
+      color: "#F59E0B" 
+    },
+    { 
+      icon: "description", 
+      label: t("docs"), 
+      onPress: () => navigation.navigate("Documents", { order: activeMission, user: user }),
+      color: "#10B981" 
+    },
+    { 
+      icon: "support-agent", 
+      label: t("help"), 
+      onPress: () => navigation.navigate("Support", { user }),
+      color: "#EC4899" 
+    },
   ];
 
+  /**
+   * Utility to map alert types to theme colors.
+   */
   const getColor = (type) => {
     if (type === "success") return theme.colors.success;
     if (type === "warning") return theme.colors.warning;
@@ -56,7 +142,7 @@ export default function Dashboard({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* HEADER */}
+        {/* HEADER SECTION: Welcome message and Profile link */}
         <View style={styles.header}>
           <View>
             <Typography variant="h2" weight="bold">
@@ -69,56 +155,75 @@ export default function Dashboard({ navigation }) {
 
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.navigate("Profile")}
+            onPress={() => navigation.navigate("Profile", { user })}
             style={styles.profileIconContainer}
           >
-            <MaterialIcons name="person" size={26} color={theme.colors.primary} />
+            {user?.profile_photo_url ? (
+              <Image 
+                source={{ uri: user.profile_photo_url }} 
+                style={{ width: 40, height: 40, borderRadius: 20 }} 
+              />
+            ) : (
+              <MaterialIcons name="person" size={26} color={theme.colors.primary} />
+            )}
             <View style={styles.onlineBadge} />
           </TouchableOpacity>
         </View>
 
-        {/* 🚚 CURRENT ACTIVE JOB */}
+        {/* ACTIVE MISSION SECTION: Highlights the primary current task */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("active_mission")}
         </Typography>
-        <Card elevation="lg" style={styles.currentJobCard}>
-          <View style={styles.jobHeader}>
-            <View style={styles.jobBadge}>
-              <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface }}>
-                {t("in_progress")}
+        
+        {isLoading ? (
+          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+        ) : activeMission ? (
+          <Card elevation="lg" style={styles.currentJobCard}>
+            <View style={styles.jobHeader}>
+              <View style={styles.jobBadge}>
+                <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface }}>
+                  {activeMission.orders?.order_type?.toUpperCase() || t("in_progress")}
+                </Typography>
+              </View>
+              <Typography variant="body" weight="bold" style={{ color: theme.colors.surface }}>
+                {activeMission.orders?.order_reference || "N/A"}
               </Typography>
             </View>
-            <Typography variant="body" weight="bold" style={{ color: theme.colors.surface }}>
-              IMP-12345
+
+            <View style={styles.jobRouteContainer}>
+              <View style={styles.routeIconColumn}>
+                <View style={styles.routeDot} />
+                <View style={styles.routeLine} />
+                <View style={[styles.routeDot, { backgroundColor: theme.colors.accent }]} />
+              </View>
+              <View style={styles.routeTextColumn}>
+                <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface }}>
+                  {activeMission.orders?.origin_name || t("freezone_warehouse")}
+                </Typography>
+                <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface, marginTop: 20 }}>
+                  {activeMission.orders?.destination_name || t("colombo_port_terminal")}
+                </Typography>
+              </View>
+            </View>
+
+            <Button
+              title={t("view_details")}
+              variant="secondary"
+              style={styles.viewDetailsButton}
+              textStyle={styles.viewDetailsButtonText}
+              onPress={() => navigation.navigate("OrderDetails", { order: activeMission })}
+            />
+          </Card>
+        ) : (
+          <Card elevation="sm" style={styles.noJobCard}>
+            <MaterialIcons name="event-busy" size={32} color={theme.colors.textMuted} />
+            <Typography variant="body" color="textMuted" style={{ marginTop: 8 }}>
+              {t("no_active_mission")}
             </Typography>
-          </View>
+          </Card>
+        )}
 
-          <View style={styles.jobRouteContainer}>
-            <View style={styles.routeIconColumn}>
-              <View style={styles.routeDot} />
-              <View style={styles.routeLine} />
-              <View style={[styles.routeDot, { backgroundColor: theme.colors.accent }]} />
-            </View>
-            <View style={styles.routeTextColumn}>
-              <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface }}>
-                {t("freezone_warehouse")}
-              </Typography>
-              <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface, marginTop: 20 }}>
-                {t("colombo_port_terminal")}
-              </Typography>
-            </View>
-          </View>
-
-          <Button
-            title={t("view_details")}
-            variant="secondary"
-            style={styles.viewDetailsButton}
-            textStyle={styles.viewDetailsButtonText}
-            onPress={() => navigation.navigate("OrderDetails")}
-          />
-        </Card>
-
-        {/* ⚡ QUICK ACTIONS */}
+        {/* QUICK ACTIONS GRID */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("quick_actions")}
         </Typography>
@@ -128,7 +233,7 @@ export default function Dashboard({ navigation }) {
             <TouchableOpacity
               key={index}
               activeOpacity={0.8}
-              onPress={() => navigation.navigate(item.screen)}
+              onPress={() => item.onPress ? item.onPress() : navigation.navigate(item.screen)}
               style={styles.quickActionItem}
             >
               <Card elevation="md" style={styles.quickActionIconContainer}>
@@ -147,12 +252,12 @@ export default function Dashboard({ navigation }) {
           ))}
         </View>
 
-        {/* 🔔 RECENT UPDATES */}
+        {/* RECENT UPDATES SECTION: Feed-like view for recent events */}
         <View style={styles.sectionHeader}>
           <Typography variant="subtitle" weight="bold">
             {t("recent_updates")}
           </Typography>
-          <TouchableOpacity onPress={() => navigation.navigate("Notifications")}>
+          <TouchableOpacity onPress={() => navigation.navigate("Notifications", { user })}>
             <Typography variant="caption" color="primary" weight="semiBold">
               {t("see_all")}
             </Typography>
@@ -322,5 +427,16 @@ const styles = StyleSheet.create({
   },
   alertTextContainer: {
     flex: 1,
+  },
+  noJobCard: {
+    padding: theme.spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.roundness.xl,
+    marginBottom: theme.spacing.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderStyle: "dashed",
   },
 });

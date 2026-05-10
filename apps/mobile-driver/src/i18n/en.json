@@ -134,5 +134,12 @@
   "port_warehouse": "Port → Warehouse",
   "airport_colombo_port": "Airport → Colombo Port",
   "boi_export_port": "BOI → Export Port",
-  "completed": "Completed"
+  "completed": "Completed",
+  "empty_pickup": "Empty Pickup",
+  "loading_at_warehouse": "Loading at Warehouse",
+  "custom_inspection": "Custom Inspection",
+  "port_gate_in": "Port Gate-in",
+  "vessel_loaded": "Vessel Loaded",
+  "upload": "Upload",
+  "updating": "Updating..."
 }
