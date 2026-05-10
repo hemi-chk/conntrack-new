@@ -26,7 +26,7 @@ router.post('/change-password', driverController.changePassword);
 router.get('/history/:driverId', driverController.getDriverHistory);
 router.get('/vehicle-info/:supplierId', driverController.getVehicleInfo);
 router.get('/order-documents/:orderId', driverController.getOrderDocuments);
-router.post('/update-push-token', driverController.updatePushToken);
-router.post('/test-notification', driverController.sendTestNotification);
+router.get('/tracking-stages/:type', driverController.getTrackingStages);
+router.get('/assigned-vehicle/:driverId', driverController.getAssignedVehicle);
 
 module.exports = router;

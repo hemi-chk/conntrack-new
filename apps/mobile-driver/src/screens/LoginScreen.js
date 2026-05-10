@@ -24,7 +24,6 @@ import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
-import { registerForPushNotificationsAsync, syncPushToken } from "../utils/notifications";
 import { API_BASE_URL } from "../constants/config";
 
 export default function LoginScreen({ navigation }) {
@@ -94,13 +93,6 @@ export default function LoginScreen({ navigation }) {
           await AsyncStorage.removeItem("saved_password");
           await AsyncStorage.setItem("remember_me", "false");
         }
-
-        // Trigger Push Notification registration
-        registerForPushNotificationsAsync().then(token => {
-          if (token) {
-            syncPushToken(result.user.driver_id, token);
-          }
-        });
 
         // Navigate to the Dashboard and pass user object for context
         navigation.navigate("Dashboard", { user: result.user });

@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -21,60 +21,76 @@ export default function Tracking({ route, navigation }) {
   
   // Get mission context from navigation parameters
   const activeMission = route?.params?.order || {};
-  const orderType = activeMission.orders?.order_type || "import";
+  // Normalize to lowercase to match database values exactly
+  const orderType = (activeMission.orders?.order_type || "import").toLowerCase();
   const orderId = activeMission.orders?.order_reference || "N/A";
+  
+  // Safe IDs for database operations
+  const assignmentId = activeMission.assignment_id || activeMission.id;
+  const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
 
-  console.log('--- Tracking Debug ---');
-  console.log('Active Mission:', JSON.stringify(activeMission, null, 2));
-  console.log('Order ID:', orderId);
-  console.log('Assignment ID:', activeMission.assignment_id);
+  console.log('--- TRACKING DIAGNOSTIC ---');
+  console.log('Object Keys:', Object.keys(activeMission));
+  console.log('Full Object:', JSON.stringify(activeMission, null, 2));
 
   const [locationPermission, setLocationPermission] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [isLoadingStages, setIsLoadingStages] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
 
-  // Request location permissions immediately on screen entry
+  // Request location permissions and fetch dynamic stages on screen entry
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       setLocationPermission(status === 'granted');
+      fetchStages();
     })();
   }, []);
 
   /**
-   * Milestone definitions for Import workflows.
+   * Fetches the dynamic journey milestones from the database.
    */
-  const importSteps = [
-    { title: t("order_started"), dbValue: "order_started", status: "completed" },
-    { title: t("arrived_at_port"), dbValue: "arrived_at_port", status: "completed" },
-    { title: t("custom_clearance"), dbValue: "custom_clearance", status: "active" },
-    { title: t("boi_checkpoint"), dbValue: "boi_checkpoint", status: "pending" },
-    { title: t("delivered"), dbValue: "delivered", status: "pending" }
-  ];
-
-  /**
-   * Milestone definitions for Export workflows.
-   */
-  const exportSteps = [
-    { title: t("empty_pickup"), dbValue: "empty_pickup", status: "completed" },
-    { title: t("loading_at_warehouse"), dbValue: "loading_at_warehouse", status: "active" },
-    { title: t("custom_inspection"), dbValue: "custom_inspection", status: "pending" },
-    { title: t("port_gate_in"), dbValue: "port_gate_in", status: "pending" },
-    { title: t("vessel_loaded"), dbValue: "vessel_loaded", status: "pending" }
-  ];
-
-  // Select the appropriate timeline based on the order type
-  const steps = orderType === "export" ? exportSteps : importSteps;
+  const fetchStages = async () => {
+    try {
+      setIsLoadingStages(true);
+      setFetchError(false);
+      console.log(`Fetching stages for type: ${orderType}`);
+      
+      const response = await fetch(`${API_BASE_URL}/api/driver/tracking-stages/${orderType}`);
+      const result = await response.json();
+      
+      if (result.success && result.data && result.data.length > 0) {
+        setStages(result.data);
+      } else {
+        console.warn("No stages found for this order type");
+        setFetchError(true);
+      }
+    } catch (error) {
+      console.error("Fetch Stages Error:", error);
+      setFetchError(true);
+    } finally {
+      setIsLoadingStages(false);
+    }
+  };
 
   /**
    * Calculates the current progress index based on the status received from the backend.
    */
   const getInitialStep = () => {
-    if (!activeMission.status) return 0;
-    // Match against dbValue instead of translated title
-    const index = steps.findIndex(s => s.dbValue === activeMission.status);
+    if (!activeMission.status || stages.length === 0) return 0;
+    // Match against stage_name from database
+    const index = stages.findIndex(s => s.stage_name === activeMission.status);
     return index === -1 ? 0 : index;
   };
 
-  const [currentStep, setCurrentStep] = useState(getInitialStep());
+  const [currentStep, setCurrentStep] = useState(0);
+
+  // Update current step once stages are loaded
+  useEffect(() => {
+    if (stages.length > 0) {
+      setCurrentStep(getInitialStep());
+    }
+  }, [stages]);
   const [isUpdating, setIsUpdating] = useState(false);
 
   /**
@@ -82,7 +98,7 @@ export default function Tracking({ route, navigation }) {
    * Captures GPS location, reverse geocodes the address, and syncs with the backend.
    */
   const nextStep = async () => {
-    if (currentStep < steps.length - 1) {
+    if (currentStep < stages.length - 1) {
       // Re-check permissions in case they were changed in settings
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
       if (currentStatus !== 'granted') {
@@ -94,8 +110,16 @@ export default function Tracking({ route, navigation }) {
         setLocationPermission(true);
       }
 
+      if (!assignmentId || !dbOrderId) {
+        Alert.alert(
+          "Data Sync Error", 
+          `Missing IDs:\n- Assignment: ${assignmentId}\n- Order: ${dbOrderId}\n\nPlease check your console logs for 'Active Mission' details.`
+        );
+        return;
+      }
+
       const nextIdx = currentStep + 1;
-      const nextStageDbValue = steps[nextIdx].dbValue;
+      const nextStageName = stages[nextIdx].stage_name;
 
       try {
         setIsUpdating(true);
@@ -120,14 +144,13 @@ export default function Tracking({ route, navigation }) {
         const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";
 
         const payload = {
-            assignmentId: activeMission.assignment_id,
-            orderId: activeMission.order_id,
-            status: nextStageDbValue,
+            assignmentId: assignmentId,
+            orderId: dbOrderId,
+            status: nextStageName,
             locationName: locationName, 
             latitude: latitude,
             longitude: longitude
         };
-        console.log('Sending Update Payload:', JSON.stringify(payload, null, 2));
 
         // Push update to the central server
         const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
@@ -186,7 +209,7 @@ export default function Tracking({ route, navigation }) {
               {t("overall_progress")}
             </Typography>
             <Typography variant="body" color="surface" weight="bold">
-              {Math.round(((currentStep + 1) / steps.length) * 100)}%
+              {stages.length > 0 ? Math.round(((currentStep + 1) / stages.length) * 100) : 0}%
             </Typography>
           </View>
           
@@ -194,7 +217,7 @@ export default function Tracking({ route, navigation }) {
             <View 
               style={[
                 styles.progressFill, 
-                { width: `${((currentStep + 1) / steps.length) * 100}%` }
+                { width: `${stages.length > 0 ? ((currentStep + 1) / stages.length) * 100 : 0}%` }
               ]} 
             />
           </View>
@@ -213,15 +236,34 @@ export default function Tracking({ route, navigation }) {
             {t("journey_timeline")}
           </Typography>
 
-          {steps.map((step, index) => {
+          {isLoadingStages ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Typography variant="caption" style={{ marginTop: 12 }}>{t("loading_stages", "Loading journey...")}</Typography>
+            </View>
+          ) : fetchError ? (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <MaterialIcons name="error-outline" size={48} color={theme.colors.error} />
+              <Typography variant="body" style={{ marginTop: 12, textAlign: 'center' }}>
+                {t("failed_to_load_stages", "Failed to load journey timeline.")}
+              </Typography>
+              <TouchableOpacity 
+                onPress={fetchStages} 
+                style={{ marginTop: 16, backgroundColor: theme.colors.primary, padding: 12, borderRadius: 8 }}
+              >
+                <Typography variant="button" color="surface">{t("retry", "Retry")}</Typography>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            stages.map((step, index) => {
             const isCompleted = index < currentStep;
             const isActive = index === currentStep;
-            const isLast = index === steps.length - 1;
+            const isLast = index === stages.length - 1;
 
             return (
               <View key={index} style={styles.timelineItem}>
                 <View style={styles.timelineLeft}>
-                  {/* Indicator Dot (Checkmark if done, Solid if active, Border if pending) */}
+                  {/* Indicator Dot */}
                   <View style={[
                     styles.timelineDot,
                     isCompleted ? styles.dotCompleted : isActive ? styles.dotActive : styles.dotPending
@@ -229,7 +271,6 @@ export default function Tracking({ route, navigation }) {
                     {isCompleted && <MaterialIcons name="check" size={12} color={theme.colors.surface} />}
                     {isActive && <View style={styles.dotInner} />}
                   </View>
-                  {/* Connector line between milestones */}
                   {!isLast && (
                     <View style={[
                       styles.timelineLine,
@@ -252,7 +293,8 @@ export default function Tracking({ route, navigation }) {
                         weight="bold"
                         style={{ color: isActive ? theme.colors.primary : theme.colors.text }}
                       >
-                        {step.title}
+                        {/* Try to translate the stage name, fallback to raw name */}
+                        {t(step.stage_name.toLowerCase().replace(/ /g, "_"), step.stage_name)}
                       </Typography>
                     </View>
                     
@@ -260,7 +302,6 @@ export default function Tracking({ route, navigation }) {
                       {isCompleted ? t("successfully_verified") : isActive ? t("current_stage_of_shipment") : t("upcoming_milestone")}
                     </Typography>
 
-                    {/* Active pulse indicator for the current stage */}
                     {isActive && (
                       <View style={styles.activeIndicator}>
                         <View style={styles.pulseDot} />
@@ -273,15 +314,16 @@ export default function Tracking({ route, navigation }) {
                 </View>
               </View>
             );
-          })}
+            })
+          )}
         </View>
 
         {/* FOOTER ACTION: The primary button to update stage */}
         <View style={styles.footer}>
           <Button
-            title={isUpdating ? t("updating") : t("complete_current_stage")}
+            title={isLoadingStages ? t("loading") : isUpdating ? t("updating") : t("complete_current_stage")}
             onPress={nextStep}
-            disabled={isUpdating || currentStep === steps.length - 1}
+            disabled={isLoadingStages || isUpdating || currentStep === stages.length - 1}
             style={styles.mainButton}
           />
           <Typography variant="tiny" color="textMuted" align="center" style={{ marginTop: 12 }}>

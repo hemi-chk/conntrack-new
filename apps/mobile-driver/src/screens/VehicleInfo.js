@@ -29,16 +29,16 @@ export default function VehicleInfo({ route, navigation }) {
    */
   const fetchVehicle = async () => {
     try {
-      const supplierId = user?.supplier_id;
-      if (!supplierId) {
+      const driverId = user?.driver_id;
+      if (!driverId) {
         setIsLoading(false);
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/vehicle-info/${supplierId}`);
+      const response = await fetch(`${API_BASE_URL}/api/driver/assigned-vehicle/${driverId}`);
       const result = await response.json();
 
-      if (result.success) {
+      if (result.success && result.data) {
         setVehicle(result.data);
       }
     } catch (error) {

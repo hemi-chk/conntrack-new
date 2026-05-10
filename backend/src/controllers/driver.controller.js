@@ -246,6 +246,7 @@ exports.getActiveMission = async (req, res) => {
             `)
             .eq('driver_id', internalId)
             .neq('status', 'completed')
+            .neq('status', 'delivered')
             .order('assigned_at', { ascending: false })
             .limit(1)
             .single();
@@ -253,6 +254,20 @@ exports.getActiveMission = async (req, res) => {
         if (error) {
             console.log('Database Error:', error.message);
             return res.status(200).json({ success: true, data: null, message: 'No active mission found' });
+        }
+
+        // 🟢 NEW: Fetch the latest journey progress from the history table
+        const { data: latestHistory } = await supabase
+            .from('order_tracking_history')
+            .select('stage_name')
+            .eq('assignment_id', data.assignment_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        // If history exists, use that as the "current status" for the UI timeline
+        if (latestHistory) {
+            data.status = latestHistory.stage_name;
         }
 
         console.log('Found Mission:', data?.orders?.order_reference);
@@ -272,35 +287,50 @@ exports.getActiveMission = async (req, res) => {
 exports.updateMissionStatus = async (req, res) => {
     try {
         const { assignmentId, orderId, status, locationName, latitude, longitude } = req.body;
+        console.log('--- DB Update Start ---');
+        console.log('Assignment ID:', assignmentId, 'New Status:', status);
 
-        // 1. Update the assignment status
-        const { error: assignmentError } = await supabase
-            .from('order_assignments')
-            .update({
-                status: status
-            })
-            .eq('assignment_id', assignmentId);
+        console.log('--- DB Update Start ---');
+        console.log('Assignment ID:', assignmentId, 'New Status:', status);
 
-        if (assignmentError) throw assignmentError;
+        // 1. Only update the high-level assignment status if it's a core milestone
+        const coreStatuses = ['assigned', 'started', 'picked', 'transit', 'delivered', 'completed'];
+        if (coreStatuses.includes(status.toLowerCase())) {
+            console.log('Updating core assignment status to:', status);
+            const { error: assignmentError } = await supabase
+                .from('order_assignments')
+                .update({ status: status })
+                .eq('assignment_id', assignmentId);
 
-        // 2. Add a record to the container_tracking table (Timeline)
-        const { error: trackingError } = await supabase
-            .from('container_tracking')
+            if (assignmentError) {
+                console.error('Step 1 (Assignment) Failed:', assignmentError.message);
+                throw assignmentError;
+            }
+        } else {
+            console.log('Skipping order_assignments update for intermediate stage:', status);
+        }
+
+        // 2. Add a detailed record to the new order_tracking_history table
+        console.log('Recording journey milestone in order_tracking_history...');
+        const { error: historyError } = await supabase
+            .from('order_tracking_history')
             .insert([{
                 order_id: orderId,
+                assignment_id: assignmentId,
                 stage_name: status,
                 location_name: locationName,
                 latitude: latitude,
                 longitude: longitude,
-                timestamp: new Date()
+                created_at: new Date()
             }]);
 
-        if (trackingError) throw trackingError;
+        if (historyError) {
+            console.error('Step 2 (History) Failed:', historyError.message);
+            throw historyError;
+        }
 
-        res.status(200).json({
-            success: true,
-            message: 'Status updated successfully'
-        });
+        console.log('--- DB Update Complete ---');
+        res.status(200).json({ success: true, message: 'Status tracked successfully' });
     } catch (error) {
         console.error('Update Status Error:', error);
         res.status(500).json({ success: false, message: 'Failed to update status' });
@@ -708,58 +738,75 @@ exports.getOrderDocuments = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-/**
- * 17. Update Expo Push Token
- * Stores the unique device token for sending push notifications.
- */
-exports.updatePushToken = async (req, res) => {
-    try {
-        const { driverId, pushToken } = req.body;
 
-        if (!driverId || !pushToken) {
-            return res.status(400).json({ success: false, message: 'Missing driverId or pushToken' });
+/**
+ * 19. Get Tracking Stages
+ * Fetches the dynamic journey milestones for a specific order type.
+ */
+exports.getTrackingStages = async (req, res) => {
+    try {
+        const { type } = req.params; // 'import' or 'export'
+        console.log(`--- Stage Fetch Start ---`);
+        console.log(`Requesting stages for type: "${type}"`);
+
+        const { data, error } = await supabase
+            .from('tracking_stages')
+            .select('*')
+            .ilike('order_type', `%${type.trim()}%`)
+            .order('sequence_order', { ascending: true });
+
+        if (error) {
+            console.error('DB Error fetching stages:', error.message);
+            throw error;
         }
 
-        console.log(`Updating Push Token for Driver ${driverId}`);
+        console.log(`Successfully found ${data?.length || 0} stages for ${type}`);
+        console.log(`--- Stage Fetch Complete ---`);
 
-        const { error } = await supabase
-            .from('drivers')
-            .update({
-                expo_push_token: pushToken,
-                updated_at: new Date()
-            })
-            .eq('driver_id', parseInt(driverId));
-
-        if (error) throw error;
-
-        res.status(200).json({ success: true, message: 'Push token updated successfully' });
+        res.status(200).json({
+            success: true,
+            data: data
+        });
     } catch (error) {
-        console.error('Push Token Update Error:', error);
-        res.status(500).json({ success: false, message: 'Internal server error' });
+        console.error('Fetch Stages Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch tracking stages' });
     }
 };
-/**
- * 18. Send Test Notification
- * A utility endpoint to verify that push notifications are working for a driver.
- */
-exports.sendTestNotification = async (req, res) => {
-    try {
-        const { driverId } = req.body;
-        const { sendDriverNotification } = require('../config/notifications');
 
-        if (!driverId) {
-            return res.status(400).json({ success: false, message: 'Missing driverId' });
+/**
+ * 20. Get Assigned Vehicle
+ * Fetches vehicle details based on the driver's active assignment.
+ */
+exports.getAssignedVehicle = async (req, res) => {
+    try {
+        const { driverId } = req.params;
+
+        // 1. Find the active assignment to get the vehicle_id
+        const { data: assignment, error: assignError } = await supabase
+            .from('order_assignments')
+            .select(`
+                vehicle_id,
+                vehicles (
+                    *
+                )
+            `)
+            .eq('driver_id', driverId)
+            .neq('status', 'completed')
+            .neq('status', 'delivered')
+            .order('assigned_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (assignError || !assignment) {
+            return res.status(200).json({ success: true, data: null, message: 'No active vehicle assignment found' });
         }
 
-        await sendDriverNotification(
-            parseInt(driverId), 
-            "Test Alert 🔔", 
-            "Your ConnTrack notification system is now active!"
-        );
-
-        res.status(200).json({ success: true, message: 'Test notification triggered' });
+        res.status(200).json({
+            success: true,
+            data: assignment.vehicles
+        });
     } catch (error) {
-        console.error('Test Notification Error:', error);
+        console.error('Fetch Assigned Vehicle Error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
