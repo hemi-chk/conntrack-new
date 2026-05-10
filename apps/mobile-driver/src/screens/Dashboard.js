@@ -32,11 +32,13 @@ export default function Dashboard({ route, navigation }) {
   const user = route?.params?.user || {};
   
   const [activeMission, setActiveMission] = useState(null);
+  const [recentIssues, setRecentIssues] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load mission data on component mount
   useEffect(() => {
     fetchActiveMission();
+    fetchRecentIssues();
   }, []);
 
   /**
@@ -54,7 +56,6 @@ export default function Dashboard({ route, navigation }) {
 
       const idToUse = user.driver_id || user.emp_id;
       
-      // Implement AbortController to handle potential slow network timeouts
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -76,25 +77,50 @@ export default function Dashboard({ route, navigation }) {
   };
 
   /**
-   * Mock alerts for demonstration purposes.
-   * In production, these should be fetched from a notifications API.
+   * Fetches the 3 most recent issues/updates for this driver.
    */
-  const alerts = [
-    {
-      id: 1,
-      text: t("new_delivery_assigned"),
-      type: "info",
-      icon: "local-shipping",
-      time: t("10:30 AM")
-    },
-    {
-      id: 2,
-      text: t("docs_verified_success"),
-      type: "success",
-      icon: "check-circle",
-      time: t("yesterday")
+  const fetchRecentIssues = async () => {
+    try {
+      const idToUse = user.driver_id || user.emp_id;
+      if (!idToUse) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/driver/issues/${idToUse}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Only show top 3 for the dashboard preview
+        setRecentIssues(result.data.slice(0, 3));
+      }
+    } catch (error) {
+      console.error("Dashboard: Fetch Issues Error:", error);
     }
-  ];
+  };
+
+  /**
+   * Maps issue types to specific UI icons and colors for the dashboard feed.
+   */
+  const getIssueUI = (type) => {
+    switch (type) {
+      case "vehicle_issue": return { icon: "directions-car", color: "#EF4444" };
+      case "delay_issue": return { icon: "schedule", color: "#F59E0B" };
+      case "document_issue": return { icon: "description", color: "#6366F1" };
+      default: return { icon: "report-problem", color: "#64748B" };
+    }
+  };
+
+  /**
+   * Formats database time to relative human-readable string.
+   */
+  const formatTime = (dateStr) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    if (diffHrs < 1) return t("just_now");
+    if (diffHrs < 24) return `${diffHrs}${t("h_ago")}`;
+    return date.toLocaleDateString();
+  };
 
   /**
    * Configuration for the 2x2 grid of action buttons.
@@ -264,27 +290,38 @@ export default function Dashboard({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {alerts.map((alert) => (
-          <Card key={alert.id} elevation="sm" style={styles.alertCard}>
-            <View style={[styles.alertIconContainer, { backgroundColor: `${getColor(alert.type)}15` }]}>
-              <MaterialIcons
-                name={alert.icon}
-                size={22}
-                color={getColor(alert.type)}
-              />
-            </View>
+        {recentIssues.length > 0 ? (
+          recentIssues.map((issue) => {
+            const ui = getIssueUI(issue.issue_type);
+            return (
+              <Card key={issue.issue_id} elevation="sm" style={styles.alertCard}>
+                <View style={[styles.alertIconContainer, { backgroundColor: `${ui.color}15` }]}>
+                  <MaterialIcons
+                    name={ui.icon}
+                    size={22}
+                    color={ui.color}
+                  />
+                </View>
 
-            <View style={styles.alertTextContainer}>
-              <Typography variant="body" weight="medium">
-                {alert.text}
-              </Typography>
-              <Typography variant="tiny" color="textMuted">
-                {alert.time}
-              </Typography>
-            </View>
-            <MaterialIcons name="chevron-right" size={20} color={theme.colors.border} />
-          </Card>
-        ))}
+                <View style={styles.alertTextContainer}>
+                  <Typography variant="body" weight="medium" numberOfLines={1}>
+                    {issue.description}
+                  </Typography>
+                  <Typography variant="tiny" color="textMuted">
+                    {formatTime(issue.created_at)}
+                  </Typography>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={theme.colors.border} />
+              </Card>
+            );
+          })
+        ) : (
+          <View style={{ alignItems: "center", paddingVertical: 20 }}>
+            <Typography variant="caption" color="textMuted">
+              {t("no_recent_updates")}
+            </Typography>
+          </View>
+        )}
 
         <View style={{ height: theme.spacing.xl }} />
       </ScrollView>
