@@ -102,6 +102,21 @@ export const updateDriverStatus = async (req, res) => {
   }
 }
 
+export const deleteDriver = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { error } = await supabase
+      .from('drivers')
+      .delete()
+      .eq('driver_id', id)
+
+    if (error) throw error
+    res.json({ message: 'Driver removed successfully' })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
 // =============================================
 // SUPPLIERS
 // =============================================
@@ -170,6 +185,44 @@ export const getAllStaff = async (req, res) => {
   }
 }
 
+export const addStaff = async (req, res) => {
+  try {
+    const { email, password, role, first_name, last_name, contact_number, position, employee_id, national_id, address, date_joined } = req.body
+
+    // Step 1: Create the auth user so profiles.id FK is satisfied
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+    if (authError) throw authError
+
+    // Step 2: Insert profile using the new auth user's ID
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email,
+        role,
+        first_name,
+        last_name,
+        contact_number,
+        position,
+        employee_id,
+        national_id,
+        address,
+        date_joined,
+        status: 'active',
+      })
+      .select()
+
+    if (error) throw error
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
 export const updateStaffStatus = async (req, res) => {
   try {
     const { id } = req.params
@@ -183,6 +236,21 @@ export const updateStaffStatus = async (req, res) => {
 
     if (error) throw error
     res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const deleteStaff = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    res.json({ message: 'Staff member removed successfully' })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

@@ -5,11 +5,14 @@ import {
   getAllDrivers,
   addDriver,
   updateDriverStatus,
+  deleteDriver,
   getAllSuppliers,
   addSupplier,
   updateSupplierStatus,
   getAllStaff,
+  addStaff,
   updateStaffStatus,
+  deleteStaff,
   getAllBids,
   getAllIssues,
 } from './controller.js'
@@ -26,6 +29,8 @@ router.get('/orders', getAllOrders)
 router.get('/drivers', getAllDrivers)
 router.post('/drivers', addDriver)
 router.put('/drivers/:id/status', updateDriverStatus)
+router.delete('/drivers/:id', deleteDriver)
+
 
 // Suppliers
 router.get('/suppliers', getAllSuppliers)
@@ -34,7 +39,9 @@ router.put('/suppliers/:id/status', updateSupplierStatus)
 
 // Staff
 router.get('/staff', getAllStaff)
+router.post('/staff', addStaff)
 router.put('/staff/:id/status', updateStaffStatus)
+router.delete('/staff/:id', deleteStaff)
 
 // Bids
 router.get('/bids', getAllBids)
