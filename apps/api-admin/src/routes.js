@@ -12,7 +12,7 @@ import {
   updateStaffStatus,
   getAllBids,
   getAllIssues,
-} from '../controllers/admin.controller.js'
+} from './controller.js'
 
 const router = express.Router()
 
