@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    Package, Truck, Clipboard, AlertTriangle,
-    ArrowRight, Activity, Calendar, Loader2, RefreshCcw
+    Package, Truck, AlertTriangle,
+    ArrowRight, Activity, Calendar, Loader2, RefreshCcw, CheckCircle2, Navigation,
+    Eye
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,43 +14,40 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import api from "../../config/api";
+
 export default function Dashboard() {
     const navigate = useNavigate();
 
-    // 1. Initialize with safe defaults
     const [data, setData] = useState({
         importOrdersCount: 0,
         exportOrdersCount: 0,
         recentActivity: [],
-        stats: { pendingRequests: 0, clearanceIssues: 0 }
+        stats: { inTransitCount: 0, completedOrders: 0 }
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // 2. Wrap fetch in useCallback for re-usability (Retry button)
     const loadDashboard = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch("http://localhost:5000/api/logistics/dashboard-summary");
+            const response = await api.get("/logistics/dashboard-summary");
+            const result = response.data;
 
-            if (!response.ok) throw new Error("Failed to sync with logistics server");
-
-            const result = await response.json();
-
-            // Ensure result matches the expected structure or provide fallbacks
             setData({
                 importOrdersCount: result?.importOrdersCount ?? 0,
                 exportOrdersCount: result?.exportOrdersCount ?? 0,
                 recentActivity: result?.recentActivity || [],
                 stats: {
-                    pendingRequests: result?.stats?.pendingRequests ?? 0,
-                    clearanceIssues: result?.stats?.clearanceIssues ?? 0
+                    inTransitCount: result?.stats?.inTransitCount ?? 0,
+                    completedOrders: result?.stats?.completedOrders ?? 0
                 }
             });
         } catch (err) {
             console.error("Dashboard Load Error:", err);
-            setError(err.message);
+            const errorMessage = err.response?.data?.message || "Failed to sync with logistics server";
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -64,37 +62,12 @@ export default function Dashboard() {
     });
 
     const cards = [
-        {
-            label: "Import Orders",
-            count: data.importOrdersCount,
-            icon: Package,
-            color: "text-blue-600",
-            border: "border-t-blue-600",
-        },
-        {
-            label: "Export Orders",
-            count: data.exportOrdersCount,
-            icon: Truck,
-            color: "text-emerald-600",
-            border: "border-t-emerald-600",
-        },
-        {
-            label: "Active Bids",
-            count: data.stats.pendingRequests,
-            icon: Clipboard,
-            color: "text-orange-600",
-            border: "border-t-orange-600",
-        },
-        {
-            label: "Reported Issues",
-            count: data.stats.clearanceIssues,
-            icon: AlertTriangle,
-            color: "text-red-600",
-            border: "border-t-red-600",
-        },
+        { label: "Import Orders", count: data.importOrdersCount, icon: Package, color: "text-blue-600", border: "border-t-blue-600" },
+        { label: "Export Orders", count: data.exportOrdersCount, icon: Truck, color: "text-emerald-600", border: "border-t-emerald-600" },
+        { label: "In Transit", count: data.stats.inTransitCount, icon: Truck, color: "text-amber-500", border: "border-t-amber-500" },
+        { label: "Completed Deliveries", count: data.stats.completedOrders, icon: CheckCircle2, color: "text-indigo-600", border: "border-t-indigo-600" },
     ];
 
-    // LOADING STATE
     if (loading) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
@@ -104,33 +77,25 @@ export default function Dashboard() {
         );
     }
 
-    // ERROR STATE
     if (error) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
-                <div className="p-4 bg-red-50 rounded-full">
-                    <AlertTriangle className="h-10 w-10 text-red-600" />
-                </div>
+                <div className="p-4 bg-red-50 rounded-full"><AlertTriangle className="h-10 w-10 text-red-600" /></div>
                 <div className="text-center">
                     <h2 className="text-lg font-bold text-slate-900">Connection Failed</h2>
                     <p className="text-sm text-slate-500 max-w-xs">{error}</p>
                 </div>
-                <Button onClick={loadDashboard} variant="outline" className="gap-2">
-                    <RefreshCcw size={16} /> Retry Connection
-                </Button>
+                <Button onClick={loadDashboard} variant="outline" className="gap-2"><RefreshCcw size={16} /> Retry Connection</Button>
             </div>
         );
     }
 
     return (
         <div className="min-h-screen bg-slate-50/50 p-6 space-y-8">
-            {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Logistics Overview</h1>
-                    <p className="text-sm text-slate-500 font-medium">
-                        Welcome back, <span className="text-[#1E40AF]">Binuwara</span> • Live Monitoring
-                    </p>
+                    <p className="text-sm text-slate-500 font-medium">Welcome back, <span className="text-[#1E40AF]">Binuwara</span></p>
                 </div>
                 <div className="flex items-center gap-3 text-sm font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-lg shadow-sm">
                     <Calendar size={16} className="text-[#1E40AF]" />
@@ -139,7 +104,6 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* Stats Cards Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {cards.map((card) => (
                     <Card key={card.label} className={`border-t-4 ${card.border} border-x-slate-200 border-b-slate-200 shadow-sm hover:shadow-md transition-all`}>
@@ -148,44 +112,43 @@ export default function Dashboard() {
                             <card.icon className={`h-5 w-5 ${card.color} opacity-80`} />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-3xl font-bold text-slate-900">
-                                {card.count ?? 0}
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1">Updated just now</p>
+                            <div className="text-3xl font-bold text-slate-900">{card.count ?? 0}</div>
                         </CardContent>
                     </Card>
                 ))}
             </div>
 
-            {/* Table Section */}
             <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="bg-white border-b border-slate-100 flex flex-row items-center justify-between">
+                <CardHeader className="bg-white border-b border-slate-100">
                     <div className="flex items-center gap-2">
                         <div className="p-2 bg-[#EFF6FF] rounded-lg">
                             <Activity className="h-5 w-5 text-[#1E40AF]" />
                         </div>
                         <div>
                             <CardTitle className="text-lg text-slate-800">Recent Activity</CardTitle>
-                            <p className="text-xs text-slate-500">Latest updates from your fleet</p>
+
                         </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => navigate('/import')}>View All</Button>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader className="bg-slate-50">
                             <TableRow>
+                                <TableHead className="font-semibold">Order ID</TableHead>
                                 <TableHead className="font-semibold">Reference</TableHead>
                                 <TableHead className="font-semibold">Type</TableHead>
                                 <TableHead className="font-semibold">Asset / Driver</TableHead>
-                                <TableHead className="font-semibold">Current State</TableHead>
+                                <TableHead className="font-semibold">Status</TableHead>
                                 <TableHead className="text-right font-semibold">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {data.recentActivity?.length > 0 ? (
                                 data.recentActivity.map((order) => (
-                                    <TableRow key={order.order_reference} className="hover:bg-slate-50/80 group">
+                                    <TableRow key={order.order_id} className="hover:bg-slate-50/80 group">
+                                        <TableCell className="font-medium text-slate-500 text-xs">
+                                            #{order.order_id}
+                                        </TableCell>
                                         <TableCell className="font-bold text-[#1E40AF]">
                                             {order.order_reference || "N/A"}
                                         </TableCell>
@@ -201,40 +164,34 @@ export default function Dashboard() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-semibold text-slate-700">
-                                                    {order.vehicle_number || "Unassigned"}
-                                                </span>
-                                                <span className="text-xs text-slate-500">
-                                                    {order.driver_name || "No driver assigned"}
-                                                </span>
+                                                <span className="text-sm font-semibold text-slate-700">{order.vehicle_number || "Unassigned"}</span>
+                                                <span className="text-xs text-slate-500">{order.driver_name || "No driver assigned"}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <span className={`h-2 w-2 rounded-full ${order.current_status === 'completed' ? 'bg-emerald-500' :
-                                                        order.current_status === 'in_transit' ? 'bg-blue-500' :
-                                                            order.current_status === 'at_port' ? 'bg-amber-500' : 'bg-slate-300'
+                                                    order.current_status === 'in_transit' ? 'bg-blue-500' :
+                                                        order.current_status === 'at_port' ? 'bg-amber-500' : 'bg-slate-300'
                                                     }`} />
-                                                <span className="text-sm font-medium capitalize text-slate-600">
-                                                    {(order.current_status || "pending").replace('_', ' ')}
-                                                </span>
+                                                <span className="text-sm font-medium capitalize text-slate-600">{(order.current_status || "pending").replace('_', ' ')}</span>
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="sm"
-                                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[#1E40AF]"
-                                                onClick={() => navigate(`/tracking/${order.order_id}`)}
+                                                className="transition-all hover:bg-blue-50 text-[#1E40AF] gap-2 border-blue-200"
+                                                onClick={() => navigate(`/orders/${order.order_id}`)}
                                             >
-                                                Track <ArrowRight className="ml-2 h-4 w-4" />
+                                                <Package size={14} /> View
                                             </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center">
+                                    <TableCell colSpan={6} className="h-32 text-center">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
                                             <Package className="h-8 w-8 mb-2 opacity-20" />
                                             <p className="italic">No active logistics records found.</p>

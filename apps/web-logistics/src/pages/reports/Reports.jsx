@@ -1,20 +1,18 @@
-import { useState, useEffect, useMemo } from "react";
-import {
-    Printer,
-    FileBarChart,
-    Loader2,
-    CheckCircle2,
-    PackageCheck,
-    Calendar
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Printer, FileBarChart, Loader2, PackageCheck, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/config/supabase";
 
-export default function ReportsPage() {
+// Import the centralized axios instance
+import api from "../../config/api";
+
+export default function Reports() {
     const [orders, setOrders] = useState([]);
+    const [stats, setStats] = useState({ total: 0, completedCount: 0, imports: 0, exports: 0, successRate: 0 });
     const [loading, setLoading] = useState(true);
+
+    // Dates set to the current project year context (2026)
     const [fromDate, setFromDate] = useState("2026-01-01");
     const [toDate, setToDate] = useState("2026-12-31");
 
@@ -25,355 +23,220 @@ export default function ReportsPage() {
     async function fetchReportData() {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('orders')
-                .select('*')
-                .gte('created_at', `${fromDate}T00:00:00Z`)
-                .lte('created_at', `${toDate}T23:59:59Z`)
-                .order('created_at', { ascending: false });
+            // Axios 'params' handles the ?fromDate=...&toDate=... string for you
+            const response = await api.get("/logistics/reports", {
+                params: { fromDate, toDate }
+            });
 
-            if (error) throw error;
-            setOrders(data || []);
+            // Destructure data directly from the axios response
+            const { orders, stats } = response.data;
+            setOrders(orders);
+            setStats(stats);
         } catch (err) {
-            console.error("Supabase Fetch Error:", err.message);
+            // Context-aware error handling for a smoother dev experience
+            const errorMsg = err.response?.data?.message || err.message;
+            console.error("Logistics API Error:", errorMsg);
         } finally {
             setLoading(false);
         }
     }
 
-    // Analytics calculations
-    const stats = useMemo(() => {
-        const total = orders.length;
-        const completedCount = orders.filter(o => o.current_status?.toLowerCase() === 'completed').length;
-        const imports = orders.filter(o => o.order_type?.toLowerCase() === 'import').length;
-        const exports = orders.filter(o => o.order_type?.toLowerCase() === 'export').length;
-        const percentage = total > 0 ? ((completedCount / total) * 100).toFixed(1) : "0";
-
-        return { total, completedCount, imports, exports, percentage };
-    }, [orders]);
-
     const handlePrint = () => window.print();
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Print Styles */}
+            {/* Print specific styles */}
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @media print {
-                    body * { visibility: hidden; }
-                    .printable-report, .printable-report * { visibility: visible; }
-                    .printable-report { position: absolute; left: 0; top: 0; width: 100% !important; }
-                    .no-print { display: none !important; }
-                    .print-table { page-break-inside: auto; }
-                    .print-table tr { page-break-inside: avoid; page-break-after: auto; }
-                    @page { size: A4 landscape; margin: 15mm; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    nav, aside, .no-print { display: none !important; }
+                    main { margin-left: 0 !important; padding-top: 0 !important; }
+                    .printable-report { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: none !important; background: white !important; }
+                    .print-table { border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
+                    body { background: white !important; }
+                    .stat-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
+                    .efficiency-card { background: #f8fafc !important; color: #0f172a !important; border: 1px solid #e2e8f0 !important; }
+                    .efficiency-card p, .efficiency-card h2 { color: #0f172a !important; }
                 }
             `}} />
 
             <div className="printable-report p-6 max-w-7xl mx-auto space-y-6">
-                {/* Professional Header - Print Only */}
-                <div className="hidden print:block border-b-4 border-[#1E40AF] pb-6 mb-8">
-                    <div className="flex items-start justify-between">
+                {/* Professional Print Header */}
+                <div className="hidden print:block border-b-2 border-slate-900 pb-6 mb-8">
+                    <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-5xl font-black text-[#1E40AF] tracking-tight mb-2">
-                                CONNTRACK LOGISTICS
-                            </h1>
-                            <p className="text-sm uppercase tracking-[0.3em] font-bold text-slate-600">
-                                Operational Performance Report
-                            </p>
-                            <div className="mt-4 text-xs text-slate-600 space-y-1">
-                                <p><span className="font-bold">Period:</span> {new Date(fromDate).toLocaleDateString()} - {new Date(toDate).toLocaleDateString()}</p>
-                                <p><span className="font-bold">Total Records:</span> {stats.total} Orders</p>
-                            </div>
+                            <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Logistics Operations Report</h1>
+                            <p className="text-slate-500 font-medium mt-1">ConnTrack Integrated Logistics System</p>
                         </div>
                         <div className="text-right">
-                            <div className="bg-slate-100 px-4 py-3 rounded-lg">
-                                <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1">
-                                    Report Generated
-                                </p>
-                                <p className="text-sm font-bold text-slate-900">
-                                    {new Date().toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric'
-                                    })}
-                                </p>
-                                <p className="text-[10px] font-mono text-slate-500 mt-2">
-                                    REF: REPT-{new Date().getFullYear()}-{String(orders.length).padStart(4, '0')}
-                                </p>
-                            </div>
+                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Report Status</p>
+                            <p className="text-sm font-bold text-emerald-600 uppercase">Official Document</p>
                         </div>
+                    </div>
+                    <div className="flex justify-between mt-8 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>Period: {new Date(fromDate).toLocaleDateString()} - {new Date(toDate).toLocaleDateString()}</span>
+                        <span>Generated: {new Date().toLocaleString()}</span>
                     </div>
                 </div>
 
-                {/* Page Header - Screen Only */}
-                <div className="no-print">
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
-                        {/* Left Section */}
-                        <div className="flex items-center gap-4">
-                            <div className="bg-[#1E40AF] p-3 rounded-lg">
-                                <FileBarChart size={24} className="text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-2xl font-bold text-slate-900">
-                                    Reports & Analytics
-                                </h1>
-                                <p className="text-slate-600 text-sm">
-                                    Performance metrics and insights
-                                </p>
-                            </div>
+                {/* Action Bar */}
+                <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                            <FileBarChart className="text-[#1E40AF]" size={24} />
                         </div>
-
-                        {/* Right Section - Date Picker & Print */}
-                        <div className="flex flex-wrap items-center gap-3">
-                            {/* Date Range Picker */}
-                            <div className="flex items-center gap-2 bg-white border border-slate-200 p-1.5 rounded-lg">
-                                <Calendar size={16} className="text-slate-400 ml-2" />
-                                <Input
-                                    type="date"
-                                    value={fromDate}
-                                    onChange={(e) => setFromDate(e.target.value)}
-                                    className="border-none bg-transparent h-8 text-xs font-medium focus-visible:ring-0"
-                                />
-                                <span className="text-slate-400">→</span>
-                                <Input
-                                    type="date"
-                                    value={toDate}
-                                    onChange={(e) => setToDate(e.target.value)}
-                                    className="border-none bg-transparent h-8 text-xs font-medium focus-visible:ring-0"
-                                />
-                            </div>
-
-                            {/* Print Button */}
-                            <Button
-                                onClick={handlePrint}
-                                className="bg-[#1E40AF] text-white font-medium px-6"
-                            >
-                                <Printer size={16} className="mr-2" />
-                                Print Report
-                            </Button>
+                        <div>
+                            <h1 className="text-xl font-bold text-slate-800">Logistics Reports</h1>
                         </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-slate-100 rounded-lg px-2 border border-slate-200">
+                            <Input
+                                type="date"
+                                value={fromDate}
+                                onChange={(e) => setFromDate(e.target.value)}
+                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
+                            />
+                            <span className="text-slate-400 text-xs">to</span>
+                            <Input
+                                type="date"
+                                value={toDate}
+                                onChange={(e) => setToDate(e.target.value)}
+                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
+                            />
+                        </div>
+                        <Button onClick={handlePrint} variant="outline" className="gap-2">
+                            <Printer size={16} /> Print
+                        </Button>
                     </div>
                 </div>
 
-                {/* Simple Stats Cards */}
+                {/* Statistics Overview */}
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                    {/* Total Orders */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                        <p className="text-xs font-medium text-slate-500 uppercase mb-2">
-                            Total Orders
-                        </p>
-                        <h2 className="text-3xl font-bold text-slate-900">
-                            {loading ? "..." : stats.total}
-                        </h2>
-                    </div>
-
-                    {/* Completed Orders */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                        <p className="text-xs font-medium text-emerald-600 uppercase mb-2 flex items-center gap-1">
-                            <PackageCheck size={12} />
-                            Completed
-                        </p>
-                        <h2 className="text-3xl font-bold text-emerald-600">
-                            {loading ? "..." : stats.completedCount}
-                        </h2>
-                    </div>
-
-                    {/* Import Orders */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                        <p className="text-xs font-medium text-blue-600 uppercase mb-2">
-                            Import Orders
-                        </p>
-                        <h2 className="text-3xl font-bold text-blue-600">
-                            {loading ? "..." : stats.imports}
-                        </h2>
-                    </div>
-
-                    {/* Export Orders */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4">
-                        <p className="text-xs font-medium text-indigo-600 uppercase mb-2">
-                            Export Orders
-                        </p>
-                        <h2 className="text-3xl font-bold text-indigo-600">
-                            {loading ? "..." : stats.exports}
-                        </h2>
-                    </div>
-
-                    {/* Success Rate */}
-                    <div className="bg-slate-900 text-white rounded-lg p-4">
-                        <p className="text-xs font-medium text-slate-400 uppercase mb-2">
-                            Success Rate
-                        </p>
-                        <h2 className="text-3xl font-bold text-white">
-                            {loading ? "..." : `${stats.percentage}%`}
-                        </h2>
+                    <StatCard title="Total Orders" value={stats.total} loading={loading} />
+                    <StatCard
+                        title="Completed"
+                        value={stats.completedCount}
+                        color="text-emerald-600"
+                        loading={loading}
+                        icon={<PackageCheck size={12} />}
+                    />
+                    <StatCard title="Imports" value={stats.imports} color="text-blue-600" loading={loading} />
+                    <StatCard title="Exports" value={stats.exports} color="text-indigo-600" loading={loading} />
+                    <div className="efficiency-card bg-slate-900 text-white rounded-lg p-4 shadow-md">
+                        <p className="text-xs font-medium text-slate-400 uppercase mb-2 text-center">Efficiency Rate</p>
+                        <h2 className="text-3xl font-bold text-center">{loading ? "..." : `${stats.successRate}%`}</h2>
                     </div>
                 </div>
 
-                {/* Orders Table */}
-                <div className="bg-white border border-slate-200 rounded-lg overflow-hidden print-table">
-                    <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-900 uppercase">
-                            Detailed Order Records
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-1">
-                            {loading ? "Loading..." : `${orders.length} orders in selected period`}
-                        </p>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow className="border-b border-slate-200">
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-6 py-3">
-                                        ID
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-4 py-3">
-                                        Reference / Type
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-4 py-3">
-                                        Pickup Location
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-4 py-3">
-                                        Destination
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-4 py-3">
-                                        Created Date
-                                    </TableHead>
-                                    <TableHead className="font-semibold text-slate-900 text-xs px-4 py-3 text-right">
-                                        Status
-                                    </TableHead>
+                {/* Data Table */}
+                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden print-table">
+                    <Table>
+                        <TableHeader className="bg-slate-50">
+                            <TableRow>
+                                <TableHead className="px-6 py-4 font-bold text-slate-700">Order ID</TableHead>
+                                <TableHead className="font-bold text-slate-700">Customer & Reference</TableHead>
+                                <TableHead className="font-bold text-slate-700">Route Details</TableHead>
+                                <TableHead className="font-bold text-slate-700">Date</TableHead>
+                                <TableHead className="text-right font-bold text-slate-700">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-64 text-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Loader2 className="animate-spin text-[#1E40AF]" size={32} />
+                                            <p className="text-slate-400 text-sm italic">Generating report data...</p>
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-48 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-3">
-                                                <Loader2 className="animate-spin text-[#1E40AF] h-8 w-8" />
-                                                <p className="text-sm font-medium text-slate-600">
-                                                    Loading report data...
-                                                </p>
+                            ) : orders.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="h-32 text-center text-slate-500 italic">
+                                        No logistics data found for this period.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                orders.map((order) => (
+                                    <TableRow key={order.order_id} className="hover:bg-slate-50/50 transition-colors">
+                                        <TableCell className="px-6 font-mono text-xs text-slate-500 uppercase">
+                                            #{String(order.order_id).padStart(5, '0')}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-slate-100 p-1 rounded">
+                                                    <User size={12} className="text-slate-500" />
+                                                </div>
+                                                <span className="text-sm font-semibold text-slate-800">{order.customer_name}</span>
                                             </div>
+                                            <div className="text-[10px] font-mono text-blue-600 mt-0.5">{order.order_reference}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="text-xs font-medium text-slate-700">
+                                                {order.pickup_state} <span className="text-slate-300 mx-1">-</span> {order.destination_state}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider italic">{order.order_type}</div>
+                                        </TableCell>
+                                        <TableCell className="text-xs text-slate-600">
+                                            {new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <StatusBadge status={order.current_status} />
                                         </TableCell>
                                     </TableRow>
-                                ) : orders.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={6} className="h-48 text-center">
-                                            <div className="flex flex-col items-center justify-center gap-2">
-                                                <FileBarChart className="h-12 w-12 text-slate-300" />
-                                                <p className="text-sm font-medium text-slate-500">
-                                                    No records found for this period
-                                                </p>
-                                                <p className="text-xs text-slate-400">
-                                                    Try adjusting the date range
-                                                </p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    orders.map((order, index) => (
-                                        <TableRow
-                                            key={order.order_id}
-                                            className={`hover:bg-slate-50 transition-colors border-b border-slate-100 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                                                }`}
-                                        >
-                                            <TableCell className="px-6 text-slate-500 font-mono text-xs">
-                                                #{String(order.order_id).padStart(4, '0')}
-                                            </TableCell>
-                                            <TableCell className="px-4">
-                                                <div className="font-semibold text-[#1E40AF] text-sm">
-                                                    {order.order_reference || 'N/A'}
-                                                </div>
-                                                <div className="inline-flex items-center mt-1">
-                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${order.order_type?.toLowerCase() === 'import'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-indigo-100 text-indigo-700'
-                                                        }`}>
-                                                        {order.order_type}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="px-4">
-                                                <div className="text-xs font-medium text-slate-700">
-                                                    {order.pickup_state || '—'}
-                                                </div>
-                                                <div className="text-xs text-slate-500">
-                                                    {order.pickup_country || '—'}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="px-4">
-                                                <div className="text-xs font-medium text-slate-700">
-                                                    {order.destination_state || '—'}
-                                                </div>
-                                                <div className="text-xs text-slate-500">
-                                                    {order.destination_country || '—'}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="px-4">
-                                                <div className="text-xs text-slate-600">
-                                                    {new Date(order.created_at).toLocaleDateString('en-US', {
-                                                        month: 'short',
-                                                        day: 'numeric',
-                                                        year: 'numeric'
-                                                    })}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right px-4">
-                                                <span className={`inline-flex items-center px-3 py-1 rounded-md text-xs font-medium uppercase ${order.current_status?.toLowerCase() === 'completed'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : order.current_status?.toLowerCase() === 'in_progress'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-slate-100 text-slate-700'
-                                                    }`}>
-                                                    {order.current_status?.replace('_', ' ') || 'Pending'}
-                                                </span>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
                 </div>
 
-                {/* Footer with Signatures - Print Only */}
-                <div className="hidden print:block mt-16 pt-8 border-t-2 border-slate-200">
-                    <div className="grid grid-cols-3 gap-12">
+                {/* Professional Signature Section */}
+                <div className="hidden print:grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-slate-200">
+                    <div className="space-y-12">
+                        <div className="border-b border-slate-300 w-full h-12"></div>
                         <div className="text-center">
-                            <div className="border-t-2 border-slate-900 pt-4 mt-16">
-                                <p className="text-xs font-bold uppercase text-slate-900">
-                                    Prepared By
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">Logistics Team</p>
-                            </div>
-                        </div>
-                        <div className="text-center">
-                            <div className="border-t-2 border-slate-900 pt-4 mt-16">
-                                <p className="text-xs font-bold uppercase text-slate-900">
-                                    Authorized Signature
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">Operations Manager</p>
-                            </div>
-                        </div>
-                        <div className="text-center">
-                            <div className="border-t-2 border-slate-900 pt-4 mt-16">
-                                <p className="text-xs font-bold uppercase text-slate-900">
-                                    Official Seal
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">Company Stamp</p>
-                            </div>
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">Authorized Signature</p>
+                            <p className="text-[10px] text-slate-400 mt-1 uppercase">Logistics Manager / Department Head</p>
                         </div>
                     </div>
-
-                    {/* Footer Note */}
-                    <div className="mt-8 text-center text-xs text-slate-400">
-                        <p>This is a computer-generated report from ConnTrack Logistics System</p>
-                        <p className="mt-1">For queries, please contact: support@conntrack.com | +1 (555) 123-4567</p>
+                    <div className="space-y-12">
+                        <div className="border-b border-slate-300 w-full h-12"></div>
+                        <div className="text-center">
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">Date of Approval</p>
+                            <p className="text-[10px] text-slate-400 mt-1 uppercase">Official Stamp Required</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    );
+}
+
+// Reusable UI Components
+function StatCard({ title, value, color = "text-slate-900", loading, icon }) {
+    return (
+        <div className="stat-card bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+            <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 ${color}`}>
+                {icon} {title}
+            </p>
+            <h2 className={`text-3xl font-black ${color}`}>{loading ? "..." : value}</h2>
+        </div>
+    );
+}
+
+function StatusBadge({ status }) {
+    const s = status?.toLowerCase();
+    const isCompleted = s === 'completed';
+    const isPending = s === 'pending';
+
+    return (
+        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${isCompleted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
+            isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                'bg-blue-100 text-blue-700 border border-blue-200'
+            }`}>
+            {status?.replace('_', ' ') || 'Pending'}
+        </span>
     );
 }

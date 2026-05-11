@@ -1,99 +1,203 @@
-import { useState } from "react";
-import { CheckCircle2, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  CheckCircle2,
+  Truck,
+  ShieldCheck,
+  AlertCircle,
+  Loader2
+} from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import api from "../../config/api";
 
-export default function BidsSection({ disabled, onSelectWinner }) {
+export default function BidsSection({ orderId, onSelectWinner }) {
+  const [bids, setBids] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [finalized, setFinalized] = useState(false);
 
-  // ✅ MOCK SHORTLISTED BIDS (from operations)
-  const bids = [
-    { id: 1, supplier: "ABC Logistics", price: 500 },
-    { id: 2, supplier: "XYZ Transport", price: 450 },
-    { id: 3, supplier: "Fast Cargo", price: 480 },
-  ];
+  const { toast } = useToast();
 
-  const handleSelect = (bid) => {
-    setSelectedId(bid.id);
-    onSelectWinner(bid); // send to parent
+  // FETCH SHORTLISTED BIDS
+  useEffect(() => {
+    const fetchShortlistedBids = async () => {
+      try {
+        setLoading(true);
+
+        const res = await api.get(
+          `/logistics/orders/${orderId}/shortlisted-bids`
+        );
+
+        const data = res.data || [];
+
+        setBids(data);
+
+        // 🔥 If already finalized (only 1 accepted)
+        if (data.length === 1 && data[0].selectionStatus === "accepted") {
+          setFinalized(true);
+          setSelectedId(data[0].id);
+        }
+
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load shortlisted bids.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (orderId) fetchShortlistedBids();
+  }, [orderId]);
+
+  // FINALIZE WINNER
+  const handleConfirmWinner = async () => {
+    if (!selectedId || isFinalizing) return;
+
+    const selectedBid = bids.find((b) => b.id === selectedId);
+
+    if (!selectedBid) return;
+
+    setIsFinalizing(true);
+
+    try {
+      const response = await api.post(
+        `/logistics/orders/${orderId}/finalize`,
+        {
+          bidId: selectedBid.id,
+          selectionId: selectedBid.selectionId
+        }
+      );
+
+      if (response.status === 200) {
+        // 🔥 Show only winner
+        setBids([selectedBid]);
+        setFinalized(true);
+
+        if (onSelectWinner) onSelectWinner(selectedBid);
+
+        toast({
+          title: "Success",
+          description: "Carrier successfully selected.",
+        });
+      }
+    } catch (error) {
+      setIsFinalizing(false);
+
+      toast({
+        variant: "destructive",
+        title: "Selection Failed",
+        description: "Could not finalize bid selection.",
+      });
+    }
   };
 
-  const isLocked = disabled || selectedId !== null;
+  // LOADING
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 space-y-4">
+        <Loader2 className="animate-spin text-[#1E40AF]" size={32} />
+        <p className="text-slate-500 text-sm font-medium">
+          Loading shortlisted bids...
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
-      {/* Header */}
-      <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex justify-between items-center">
-        <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          Shortlisted Bids
-          <Badge className="bg-blue-100 text-[#1E40AF] border-none font-bold">
-            {bids.length}
+      {/* HEADER */}
+      <div className="bg-slate-50 px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          Final Carrier Selection
+          <Badge className="bg-blue-100 text-[#1E40AF] border-none">
+            {bids.length} Candidates
           </Badge>
         </h2>
 
-        {selectedId && (
-          <div className="flex items-center gap-1 text-emerald-600 font-semibold text-sm">
-            <CheckCircle2 size={16} />
-            Winner Selected
+        {finalized && (
+          <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-lg text-emerald-700 font-bold border border-emerald-200">
+            <CheckCircle2 size={18} /> Finalized
           </div>
         )}
       </div>
 
-      {/* Bids List */}
-      <div className="p-5 space-y-3">
-        {bids.map((bid) => {
-          const isWinner = selectedId === bid.id;
-          const isRejected = selectedId && selectedId !== bid.id;
+      {/* CONTENT */}
+      <div className="p-6 space-y-4">
 
-          return (
+        {bids.length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            No shortlisted bids available
+          </div>
+        ) : (
+          bids.map((bid) => (
             <div
               key={bid.id}
-              className={`flex justify-between items-center border p-4 rounded-xl transition
-                ${isWinner ? "border-emerald-300 bg-emerald-50" : ""}
-                ${isRejected ? "opacity-60 bg-slate-50" : ""}
+              onClick={() => !finalized && setSelectedId(bid.id)}
+              className={`flex justify-between items-center border-2 p-5 rounded-2xl cursor-pointer transition
+                ${selectedId === bid.id
+                  ? "border-[#1E40AF] bg-blue-50/30"
+                  : "border-slate-100 hover:border-slate-200"}
+                ${finalized && selectedId !== bid.id ? "hidden" : ""}
               `}
             >
-              {/* Info */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-bold text-slate-800">
-                    {bid.supplier}
-                  </p>
-
-                  {isWinner && (
-                    <Badge className="bg-[#16A34A]/10 text-[#16A34A]">
-                      Winner
-                    </Badge>
-                  )}
-
-                  {isRejected && (
-                    <Badge className="bg-[#DC2626]/10 text-[#DC2626]">
-                      Rejected
-                    </Badge>
-                  )}
+              {/* LEFT */}
+              <div className="flex items-center gap-4">
+                <div
+                  className={`p-3 rounded-xl ${selectedId === bid.id
+                    ? "bg-[#1E40AF] text-white"
+                    : "bg-slate-100 text-slate-500"
+                    }`}
+                >
+                  <Truck size={22} />
                 </div>
 
-                <p className="text-xl font-bold text-[#1E40AF]">
-                  ${bid.price}
-                </p>
+                <div>
+                  <p className="font-bold text-lg text-slate-900">
+                    {bid.supplierName}
+                  </p>
+
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <ShieldCheck size={14} className="text-emerald-600" />
+                    ★ {bid.rating ? Number(bid.rating).toFixed(1) : "N/A"}
+                  </div>
+                </div>
               </div>
 
-              {/* Action */}
-              <Button
-                disabled={isLocked}
-                onClick={() => handleSelect(bid)}
-                className="bg-[#1E40AF] text-white hover:bg-[#1E3A8A]"
-              >
-                Select Winner
-              </Button>
+              {/* RIGHT */}
+              <div className="text-right">
+                <p className="text-xl font-black text-[#1E40AF]">
+                  LKR{" "}
+                  {bid.amount
+                    ? Number(bid.amount).toLocaleString()
+                    : "N/A"}
+                </p>
+              </div>
             </div>
-          );
-        })}
+          ))
+        )}
 
-        {!bids.length && (
-          <div className="text-center py-6 text-slate-400">
-            No shortlisted bids
+        {/* ACTION */}
+        {selectedId && !finalized && (
+          <div className="mt-6 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
+            <p className="text-sm text-slate-600 flex items-center gap-2">
+              <AlertCircle size={18} className="text-[#1E40AF]" />
+              Confirm and assign this carrier?
+            </p>
+
+            <Button
+              onClick={handleConfirmWinner}
+              disabled={isFinalizing}
+              className="bg-[#1E40AF] hover:bg-[#1E3A8A] text-white font-bold px-6"
+            >
+              {isFinalizing ? "Processing..." : "Finalize Selection"}
+            </Button>
           </div>
         )}
       </div>
