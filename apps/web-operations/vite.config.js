@@ -13,4 +13,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  cacheDir: 'C:/vite-cache/web-operations',
+  server: {
+    watch: {
+      usePolling: true,
+    },
+  },
 })
