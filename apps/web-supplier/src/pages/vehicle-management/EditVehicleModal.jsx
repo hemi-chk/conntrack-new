@@ -11,7 +11,6 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     vehicle_number: '',
     type: 'LCV',
     availability_status: 'available',
-    condition_status: 'good',
     insurance_expiry: '',
     port_pass_expiry: ''
   });
@@ -23,7 +22,6 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
         vehicle_number: vehicle.vehicle_number || '',
         type: vehicle.vehicle_type || vehicle.type || 'LCV',
         availability_status: vehicle.availability_status || vehicle.status || 'available',
-        condition_status: vehicle.condition_status || 'good',
         insurance_expiry: vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toISOString().split('T')[0] : '',
         port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : ''
       });
@@ -41,9 +39,9 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
   };
 
   const validate = () => {
-    const { vehicle_number, type, availability_status, condition_status, insurance_expiry, port_pass_expiry } = formData;
+    const { vehicle_number, type, availability_status, insurance_expiry, port_pass_expiry } = formData;
 
-    if (!vehicle_number || !type || !availability_status || !condition_status || !insurance_expiry || !port_pass_expiry) {
+    if (!vehicle_number || !type || !availability_status || !insurance_expiry || !port_pass_expiry) {
       return 'All fields are required. Please fill in every field.';
     }
 
@@ -97,14 +95,6 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
               <select name="type" value={formData.type} onChange={handleChange} className={inputCls}>
                 <option value="LCV">LCV</option>
                 <option value="HCV">HCV</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Condition Status *</label>
-              <select name="condition_status" value={formData.condition_status} onChange={handleChange} className={inputCls}>
-                <option value="good">good</option>
-                <option value="maintenance">maintenance</option>
-                <option value="out_of_service">out_of_service</option>
               </select>
             </div>
 

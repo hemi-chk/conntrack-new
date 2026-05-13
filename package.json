@@ -1,6 +1,7 @@
 {
   "name": "conntrack",
   "private": true,
+  "packageManager": "npm@10.2.4",
   "workspaces": [
     "apps/*",
     "packages/*",

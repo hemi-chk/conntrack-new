@@ -56,16 +56,16 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
     const err = validate();
     if (err) { setError(err); return; }
 
-    onAdd({ 
-      ...formData, 
-      supplier_id: profileData?.id || profileData?.supplier_id 
+    onAdd({
+      ...formData,
+      supplier_id: profileData?.id || profileData?.supplier_id
     });
     setFormData(emptyForm);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl animate-in fade-in zoom-in duration-200">
+      <div className="w-full max-w-4xl duration-200 bg-white border border-gray-100 shadow-2xl rounded-2xl animate-in fade-in zoom-in">
 
         {/* Header */}
         <div className="px-6 pt-5 pb-3 border-b border-gray-100">
@@ -75,7 +75,7 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
 
         {/* Form Body */}
         <div className="px-6 py-4">
-          <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-3 gap-y-3 gap-x-4">
 
             {/* Row 1: Identity & Type */}
             <div>
@@ -120,18 +120,18 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
 
           {/* Error */}
           {error && (
-            <div className="mt-3 text-red-600 text-xs font-medium bg-red-50 px-3 py-2 rounded-lg border border-red-100 flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 mt-3 text-xs font-medium text-red-600 border border-red-100 rounded-lg bg-red-50">
               <AlertTriangle size={14} /> {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-100 flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-semibold transition-colors">
+        <div className="flex justify-end gap-3 px-6 py-3 border-t border-gray-100">
+          <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleAdd} className="px-5 py-2 text-sm bg-primary hover:bg-blue-800 text-white rounded-lg font-semibold transition-colors shadow-sm">
+          <button onClick={handleAdd} className="px-5 py-2 text-sm font-semibold text-white transition-colors rounded-lg shadow-sm bg-primary hover:bg-blue-800">
             Add Vehicle
           </button>
         </div>

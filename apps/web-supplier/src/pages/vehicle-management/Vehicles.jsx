@@ -98,6 +98,7 @@ export const Vehicles = () => {
       />
 
       <EditVehicleModal
+        key={selectedVehicle?.vehicle_number + isEditModalOpen}
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         vehicle={selectedVehicle}

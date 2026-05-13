@@ -56,12 +56,12 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
 
   const validate = () => {
     const { emp_id, first_name, last_name, national_id, date_of_birth, gender,
-            license_number, license_expiry, license_class, contact_number,
-            contact_email, residential_address, availability_status } = formData;
+      license_number, license_expiry, license_class, contact_number,
+      contact_email, residential_address, availability_status } = formData;
 
     if (!emp_id || !first_name || !last_name || !national_id || !date_of_birth ||
-        !gender || !license_number || !license_expiry || !license_class ||
-        !contact_number || !contact_email || !residential_address || !availability_status) {
+      !gender || !license_number || !license_expiry || !license_class ||
+      !contact_number || !contact_email || !residential_address || !availability_status) {
       return 'All fields are required. Please fill in every field.';
     }
 

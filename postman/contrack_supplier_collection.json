@@ -1,237 +1,237 @@
 {
-	"info": {
-		"name": "ConTrack Supplier API",
-		"description": "Supplier Portal Backend API for ConTrack",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Get All Suppliers",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:5000/api/supplier",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Create Supplier",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"supplier_name\": \"ConTrack Test Logistics\",\n    \"registration_number\": \"REG-2024-001\",\n    \"contact_person\": \"Jane Doe\",\n    \"contact_number\": \"0712345678\",\n    \"email\": \"jane@example.com\",\n    \"address\": \"456 Second St, Kandy\"\n}"
-				},
-				"url": {
-					"raw": "http://localhost:5000/api/supplier",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Get Vehicles",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/vehicles",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"vehicles"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Get Drivers",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/drivers",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"drivers"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Get Chat Messages",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/chats/1/messages",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"chats",
-						"1",
-						"messages"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Send Chat Message",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"sender_id\": \"profile-uuid-here\",\n    \"message\": \"Container is ready for pickup.\",\n    \"message_type\": \"text\"\n}"
-				},
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/chats/1/messages",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"chats",
-						"1",
-						"messages"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Get Vehicle Inspections",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/inspections/VEH-123",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"inspections",
-						"VEH-123"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Add Vehicle Inspection",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"vehicle_id\": 1,\n    \"inspection_date\": \"2024-05-01\",\n    \"status\": \"passed\",\n    \"remarks\": \"Everything looks good.\",\n    \"inspected_by\": \"inspector-uuid-here\"\n}"
-				},
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/inspections",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"inspections"
-					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "Submit Bid",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n    \"order_id\": 1,\n    \"supplier_id\": 1,\n    \"bid_amount\": 45000,\n    \"status\": \"pending\"\n}"
-				},
-				"url": {
-					"raw": "http://localhost:5000/api/supplier/bids",
-					"protocol": "http",
-					"host": [
-						"localhost"
-					],
-					"port": "5000",
-					"path": [
-						"api",
-						"supplier",
-						"bids"
-					]
-				}
-			},
-			"response": []
-		}
-	]
+    "info": {
+        "name": "ConTrack Supplier API",
+        "description": "Supplier Portal Backend API for ConTrack",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Get All Suppliers",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Create Supplier",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"supplier_name\": \"ConTrack Test Logistics\",\n    \"registration_number\": \"REG-2024-001\",\n    \"contact_person\": \"Jane Doe\",\n    \"contact_number\": \"0712345678\",\n    \"email\": \"jane@example.com\",\n    \"address\": \"456 Second St, Kandy\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get Vehicles",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/vehicles",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "vehicles"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get Drivers",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/drivers",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "drivers"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get Chat Messages",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/chats/1/messages",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "chats",
+                        "1",
+                        "messages"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Send Chat Message",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"sender_id\": \"profile-uuid-here\",\n    \"message\": \"Container is ready for pickup.\",\n    \"message_type\": \"text\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/chats/1/messages",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "chats",
+                        "1",
+                        "messages"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Get Vehicle Inspections",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/inspections/VEH-123",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "inspections",
+                        "VEH-123"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Add Vehicle Inspection",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"vehicle_id\": 1,\n    \"inspection_date\": \"2024-05-01\",\n    \"status\": \"passed\",\n    \"remarks\": \"Everything looks good.\",\n    \"inspected_by\": \"inspector-uuid-here\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/inspections",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "inspections"
+                    ]
+                }
+            },
+            "response": []
+        },
+        {
+            "name": "Submit Bid",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"order_id\": 1,\n    \"supplier_id\": 1,\n    \"bid_amount\": 45000,\n    \"status\": \"pending\"\n}"
+                },
+                "url": {
+                    "raw": "http://localhost:5000/api/supplier/bids",
+                    "protocol": "http",
+                    "host": [
+                        "localhost"
+                    ],
+                    "port": "5000",
+                    "path": [
+                        "api",
+                        "supplier",
+                        "bids"
+                    ]
+                }
+            },
+            "response": []
+        }
+    ]
 }

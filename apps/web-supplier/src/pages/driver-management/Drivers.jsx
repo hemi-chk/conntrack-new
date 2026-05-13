@@ -80,17 +80,17 @@ export const Drivers = () => {
     { header: 'NAME', render: (row) => `${row.first_name} ${row.last_name}` },
     { header: 'NIC', accessor: 'national_id', cellClassName: 'font-mono text-sm' },
     { header: 'LICENSE EXP', render: (row) => row.license_expiry ? new Date(row.license_expiry).toLocaleDateString('en-GB') : 'N/A' },
-    { 
-      header: 'AVAILABILITY', 
+    {
+      header: 'AVAILABILITY',
       render: (row) => {
         const status = row.availability_status?.toLowerCase();
         const variant = status === 'available' ? 'success' : status === 'unavailable' ? 'error' : 'warning';
         return <Badge variant={variant}>{row.availability_status}</Badge>;
-      } 
+      }
     },
     { header: 'CONTACT', accessor: 'contact_number' },
-    { 
-      header: 'ACTION', 
+    {
+      header: 'ACTION',
       cellClassName: 'text-center',
       render: (row) => (
         <button
@@ -181,10 +181,10 @@ export const Drivers = () => {
       )}
 
       {/* Table Component */}
-      <Table 
-        columns={columns} 
-        data={filteredDrivers} 
-        isLoading={isLoading} 
+      <Table
+        columns={columns}
+        data={filteredDrivers}
+        isLoading={isLoading}
         loadingMessage="Loading drivers..."
         emptyTitle="No drivers found"
         emptyMessage="Add a new driver or try changing your filters."
@@ -193,4 +193,4 @@ export const Drivers = () => {
 
     </div>
   );
-};
+};

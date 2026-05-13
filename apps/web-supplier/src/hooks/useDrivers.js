@@ -1,15 +1,3 @@
-/**
- * Custom React hook for loading and managing the supplier's driver list.
- *
- * This hook fetches drivers for the current supplier using the driverService,
- * maintains loading and error state, and exposes a refresh function.
- *
- * Returned values:
- * - drivers: array of driver objects
- * - isLoading: boolean while loading the driver list
- * - error: error message if loading fails
- * - refreshDrivers: function to re-fetch the driver list
- */
 import { useState, useEffect, useCallback } from 'react';
 import { getDrivers } from '../services/driverService';
 import { CURRENT_SUPPLIER_ID } from './useProfile';
