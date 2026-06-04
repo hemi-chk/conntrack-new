@@ -339,6 +339,64 @@ export const createIssue = async (req, res) => {
         });
     }
 };
+
+export const getAllIssues = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('issues')
+            .select(`
+                *,
+                orders (order_reference),
+                suppliers (company_name),
+                drivers (first_name, last_name)
+            `)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
+
+export const updateIssueStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+        const updateData = { status };
+        if (status === 'resolved') {
+            updateData.resolved_at = new Date().toISOString();
+        }
+
+        const { data, error } = await supabase
+            .from('issues')
+            .update(updateData)
+            .eq('issue_id', id)
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            data: data[0]
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+};
 export const getFilteredReports = async (req, res) => {
     const { fromDate, toDate } = req.query;
 

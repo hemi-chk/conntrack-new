@@ -7,9 +7,7 @@ import {
   Loader2
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/components/ui/use-toast";
+import { Button, Badge, useToast } from "@conntrack/ui";
 import api from "../../config/api";
 
 export default function BidsSection({ orderId, onSelectWinner }) {
@@ -35,7 +33,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
 
         setBids(data);
 
-        // 🔥 If already finalized (only 1 accepted)
+        //  If already finalized (only 1 accepted)
         if (data.length === 1 && data[0].selectionStatus === "accepted") {
           setFinalized(true);
           setSelectedId(data[0].id);
@@ -75,7 +73,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
       );
 
       if (response.status === 200) {
-        // 🔥 Show only winner
+        // Show only winner
         setBids([selectedBid]);
         setFinalized(true);
 

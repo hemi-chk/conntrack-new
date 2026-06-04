@@ -1,7 +1,5 @@
 import { Package, Map, Info, Truck, Weight, Calendar, ShieldCheck, Briefcase } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge, Button, Card, CardContent } from "@conntrack/ui";
 import { useNavigate } from "react-router-dom";
 
 export default function OrderSummary({ order }) {

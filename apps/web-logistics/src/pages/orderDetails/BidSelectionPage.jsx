@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Package, Map, Loader2, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button, Badge } from "@conntrack/ui";
 
 import BidsSection from "./BidsSection";
 import OrderSummary from "./OrderSummary";

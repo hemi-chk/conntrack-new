@@ -11,7 +11,7 @@ import {
     Globe,
     ShieldCheck
 } from 'lucide-react';
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@conntrack/ui";
 
 const Profile = () => {
     // Adapted data for a Logistics Handler based on ConnTrack requirements

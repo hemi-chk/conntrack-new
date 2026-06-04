@@ -4,9 +4,7 @@ import {
   Package, Map, ShieldCheck, Info, Truck,
   Calendar, Anchor, Weight, Briefcase, Loader2
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button, Card, CardContent, Badge } from "@conntrack/ui";
 import OrderSummary from "./OrderSummary";
 import api from "../../config/api";
 import { FiFileText, FiCheckCircle } from "react-icons/fi";

@@ -1,10 +1,10 @@
 {
   "name": "conntrack",
   "private": true,
+  "packageManager": "npm@9.9.4",
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "backend"
+    "packages/*"
   ],
   "scripts": {
     "dev": "turbo run dev",

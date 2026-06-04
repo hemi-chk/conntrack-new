@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "api-admin",
   "version": "1.0.0",
   "description": "ConTrack Backend API",
   "main": "src/index.js",

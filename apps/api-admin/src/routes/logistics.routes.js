@@ -11,7 +11,9 @@ import {
     getOrderById,
     getTrackingByOrderId,
     uploadDocuments,
-    deleteDocument
+    deleteDocument,
+    getAllIssues,
+    updateIssueStatus
 } from "../controllers/logistics.controller.js";
 
 const router = express.Router();
@@ -142,6 +144,16 @@ router.delete(
 router.post(
     "/issues",
     createIssue
+);
+
+router.get(
+    "/issues",
+    getAllIssues
+);
+
+router.patch(
+    "/issues/:id/status",
+    updateIssueStatus
 );
 
 
