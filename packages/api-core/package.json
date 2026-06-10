@@ -1,0 +1,11 @@
+{
+  "name": "@conntrack/api-core",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "jsonwebtoken": "^9.0.0",
+    "bcryptjs": "^2.4.3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@conntrack/database",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.2",
+    "dotenv": "^16.0.0"
+  }
+}

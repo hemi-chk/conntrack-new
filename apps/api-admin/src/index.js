@@ -1,6 +1,8 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
 
 // Routes
 import authRoutes from './routes/auth.routes.js'
@@ -9,8 +11,6 @@ import operationsRoutes from './routes/operations.routes.js'
 import logisticsRoutes from './routes/logistics.routes.js'
 import supplierRoutes from './routes/supplier.routes.js'
 import driverRoutes from './routes/driver.routes.js'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000

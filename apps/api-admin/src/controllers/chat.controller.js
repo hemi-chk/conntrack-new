@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase.js'
+import { supabase } from '@conntrack/database'
 
 // GET /api/supplier/chats/:chatId/messages
 export const getChatMessages = async (req, res) => {

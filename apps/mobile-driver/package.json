@@ -1,0 +1,9 @@
+{
+  "name": "mobile-driver",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'No dev script yet'",
+    "build": "echo 'No build script yet'"
+  }
+}

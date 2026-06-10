@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "@conntrack/api-admin",
   "version": "1.0.0",
   "description": "ConTrack Backend API",
   "main": "src/index.js",
@@ -14,7 +14,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
-    "jsonwebtoken": "^9.0.0"
+    "jsonwebtoken": "^9.0.0",
+    "@conntrack/database": "*",
+    "@conntrack/api-core": "*"
   },
   "devDependencies": {
     "nodemon": "^3.0.0"

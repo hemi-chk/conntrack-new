@@ -6,10 +6,7 @@ import { DriverViewModal } from './DriverViewModal';
 import { EditDriverModal } from './EditDriverModal';
 import { DeleteDriverModal } from './DeleteDriverModal';
 import { addDriver, updateDriver, deleteDriver } from '../../services/driverService';
-import { Table } from '../../components/common/Table';
-import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
-import { Select } from '../../components/common/Select';
+import { Table, Button, Badge, Select } from '@conntrack/ui';
 
 export const Drivers = () => {
   const { drivers, isLoading, error, refreshDrivers } = useDrivers();
