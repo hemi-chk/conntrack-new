@@ -5,6 +5,15 @@ node_modules/
 
 # Expo
 .expo/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Build outputs
 dist/
 web-build/
 expo-env.d.ts
@@ -29,10 +38,6 @@ yarn-error.*
 # macOS
 .DS_Store
 *.pem
-
-# local env files
-.env
-.env*.local
 
 # typescript
 *.tsbuildinfo
