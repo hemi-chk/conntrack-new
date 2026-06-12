@@ -46,6 +46,21 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Custom colors from supplier-ui */
+    --color-primary-custom: #1E40AF;
+    --color-primary-dark: #1E3A8A;
+    --color-primary-light: #3B82F6;
+    
+    --color-dark: #1E293B;
+    --color-dark-light: #334155;
+    --color-dark-dark: #0F172A;
+    
+    --color-surface-light: #F8FAFC;
+    
+    --color-success: #16A34A;
+    --color-error: #DC2626;
+    --color-warning: #EA580C;
 }
 
 :root {
@@ -120,11 +135,11 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+  }
   html {
     @apply font-sans;
-    }
+  }
 }
