@@ -22,6 +22,10 @@ import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { theme } from "../constants/theme";
 import { API_BASE_URL } from "../constants/config";
+import { useOrder } from "../context/OrderContext";
+import * as Location from "expo-location";
+import * as Haptics from "expo-haptics";
+import { Alert } from "react-native";
 
 const { width } = Dimensions.get("window");
 
@@ -34,6 +38,8 @@ export default function Dashboard({ route, navigation }) {
   const [activeMission, setActiveMission] = useState(null);
   const [recentIssues, setRecentIssues] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { orderStatus, setOrderStatus } = useOrder();
 
   // Load mission data on component mount
   useEffect(() => {
@@ -68,6 +74,9 @@ export default function Dashboard({ route, navigation }) {
       
       if (result.success && result.data) {
         setActiveMission(result.data);
+        if (result.data.status) {
+          setOrderStatus(result.data.status.toLowerCase());
+        }
       }
     } catch (error) {
       console.error("Dashboard: Fetch Mission Error:", error);
@@ -93,6 +102,57 @@ export default function Dashboard({ route, navigation }) {
       }
     } catch (error) {
       console.error("Dashboard: Fetch Issues Error:", error);
+    }
+  };
+
+  /**
+   * Quick status update directly from the Dashboard.
+   */
+  const syncStatusWithDb = async (nextStatus) => {
+    const assignmentId = activeMission.assignment_id || activeMission.id;
+    const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
+
+    if (!assignmentId || !dbOrderId) return;
+
+    try {
+      setIsUpdating(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission Denied", "Location is required to update status.");
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = location.coords;
+      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";
+
+      const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignmentId,
+          orderId: dbOrderId,
+          status: nextStatus,
+          locationName,
+          latitude,
+          longitude
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOrderStatus(nextStatus);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Refresh mission data to show new status
+        fetchActiveMission();
+      }
+    } catch (error) {
+      console.error("Sync Error:", error);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -232,13 +292,15 @@ export default function Dashboard({ route, navigation }) {
               </View>
             </View>
 
-            <Button
-              title={t("view_details")}
-              variant="secondary"
-              style={styles.viewDetailsButton}
-              textStyle={styles.viewDetailsButtonText}
-              onPress={() => navigation.navigate("OrderDetails", { order: activeMission })}
-            />
+            <View style={styles.jobActionRow}>
+              <Button
+                title={t("view_details")}
+                variant="secondary"
+                style={styles.viewDetailsButton}
+                textStyle={styles.viewDetailsButtonText}
+                onPress={() => navigation.navigate("OrderDetails", { order: activeMission })}
+              />
+            </View>
           </Card>
         ) : (
           <Card elevation="sm" style={styles.noJobCard}>
@@ -427,6 +489,9 @@ const styles = StyleSheet.create({
   },
   viewDetailsButtonText: {
     color: theme.colors.primary,
+  },
+  jobActionRow: {
+    marginTop: 10,
   },
   quickActionsGrid: {
     flexDirection: "row",

@@ -9,6 +9,10 @@ import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { theme } from "../constants/theme";
 import { useOrder } from "../context/OrderContext";
+import * as Location from "expo-location";
+import { API_BASE_URL } from "../constants/config";
+import { Alert, ActivityIndicator } from "react-native";
+import * as Haptics from "expo-haptics";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -21,6 +25,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const orderData = activeMission.orders || {};
 
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Animation for sheet height
   const sheetHeight = useRef(new Animated.Value(SCREEN_HEIGHT * 0.6)).current;
@@ -32,6 +37,13 @@ export default function OrderDetails({ route: navRoute, navigation }) {
       friction: 8,
     }).start();
   }, [isExpanded]);
+
+  // Sync local status with mission data from server on load
+  useEffect(() => {
+    if (activeMission.status) {
+      setOrderStatus(activeMission.status.toLowerCase());
+    }
+  }, [activeMission.status]);
 
   const order = {
     id: orderData.order_reference || "IMP-12345",
@@ -67,15 +79,76 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const getStatusInfo = () => {
     switch (orderStatus) {
       case "assigned": return { label: t("assigned"), color: theme.colors.secondary, icon: "assignment" };
-      case "started": return { label: t("heading_to_pickup"), color: theme.colors.secondary, icon: "directions-car" };
-      case "picked": return { label: t("picked_up"), color: theme.colors.warning, icon: "local-shipping" };
-      case "transit": return { label: t("in_transit"), color: theme.colors.primary, icon: "navigation" };
+      case "started": 
+      case "heading to pickup": return { label: t("heading_to_pickup"), color: theme.colors.secondary, icon: "directions-car" };
+      case "picked": 
+      case "picked up": return { label: t("picked_up"), color: theme.colors.warning, icon: "local-shipping" };
+      case "transit": 
+      case "in transit": return { label: t("in_transit"), color: theme.colors.primary, icon: "navigation" };
       case "delivered": return { label: t("delivered"), color: theme.colors.success, icon: "check-circle" };
       default: return { label: t("unknown"), color: theme.colors.textMuted, icon: "help" };
     }
   };
 
   const statusInfo = getStatusInfo();
+
+  /**
+   * Syncs the mission stage with the backend database.
+   * Captures GPS location and reports it along with the new status.
+   */
+  const syncStatusWithDb = async (nextStatus) => {
+    const assignmentId = activeMission.assignment_id || activeMission.id;
+    const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
+
+    if (!assignmentId || !dbOrderId) {
+      Alert.alert(
+        "Sync Error", 
+        "Missing identification for this mission. Please try refreshing your dashboard."
+      );
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      
+      // 📍 GPS integration temporarily disabled for testing
+      const locationName = "Manual Update";
+      const latitude = 6.9271;
+      const longitude = 79.8612;
+
+      // Send to backend
+      const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignmentId,
+          orderId: dbOrderId,
+          status: nextStatus,
+          locationName,
+          latitude,
+          longitude
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setOrderStatus(nextStatus);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // 🚀 Automatically navigate to Tracking stage after update
+        navigation.navigate("Tracking", { 
+          order: { ...activeMission, status: nextStatus } 
+        });
+      } else {
+        Alert.alert("Server Error", result.message || "Failed to update status on server");
+      }
+    } catch (error) {
+      console.error("Status Sync Error:", error);
+      Alert.alert("Network Error", "Please check your internet connection and try again.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -223,70 +296,73 @@ export default function OrderDetails({ route: navRoute, navigation }) {
                   </View>
                 </View>
               ) : null}
-
-              {/* ACTIONS */}
-              <View style={styles.footer}>
-                {orderStatus === "assigned" && (
-                  <Button
-                    title={t("start_trip")}
-                    onPress={() => setOrderStatus("started")}
-                    style={styles.actionButton}
-                  />
-                )}
-
-                {orderStatus === "started" && (
-                  <Button
-                    title={t("arrived_at_pickup")}
-                    onPress={() => setOrderStatus("picked")}
-                    style={[styles.actionButton, { backgroundColor: theme.colors.secondary }]}
-                  />
-                )}
-
-                {orderStatus === "picked" && (
-                  <Button
-                    title={t("start_delivery")}
-                    onPress={() => setOrderStatus("transit")}
-                    style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
-                  />
-                )}
-
-                {orderStatus === "transit" && (
-                  <Button
-                    title={t("mark_delivered")}
-                    onPress={() => setOrderStatus("delivered")}
-                    style={[styles.actionButton, { backgroundColor: theme.colors.success }]}
-                  />
-                )}
-
-                {orderStatus === "delivered" && (
-                  <View style={styles.completedBox}>
-                    <MaterialIcons name="check-circle" size={24} color={theme.colors.success} />
-                    <Typography variant="body" weight="bold" color="success" style={{ marginLeft: 8 }}>
-                      {t("mission_completed_success")}
-                    </Typography>
-                  </View>
-                )}
-
-                <View style={styles.supportActions}>
-                  <TouchableOpacity
-                    style={styles.supportButton}
-                    onPress={() => navigation.navigate("Support")}
-                  >
-                    <MaterialIcons name="call" size={20} color={theme.colors.primary} />
-                    <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("call_help")}</Typography>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.supportButton}
-                    onPress={() => navigation.navigate("Support")}
-                  >
-                    <MaterialIcons name="message" size={20} color={theme.colors.primary} />
-                    <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("messages")}</Typography>
-                  </TouchableOpacity>
-                </View>
+              
+              <View style={styles.supportActions}>
+                <TouchableOpacity
+                  style={styles.supportButton}
+                  onPress={() => navigation.navigate("Support")}
+                >
+                  <MaterialIcons name="call" size={20} color={theme.colors.primary} />
+                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("call_help")}</Typography>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.supportButton}
+                  onPress={() => navigation.navigate("Support")}
+                >
+                  <MaterialIcons name="message" size={20} color={theme.colors.primary} />
+                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("messages")}</Typography>
+                </TouchableOpacity>
               </View>
             </>
           )}
         </ScrollView>
+
+        {/* COMPACT FIXED ACTION BUTTON */}
+        <View style={styles.footer}>
+          {(!orderStatus || orderStatus === "assigned" || orderStatus === "Assigned") ? (
+            <Button
+              title={t("start_trip")}
+              onPress={() => syncStatusWithDb("started")}
+              loading={isUpdating}
+              style={styles.actionButton}
+            />
+          ) : (orderStatus === "started" || orderStatus === "heading to pickup") ? (
+            <Button
+              title={t("arrived_at_pickup")}
+              onPress={() => syncStatusWithDb("picked")}
+              loading={isUpdating}
+              style={[styles.actionButton, { backgroundColor: theme.colors.secondary }]}
+            />
+          ) : (orderStatus === "picked" || orderStatus === "picked up") ? (
+            <Button
+              title={t("start_delivery")}
+              onPress={() => syncStatusWithDb("transit")}
+              loading={isUpdating}
+              style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+            />
+          ) : (orderStatus === "transit" || orderStatus === "in transit") ? (
+            <Button
+              title={t("mark_delivered")}
+              onPress={() => syncStatusWithDb("delivered")}
+              loading={isUpdating}
+              style={[styles.actionButton, { backgroundColor: theme.colors.success }]}
+            />
+          ) : orderStatus === "delivered" ? (
+            <View style={styles.completedBox}>
+              <MaterialIcons name="check-circle" size={24} color={theme.colors.success} />
+              <Typography variant="body" weight="bold" color="success" style={{ marginLeft: 8 }}>
+                {t("mission_completed_success")}
+              </Typography>
+            </View>
+          ) : (
+            <Button
+              title={t("start_trip")}
+              onPress={() => syncStatusWithDb("started")}
+              loading={isUpdating}
+              style={styles.actionButton}
+            />
+          )}
+        </View>
       </Animated.View>
     </View>
   );
@@ -425,8 +501,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   footer: {
-    marginTop: 32,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
   actionButton: {
     borderRadius: 16,

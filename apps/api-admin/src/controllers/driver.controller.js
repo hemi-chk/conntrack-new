@@ -137,7 +137,6 @@ exports.loginDriver = async (req, res) => {
         if (!data.password_hash) {
             // For now, if no password is set in DB, we allow login with any password OR a default '1234'
             // In production, you would force an initial password setup or check a default.
-            // Let's assume for this transition phase, we log them in and warn.
             console.log('User has no password set in DB. Allowing entry for setup.');
         } else {
             const isMatch = await bcrypt.compare(password, data.password_hash);
@@ -256,7 +255,7 @@ exports.getActiveMission = async (req, res) => {
             return res.status(200).json({ success: true, data: null, message: 'No active mission found' });
         }
 
-        // 🟢 NEW: Fetch the latest journey progress from the history table
+        // Fetch the latest journey progress from the history table
         const { data: latestHistory } = await supabase
             .from('order_tracking_history')
             .select('stage_name')
@@ -293,13 +292,14 @@ exports.updateMissionStatus = async (req, res) => {
         console.log('--- DB Update Start ---');
         console.log('Assignment ID:', assignmentId, 'New Status:', status);
 
-        // 1. Only update the high-level assignment status if it's a core milestone
-        const coreStatuses = ['assigned', 'started', 'picked', 'transit', 'delivered', 'completed'];
+        // 1. Only update the high-level assignment status for critical milestones
+        // This avoids "check constraint" errors for intermediate stages like 'started'
+        const coreStatuses = ['assigned', 'delivered', 'completed'];
         if (coreStatuses.includes(status.toLowerCase())) {
             console.log('Updating core assignment status to:', status);
             const { error: assignmentError } = await supabase
                 .from('order_assignments')
-                .update({ status: status })
+                .update({ status: status.toLowerCase() })
                 .eq('assignment_id', assignmentId);
 
             if (assignmentError) {
