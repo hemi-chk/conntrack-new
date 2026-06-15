@@ -1,6 +1,14 @@
-import { Bell, User, Menu } from 'lucide-react'
+import { Bell, User, Menu, LogOut } from 'lucide-react'
 
 function Navbar({ onMenuClick }) {
+  const user = JSON.parse(localStorage.getItem('user') || '{"name":"Operations"}')
+  const userName = user.name || 'Operations'
+
+  const handleLogout = () => {
+    localStorage.clear()
+    window.location.href = 'http://127.0.0.1:5173'
+  }
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex h-20 items-center justify-between bg-[#1E40AF] px-6 text-white shadow-lg">
       <div className="flex items-center gap-4">
@@ -27,8 +35,16 @@ function Navbar({ onMenuClick }) {
             <User size={16} className="text-[#1E40AF]" />
           </div>
 
-          <span className="text-sm font-medium">Ramaza</span>
+          <span className="text-sm font-medium">{userName}</span>
         </div>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium hover:bg-red-700 transition"
+        >
+          <LogOut size={16} />
+          Logout
+        </button>
       </div>
     </nav>
   )
