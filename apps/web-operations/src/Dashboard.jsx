@@ -476,8 +476,10 @@ function Dashboard({ onNavigate }) {
   );
 }
 
-// Reusable mini card component used for dashboard summary counts
-function DashboardMiniCard({ title, value, icon: Icon, loading, color }) {
+function DashboardMiniCard(props) {
+  const { title, value, loading, color } = props;
+  const Icon = props.icon;
+
   const colorClasses = {
     blue: "bg-[#EFF6FF] text-[#1E40AF]",
     orange: "bg-orange-50 text-[#EA580C]",
@@ -497,7 +499,7 @@ function DashboardMiniCard({ title, value, icon: Icon, loading, color }) {
         </div>
 
         <div className={`rounded-xl p-3 ${colorClasses[color]}`}>
-          <Icon size={20} />
+          {Icon && <Icon size={20} />}
         </div>
       </div>
     </div>

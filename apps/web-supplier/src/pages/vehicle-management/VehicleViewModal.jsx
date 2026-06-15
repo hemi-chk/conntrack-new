@@ -1,21 +1,21 @@
 import React from 'react';
 import { X, AlertTriangle, Shield, Calendar, Truck, Activity } from 'lucide-react';
 
+const DetailItem = ({ label, value, mono = false }) => (
+  <div className="flex flex-col">
+    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5">{label}</p>
+    <p className={`text-sm font-medium text-dark truncate ${mono ? 'font-mono' : ''}`}>
+      {value || <span className="italic text-gray-300">Not set</span>}
+    </p>
+  </div>
+);
+
 export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete }) => {
   if (!isOpen || !vehicle) return null;
 
   const today = new Date();
   const isInsuranceValid = vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry) > today : false;
   const isPortPassValid = vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry) > today : false;
-
-  const DetailItem = ({ label, value, mono = false }) => (
-    <div className="flex flex-col">
-      <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5">{label}</p>
-      <p className={`text-sm font-medium text-dark truncate ${mono ? 'font-mono' : ''}`}>
-        {value || <span className="italic text-gray-300">Not set</span>}
-      </p>
-    </div>
-  );
 
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-gray-900/40">
