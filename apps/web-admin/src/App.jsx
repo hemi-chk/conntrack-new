@@ -26,6 +26,23 @@ function App() {
     return <Login />
   }
 
+  // Redirect if logged in with non-admin role
+  if (role !== 'admin') {
+    const externalRedirectMap = {
+      operations: "http://127.0.0.1:5174",
+      supplier: "http://127.0.0.1:5175",
+      logistics: "http://127.0.0.1:5176",
+    }
+    if (externalRedirectMap[role]) {
+      const redirectUrl = new URL(externalRedirectMap[role])
+      redirectUrl.searchParams.set("token", token)
+      redirectUrl.searchParams.set("role", role)
+      redirectUrl.searchParams.set("user", localStorage.getItem('user') || '{}')
+      window.location.href = redirectUrl.toString()
+      return null
+    }
+  }
+
   const renderPage = () => {
     if (currentPath.startsWith('/orders/') && currentPath.length > 8) {
       const orderId = currentPath.split('/')[2]

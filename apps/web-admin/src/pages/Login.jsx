@@ -8,9 +8,9 @@ export default function Login() {
   const [error, setError] = useState("")
 
   const externalRedirectMap = {
-    supplier: "http://localhost:5174",
-    logistics: "http://localhost:5175",
-    operations: "http://localhost:5176",
+    operations: "http://127.0.0.1:5174",
+    supplier: "http://127.0.0.1:5175",
+    logistics: "http://127.0.0.1:5176",
   }
 
   const handleLogin = async (e) => {
@@ -40,7 +40,11 @@ export default function Login() {
       if (data.role === "admin") {
         window.location.href = "/"
       } else if (externalRedirectMap[data.role]) {
-        window.location.href = externalRedirectMap[data.role]
+        const redirectUrl = new URL(externalRedirectMap[data.role])
+        redirectUrl.searchParams.set("token", data.token)
+        redirectUrl.searchParams.set("role", data.role)
+        redirectUrl.searchParams.set("user", JSON.stringify(data.user))
+        window.location.href = redirectUrl.toString()
       } else {
         setError("Unknown role. Contact your administrator.")
       }
