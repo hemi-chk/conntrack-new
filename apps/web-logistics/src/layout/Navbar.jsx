@@ -1,9 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { Bell, User, Menu } from "lucide-react";
+import { Bell, User, Menu, LogOut } from "lucide-react";
 import logo from "@/assets/logo.png";
 
 export default function Navbar({ onMenuClick }) {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('user') || '{"name":"Logistics"}')
+    const userName = user.name || 'Logistics'
+
+    const handleLogout = () => {
+        localStorage.clear();
+        window.location.href = 'http://127.0.0.1:5173';
+    };
 
     return (
         <nav className="h-20 bg-[#1E40AF] text-white flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-50 shadow-md">
@@ -47,11 +54,20 @@ export default function Navbar({ onMenuClick }) {
                     </div>
 
                     <div className="hidden sm:block text-left leading-tight">
-                        <p className="text-sm font-medium">Binuwara</p>
+                        <p className="text-sm font-medium">{userName}</p>
                         <p className="text-xs text-blue-200 flex items-center gap-1">
                             Logistics Handler
                         </p>
                     </div>
+                </button>
+
+                {/* Logout Button */}
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 rounded-lg px-3 py-2 transition focus:outline-none text-sm font-medium"
+                >
+                    <LogOut size={16} />
+                    Logout
                 </button>
             </div>
 
