@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
-import { Package, Truck, Clock, CheckCircle, AlertTriangle, XCircle, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle, Clock, Package, TrendingUp, Truck, XCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { adminAPI } from '../services/api'
 
 function Dashboard() {
+  const userName = JSON.parse(localStorage.getItem('user') || '{}').name || 'Admin'
+
   const [stats, setStats] = useState({
     total_orders: 0,
     active_orders: 0,
@@ -112,7 +114,7 @@ function Dashboard() {
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
             <h1 className="text-3xl font-bold text-white mb-2">
-              {getGreeting()}, Hemindi! 👋
+              {getGreeting()}, Hi {userName}! 👋
             </h1>
             <p className="text-blue-100 text-sm max-w-md">
               You have <span className="font-bold text-white">{issues.filter(i => i.type === 'error').length} critical issues</span> that need your attention today. Let's get started!
