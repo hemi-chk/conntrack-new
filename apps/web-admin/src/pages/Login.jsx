@@ -102,7 +102,7 @@ export default function Login() {
                 <div style={styles.fieldGroup}>
                   <label style={styles.label}>Email Address</label>
                   <div style={styles.inputWrapper}>
-                    <span style={styles.inputIcon}></span>
+                    <span style={styles.inputIcon}>📧</span>
                     <input
                       className="login-input"
                       type="email"
@@ -118,7 +118,7 @@ export default function Login() {
                 <div style={styles.fieldGroup}>
                   <label style={styles.label}>Password</label>
                   <div style={styles.inputWrapper}>
-                    <span style={styles.inputIcon}></span>
+                    <span style={styles.inputIcon}>🔒</span>
                     <input
                       className="login-input"
                       type={showPassword ? "text" : "password"}
