@@ -9,6 +9,7 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 5002
 
+app.use(cors())
 app.use(express.json())
 
 // Apply auth middleware to all admin routes, requiring 'admin' role
