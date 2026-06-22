@@ -30,18 +30,16 @@ const fetchData = async (endpoint) => {
 }
 
 const postData = async (endpoint, body) => {
-  try {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(body)
-    })
-    if (!response.ok) throw new Error('Network response was not ok')
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    throw error
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(body)
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.message || data.error || `Server error (${response.status})`)
   }
+  return data
 }
 
 const putData = async (endpoint, body) => {

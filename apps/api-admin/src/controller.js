@@ -187,7 +187,7 @@ export const getAllStaff = async (req, res) => {
 
 export const addStaff = async (req, res) => {
   try {
-    const { email, password, role, first_name, last_name, contact_number, position, employee_id, national_id, address, date_joined } = req.body
+    const { email, password, role, first_name, last_name, contact_number, position, employee_id, national_id, address } = req.body
 
     // Step 1: Create the auth user so profiles.id FK is satisfied
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -202,7 +202,6 @@ export const addStaff = async (req, res) => {
       .from('profiles')
       .insert({
         id: authData.user.id,
-        email,
         role,
         first_name,
         last_name,
@@ -211,7 +210,6 @@ export const addStaff = async (req, res) => {
         employee_id,
         national_id,
         address,
-        date_joined,
         status: 'active',
       })
       .select()

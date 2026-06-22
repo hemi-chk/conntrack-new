@@ -6,17 +6,17 @@ function Layout({ children, currentPath, onNavigate, darkMode, onToggleDark }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-[#0f0f1a]' : 'bg-[#DBEAFE]'}`}>
-      <Navbar
-        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-        darkMode={darkMode}
-        onToggleDark={onToggleDark}
-      />
+    <div className={`min-h-screen ${darkMode ? 'bg-[#0B1120]' : 'bg-[#F1F5F9]'}`}>
       <Sidebar
         isOpen={sidebarOpen}
         currentPath={currentPath}
         onNavigate={onNavigate}
+      />
+      <Navbar
+        isOpen={sidebarOpen}
+        onMenuClick={() => setSidebarOpen(o => !o)}
         darkMode={darkMode}
+        onToggleDark={onToggleDark}
       />
       <main className={`pt-16 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
         <div className="p-6">

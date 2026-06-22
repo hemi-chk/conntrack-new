@@ -39,6 +39,7 @@ function App() {
       redirectUrl.searchParams.set("token", token)
       redirectUrl.searchParams.set("role", role)
       redirectUrl.searchParams.set("user", localStorage.getItem('user') || '{}')
+      localStorage.clear()
       window.location.href = redirectUrl.toString()
       return null
     }

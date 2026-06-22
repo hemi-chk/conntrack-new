@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, X, Search, Users, Shield, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react'
+import { Plus, X, Search, Users, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react'
 import { adminAPI } from '../services/api'
 
 const ROLES = ['operations', 'logistics', 'supplier']
@@ -14,7 +14,7 @@ const ROLE_COLORS = {
 const emptyForm = {
   first_name: '', last_name: '', email: '', password: '',
   role: 'operations', position: '', contact_number: '',
-  employee_id: '', national_id: '', address: '', date_joined: '',
+  employee_id: '', national_id: '', address: '',
 }
 
 export default function Staff({ darkMode }) {
@@ -383,13 +383,6 @@ export default function Staff({ darkMode }) {
                   <input name="national_id" value={formData.national_id} onChange={handleChange}
                     style={inputStyle(inputBg, border, text)} placeholder="123456789V" />
                 </div>
-              </div>
-
-              {/* Date joined */}
-              <div>
-                <label style={labelStyle(muted)}>Date Joined</label>
-                <input name="date_joined" type="date" value={formData.date_joined} onChange={handleChange}
-                  style={inputStyle(inputBg, border, text)} />
               </div>
 
               {/* Address */}
