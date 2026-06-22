@@ -100,21 +100,21 @@ function Bids() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Active Orders</p>
           <p className="text-2xl font-bold text-[#1E293B] mt-1">{activeBids.length}</p>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Total Active Bids</p>
           <p className="text-2xl font-bold text-orange-500 mt-1">
             {activeBids.reduce((sum, order) => sum + (order.bids?.length || 0), 0)}
           </p>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Closed Orders</p>
           <p className="text-2xl font-bold text-green-600 mt-1">{closedBids.length}</p>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Total Past Bids</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">
             {closedBids.reduce((sum, order) => sum + (order.all_bids?.length || 0), 0)}
@@ -123,7 +123,7 @@ function Bids() {
       </div>
 
       {/* Main Content */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
 
         {/* Tabs + Search */}
         <div className="p-6 border-b border-slate-100">
@@ -214,7 +214,7 @@ function Bids() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-bold text-[#1E40AF]">LKR {bid.amount?.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-[#2563EB]">LKR {bid.amount?.toLocaleString()}</p>
                               <p className="text-xs text-slate-400">ETA: {bid.eta}</p>
                             </div>
                           </div>
@@ -256,7 +256,7 @@ function Bids() {
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-slate-500">Winning Bid</p>
-                          <p className="text-sm font-bold text-[#1E40AF]">LKR {order.winner?.amount?.toLocaleString()}</p>
+                          <p className="text-sm font-bold text-[#2563EB]">LKR {order.winner?.amount?.toLocaleString()}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-slate-500">Total Bids</p>
@@ -291,7 +291,7 @@ function Bids() {
 
             <div className="p-6 space-y-6">
               <div>
-                <h4 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-3">Order Information</h4>
+                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Order Information</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-xs text-slate-500">Order Type</p>
@@ -305,7 +305,7 @@ function Bids() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-3">Winner</h4>
+                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Winner</h4>
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -326,7 +326,7 @@ function Bids() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-3">
+                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">
                   All Bids ({selectedClosedBid.all_bids?.length})
                 </h4>
                 <div className="space-y-2">

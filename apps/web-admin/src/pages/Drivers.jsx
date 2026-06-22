@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, X, Upload, Search, Truck, User, FileText } from 'lucide-react'
-import { adminAPI, uploadFile, verifyAdminPassword } from '../services/api'
+import { adminAPI, uploadFile } from '../services/api'
 
 function Drivers() {
   const [drivers, setDrivers] = useState([])
@@ -171,7 +171,6 @@ function Drivers() {
     if (!result.valid) { setRemoveError('Incorrect password.'); return }
 
     // Verify admin ID matches logged in user
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
     if (removeForm.admin_id !== 'ADMIN001') { setRemoveError('Incorrect Admin ID.'); return }
 
     await adminAPI.deleteDriver(driverToRemove.driver_id)
@@ -196,7 +195,7 @@ function Drivers() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[#1E40AF] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+          className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
         >
           <Plus size={16} />
           Add Driver
@@ -205,18 +204,18 @@ function Drivers() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Drivers</p>
               <p className="text-3xl font-bold text-[#1E293B] mt-1">{drivers.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Truck size={22} className="text-[#1E40AF]" />
+              <Truck size={22} className="text-[#2563EB]" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active Drivers</p>
@@ -229,7 +228,7 @@ function Drivers() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Inactive Drivers</p>
@@ -245,7 +244,7 @@ function Drivers() {
       </div>
 
       {/* Drivers Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <div>
@@ -301,10 +300,10 @@ function Drivers() {
                           <img src={driver.profile_photo_url} alt="Profile" className="w-8 h-8 rounded-xl object-cover" />
                         ) : (
                           <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
-                            <User size={14} className="text-[#1E40AF]" />
+                            <User size={14} className="text-[#2563EB]" />
                           </div>
                         )}
-                        <span className="font-semibold text-[#1E293B] group-hover:text-[#1E40AF] transition">
+                        <span className="font-semibold text-[#1E293B] group-hover:text-[#2563EB] transition">
                           {driver.first_name} {driver.last_name}
                         </span>
                       </div>
@@ -343,7 +342,7 @@ function Drivers() {
             <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <User size={18} className="text-[#1E40AF]" />
+                  <User size={18} className="text-[#2563EB]" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-[#1E293B]">Driver Profile</h2>
@@ -364,7 +363,7 @@ function Drivers() {
                   {selectedDriver.profile_photo_url ? (
                     <img src={selectedDriver.profile_photo_url} alt="Profile" className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
                   ) : (
-                    <div className="w-14 h-14 bg-gradient-to-br from-[#1E40AF] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
+                    <div className="w-14 h-14 bg-gradient-to-br from-[#2563EB] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
                       <span className="text-white text-xl font-bold">
                         {selectedDriver.first_name?.[0]}{selectedDriver.last_name?.[0]}
                       </span>
@@ -388,7 +387,7 @@ function Drivers() {
 
               {/* Personal Information */}
               <div>
-                <h4 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-3">Personal Information</h4>
+                <h4 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-3">Personal Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'Date of Birth', value: selectedDriver.date_of_birth },
@@ -408,7 +407,7 @@ function Drivers() {
 
               {/* Police Clearance */}
               <div>
-                <h4 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-3">Police Clearance</h4>
+                <h4 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-3">Police Clearance</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'Report Number', value: selectedDriver.police_report_number },
@@ -440,7 +439,7 @@ function Drivers() {
 
               {/* License Details */}
               <div>
-                <h4 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-3">License Details</h4>
+                <h4 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-3">License Details</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'License Number', value: selectedDriver.license_number },
@@ -517,7 +516,7 @@ function Drivers() {
 
               {/* Personal Information */}
               <div>
-                <h3 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-4">Personal Information</h3>
+                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Personal Information</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Profile Photo</label>
@@ -588,7 +587,7 @@ function Drivers() {
 
               {/* Police Clearance */}
               <div>
-                <h3 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-4">Police Clearance Report</h3>
+                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Police Clearance Report</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Report Reference Number <span className="text-red-500">*</span></label>
@@ -628,7 +627,7 @@ function Drivers() {
 
               {/* License Details */}
               <div>
-                <h3 className="text-xs font-bold text-[#1E40AF] uppercase tracking-widest mb-4">Driving License Details</h3>
+                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Driving License Details</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">License Number <span className="text-red-500">*</span></label>
@@ -703,7 +702,7 @@ function Drivers() {
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowForm(false); setPreviews({ profile_photo: null, police_report_file: null, license_front: null, license_back: null }) }} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-[#1E40AF] text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm shadow-blue-200">Add Driver</button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-[#2563EB] text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm shadow-blue-200">Add Driver</button>
               </div>
             </form>
           </div>

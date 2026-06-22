@@ -114,7 +114,7 @@ function Operations() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[#1E40AF] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+          className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
         >
           <Plus size={16} />
           Add Staff Member
@@ -123,18 +123,18 @@ function Operations() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Staff</p>
               <p className="text-3xl font-bold text-[#1E293B] mt-1">{staff.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-              <User size={22} className="text-[#1E40AF]" />
+              <User size={22} className="text-[#2563EB]" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active</p>
@@ -147,7 +147,7 @@ function Operations() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Inactive</p>
@@ -163,7 +163,7 @@ function Operations() {
       </div>
 
       {/* Staff Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-[#1E293B]">All Staff Members</h2>
@@ -200,10 +200,10 @@ function Operations() {
                     onClick={() => setSelectedStaff(s)}
                   >
                     <td className="py-3 text-slate-600 font-medium">{s.employee_id || '—'}</td>
-                    <td className="py-3 font-medium text-[#1E40AF]">
+                    <td className="py-3 font-medium text-[#2563EB]">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={14} className="text-[#1E40AF]" />
+                          <User size={14} className="text-[#2563EB]" />
                         </div>
                         {s.first_name} {s.last_name}
                       </div>
@@ -243,7 +243,7 @@ function Operations() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User size={24} className="text-[#1E40AF]" />
+                    <User size={24} className="text-[#2563EB]" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-[#1E293B]">{selectedStaff.first_name} {selectedStaff.last_name}</h3>
@@ -256,7 +256,7 @@ function Operations() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-3">Employment Details</h4>
+                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Employment Details</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-xs text-slate-500">Employee ID</p>
@@ -278,17 +278,17 @@ function Operations() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-3">Contact Information</h4>
+                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Contact Information</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Mail size={16} className="text-[#1E40AF]" />
+                    <Mail size={16} className="text-[#2563EB]" />
                     <div>
                       <p className="text-xs text-slate-500">Email</p>
                       <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.email || '—'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Phone size={16} className="text-[#1E40AF]" />
+                    <Phone size={16} className="text-[#2563EB]" />
                     <div>
                       <p className="text-xs text-slate-500">Contact Number</p>
                       <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.contact_number || '—'}</p>
@@ -331,7 +331,7 @@ function Operations() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div>
-                <h3 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-4">Personal Information</h3>
+                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Personal Information</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -355,7 +355,7 @@ function Operations() {
               </div>
               <div className="border-t border-slate-100" />
               <div>
-                <h3 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-4">Contact Information</h3>
+                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Contact Information</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
@@ -373,7 +373,7 @@ function Operations() {
               </div>
               <div className="border-t border-slate-100" />
               <div>
-                <h3 className="text-sm font-semibold text-[#1E40AF] uppercase tracking-wide mb-4">Employment Details</h3>
+                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Employment Details</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -399,7 +399,7 @@ function Operations() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-[#1E40AF] text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">Add Staff Member</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">Add Staff Member</button>
               </div>
             </form>
           </div>
