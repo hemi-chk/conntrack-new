@@ -2,7 +2,7 @@
 import {
   LayoutDashboard, Truck, Building2, ClipboardList,
   Users, Package, FileText, CheckSquare, Settings,
-  ChevronRight, TrendingUp, Globe, BarChart2
+  ChevronRight, UserCog
 } from 'lucide-react'
 
 const menuItems = [
@@ -13,9 +13,9 @@ const menuItems = [
   { icon: Building2, label: 'Suppliers', path: '/suppliers', section: 'Fleet' },
   { icon: ClipboardList, label: 'Operations', path: '/operations', section: 'Team' },
   { icon: Users, label: 'Logistics', path: '/logistics', section: 'Team' },
+  { icon: UserCog, label: 'Staff', path: '/staff', section: 'Team' },
   { icon: FileText, label: 'Documents', path: '/documents', section: 'System' },
   { icon: Settings, label: 'Settings', path: '/settings', section: 'System' },
-
 ]
 
 function Sidebar({ isOpen, currentPath, onNavigate, darkMode }) {

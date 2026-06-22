@@ -10,6 +10,7 @@ import Operations from './pages/Operations'
 import Logistics from './pages/Logistics'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
+import Staff from './pages/Staff'
 import Login from './pages/Login'
 
 
@@ -57,6 +58,7 @@ function App() {
       case '/suppliers': return <Suppliers />
       case '/operations': return <Operations />
       case '/logistics': return <Logistics />
+      case '/staff': return <Staff darkMode={darkMode} />
       case '/documents': return <Documents />
       case '/settings': return <Settings />
       default: return <Dashboard />
