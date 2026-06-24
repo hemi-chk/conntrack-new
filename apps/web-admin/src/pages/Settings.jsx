@@ -102,7 +102,7 @@ function Settings() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition border-b border-slate-100 last:border-0 ${
                   activeTab === tab.id
-                    ? 'bg-blue-50 text-[#2563EB] border-r-2 border-[#2563EB]'
+                    ? 'bg-blue-50 text-[#052659] border-r-2 border-[#052659]'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
@@ -124,7 +124,7 @@ function Settings() {
               {/* Profile Avatar */}
               {/* WHY: Visual identity for the admin account */}
               <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-2xl">
-                <div className="w-16 h-16 bg-[#2563EB] rounded-2xl flex items-center justify-center shadow-sm">
+                <div className="w-16 h-16 bg-[#052659] rounded-2xl flex items-center justify-center shadow-sm">
                   <span className="text-white text-xl font-bold">
                     {profileForm.first_name[0]}{profileForm.last_name[0]}
                   </span>
@@ -132,7 +132,7 @@ function Settings() {
                 <div>
                   <p className="font-bold text-[#1E293B]">{profileForm.first_name} {profileForm.last_name}</p>
                   <p className="text-sm text-slate-500">{profileForm.email}</p>
-                  <p className="text-xs text-[#2563EB] font-bold mt-1 uppercase tracking-widest">System Administrator</p>
+                  <p className="text-xs text-[#052659] font-bold mt-1 uppercase tracking-widest">System Administrator</p>
                 </div>
               </div>
 
@@ -191,7 +191,7 @@ function Settings() {
 
                 <button
                   onClick={() => handleSave('Profile')}
-                  className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+                  className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
                 >
                   <Save size={16} />
                   Save Profile
@@ -260,7 +260,7 @@ function Settings() {
 
                 <button
                   onClick={() => handleSave('Company')}
-                  className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+                  className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
                 >
                   <Save size={16} />
                   Save Company Settings
@@ -293,7 +293,7 @@ function Settings() {
                     <button
                       onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key] })}
                       className={`relative w-11 h-6 rounded-full transition-colors ${
-                        notifications[item.key] ? 'bg-[#2563EB]' : 'bg-slate-300'
+                        notifications[item.key] ? 'bg-[#052659]' : 'bg-slate-300'
                       }`}
                     >
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
@@ -306,7 +306,7 @@ function Settings() {
 
               <button
                 onClick={() => handleSave('Notification')}
-                className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200 mt-6"
+                className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200 mt-6"
               >
                 <Save size={16} />
                 Save Notifications
@@ -361,7 +361,7 @@ function Settings() {
                   </div>
                   <button
                     type="submit"
-                    className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+                    className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
                   >
                     <Shield size={16} />
                     Update Password

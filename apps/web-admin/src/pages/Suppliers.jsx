@@ -21,7 +21,7 @@ function UploadField({ label, name, onChange, required = false }) {
       <div className="mt-1 border-2 border-dashed border-slate-200 rounded-xl p-3 hover:border-blue-400 transition cursor-pointer bg-slate-50">
         <label className="flex items-center gap-3 cursor-pointer">
           <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Upload size={14} className="text-[#2563EB]" />
+            <Upload size={14} className="text-[#5483B3]" />
           </div>
           <div className="flex-1 min-w-0">
             {fileName ? (
@@ -201,7 +201,7 @@ function Suppliers() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+          className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
         >
           <Plus size={16} />
           Add Supplier
@@ -217,7 +217,7 @@ function Suppliers() {
               <p className="text-3xl font-bold text-[#1E293B] mt-1">{suppliers.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-              <Building2 size={22} className="text-[#2563EB]" />
+              <Building2 size={22} className="text-[#5483B3]" />
             </div>
           </div>
         </div>
@@ -294,7 +294,7 @@ function Suppliers() {
                 filteredSuppliers.map((supplier) => (
                   <tr
                     key={supplier.supplier_id}
-                    className="border-t border-slate-50 hover:bg-blue-50 cursor-pointer transition group"
+                    className="border-t border-slate-50 hover:bg-[#EBF4FF] cursor-pointer transition group"
                     onClick={() => setSelectedSupplier(supplier)}
                   >
                     <td className="py-3.5 text-slate-400 text-xs font-mono">
@@ -303,9 +303,9 @@ function Suppliers() {
                     <td className="py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center">
-                          <Building2 size={14} className="text-[#2563EB]" />
+                          <Building2 size={14} className="text-[#5483B3]" />
                         </div>
-                        <span className="font-semibold text-[#1E293B] group-hover:text-[#2563EB] transition">
+                        <span className="font-semibold text-[#1E293B] group-hover:text-[#052659] transition">
                           {supplier.company_name}
                         </span>
                       </div>
@@ -344,7 +344,7 @@ function Suppliers() {
             <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Building2 size={18} className="text-[#2563EB]" />
+                  <Building2 size={18} className="text-[#5483B3]" />
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-[#1E293B]">Supplier Profile</h2>
@@ -362,7 +362,7 @@ function Suppliers() {
               {/* Profile Header */}
               <div className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#2563EB] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
+                  <div className="w-14 h-14 bg-gradient-to-br from-[#052659] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
                     <Building2 size={24} className="text-white" />
                   </div>
                   <div>
@@ -381,7 +381,7 @@ function Suppliers() {
 
               {/* Company Information */}
               <div>
-                <h4 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-3">Company Information</h4>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Company Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'Registration Number', value: selectedSupplier.registration_number },
@@ -449,7 +449,7 @@ function Suppliers() {
 
               {/* SECTION 1 — Company Information */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Company Information</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Company Information</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Company Name <span className="text-red-500">*</span></label>
@@ -471,7 +471,7 @@ function Suppliers() {
 
               {/* SECTION 2 — Tax Registration */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Tax Registration</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Tax Registration</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">TIN Number <span className="text-red-500">*</span></label>
@@ -490,7 +490,7 @@ function Suppliers() {
 
               {/* SECTION 3 — Directors */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Directors & Shareholder Details</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Directors & Shareholder Details</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Director Full Name <span className="text-red-500">*</span></label>
@@ -513,7 +513,7 @@ function Suppliers() {
 
               {/* SECTION 4 — Bank Details */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Business Bank Account</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Business Bank Account</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Bank Name <span className="text-red-500">*</span></label>
@@ -538,7 +538,7 @@ function Suppliers() {
 
               {/* SECTION 5 — Company Profile */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Company Profile</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Company Profile</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Company Overview <span className="text-red-500">*</span></label>
@@ -565,7 +565,7 @@ function Suppliers() {
 
               {/* SECTION 6 — Certifications */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Certifications & Permits</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Certifications & Permits</h3>
                 <div className="space-y-4">
                   <UploadField label="Vehicle Permit(s)" name="vehicle_permit_doc" onChange={handleChange} required />
                   <UploadField label="ISO Certification (if applicable)" name="iso_certification_doc" onChange={handleChange} />
@@ -577,7 +577,7 @@ function Suppliers() {
 
               {/* SECTION 7 — Insurance */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Insurance Documents</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Insurance Documents</h3>
                 <div className="space-y-4">
                   <UploadField label="Liability Insurance" name="liability_insurance_doc" onChange={handleChange} required />
                   <UploadField label="Vehicle Insurance" name="vehicle_insurance_doc" onChange={handleChange} required />
@@ -588,7 +588,7 @@ function Suppliers() {
 
               {/* SECTION 8 — Vehicle Capacity */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Vehicle Capacity</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Vehicle Capacity</h3>
                 <div className="space-y-3">
                   {[
                     { key: 'hcv_count', label: 'HCV - Heavy Commercial Vehicle', sub: '3.6-16 tons' },
@@ -602,14 +602,14 @@ function Suppliers() {
                       <div className="flex items-center gap-3">
                         <button type="button" onClick={() => setFormData({ ...formData, [vehicle.key]: Math.max(0, formData[vehicle.key] - 1) })} className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 transition font-bold">−</button>
                         <span className="w-8 text-center text-sm font-bold text-[#1E293B]">{formData[vehicle.key]}</span>
-                        <button type="button" onClick={() => setFormData({ ...formData, [vehicle.key]: formData[vehicle.key] + 1 })} className="w-8 h-8 rounded-full bg-[#2563EB] flex items-center justify-center text-white hover:bg-blue-700 transition font-bold">+</button>
+                        <button type="button" onClick={() => setFormData({ ...formData, [vehicle.key]: formData[vehicle.key] + 1 })} className="w-8 h-8 rounded-full bg-[#052659] flex items-center justify-center text-white hover:bg-[#5483B3] transition font-bold">+</button>
                       </div>
                     </div>
                   ))}
                   {(formData.hcv_count + formData.lcv_count) > 0 && (
                     <div className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
-                      <p className="text-sm text-[#2563EB] font-semibold">Total Fleet Size</p>
-                      <p className="text-sm font-bold text-[#2563EB]">{formData.hcv_count + formData.lcv_count} vehicles</p>
+                      <p className="text-sm text-[#052659] font-semibold">Total Fleet Size</p>
+                      <p className="text-sm font-bold text-[#052659]">{formData.hcv_count + formData.lcv_count} vehicles</p>
                     </div>
                   )}
                 </div>
@@ -619,7 +619,7 @@ function Suppliers() {
 
               {/* SECTION 9 — Contact Details */}
               <div>
-                <h3 className="text-xs font-bold text-[#2563EB] uppercase tracking-widest mb-4">Contact Details</h3>
+                <h3 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-4">Contact Details</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -646,7 +646,7 @@ function Suppliers() {
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2.5 bg-[#2563EB] text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm shadow-blue-200">Add Supplier</button>
+                <button type="submit" className="flex-1 px-4 py-2.5 bg-[#052659] text-white rounded-xl text-sm font-semibold hover:bg-[#5483B3] transition shadow-sm shadow-blue-200">Add Supplier</button>
               </div>
 
             </form>

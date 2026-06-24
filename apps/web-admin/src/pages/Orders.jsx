@@ -43,7 +43,7 @@ function Orders({ onNavigate }) {
       case 'in_transit':
         return {
           card: 'bg-blue-50/40 border-blue-200 hover:border-blue-400 hover:shadow-blue-100 hover:bg-blue-50/80',
-          icon: 'bg-blue-100 text-blue-600',
+          icon: 'bg-blue-100 text-blue-700',
           badge: 'bg-blue-100 text-blue-700',
         }
       case 'completed':
@@ -86,7 +86,7 @@ function Orders({ onNavigate }) {
             onClick={() => setActiveTab(tab.value)}
             className={`pb-3 px-3 text-sm font-semibold transition-colors border-b-2 ${
               activeTab === tab.value
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-blue-700 text-blue-700'
                 : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -153,7 +153,7 @@ function Orders({ onNavigate }) {
                   <span className="text-slate-500 font-medium truncate max-w-[150px]">
                     {order.customers?.customer_name || 'No client'}
                   </span>
-                  <span className="text-blue-600 font-semibold group-hover:underline flex items-center gap-1">
+                  <span className="text-blue-700 font-semibold group-hover:underline flex items-center gap-1">
                     View Details
                   </span>
                 </div>

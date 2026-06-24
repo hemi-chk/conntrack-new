@@ -115,7 +115,7 @@ function Logistics() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-[#2563EB] text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm font-semibold shadow-sm shadow-blue-200"
+          className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
         >
           <Plus size={16} />
           Add Staff Member
@@ -131,7 +131,7 @@ function Logistics() {
               <p className="text-3xl font-bold text-[#1E293B] mt-1">{staff.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-              <User size={22} className="text-[#2563EB]" />
+              <User size={22} className="text-[#5483B3]" />
             </div>
           </div>
         </div>
@@ -197,14 +197,14 @@ function Logistics() {
                 filteredStaff.map((s) => (
                   <tr
                     key={s.id}
-                    className="border-t border-slate-100 hover:bg-blue-50 cursor-pointer transition"
+                    className="border-t border-slate-100 hover:bg-[#EBF4FF] cursor-pointer transition"
                     onClick={() => setSelectedStaff(s)}
                   >
                     <td className="py-3 text-slate-600 font-medium">{s.employee_id || '—'}</td>
-                    <td className="py-3 font-medium text-[#2563EB]">
+                    <td className="py-3 font-medium text-[#052659]">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={14} className="text-[#2563EB]" />
+                          <User size={14} className="text-[#5483B3]" />
                         </div>
                         {s.first_name} {s.last_name}
                       </div>
@@ -244,7 +244,7 @@ function Logistics() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User size={24} className="text-[#2563EB]" />
+                    <User size={24} className="text-[#5483B3]" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-[#1E293B]">{selectedStaff.first_name} {selectedStaff.last_name}</h3>
@@ -257,7 +257,7 @@ function Logistics() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Employment Details</h4>
+                <h4 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-3">Employment Details</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 rounded-lg p-3">
                     <p className="text-xs text-slate-500">Employee ID</p>
@@ -279,17 +279,17 @@ function Logistics() {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-3">Contact Information</h4>
+                <h4 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-3">Contact Information</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Mail size={16} className="text-[#2563EB]" />
+                    <Mail size={16} className="text-[#5483B3]" />
                     <div>
                       <p className="text-xs text-slate-500">Email</p>
                       <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.email || '—'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Phone size={16} className="text-[#2563EB]" />
+                    <Phone size={16} className="text-[#5483B3]" />
                     <div>
                       <p className="text-xs text-slate-500">Contact Number</p>
                       <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.contact_number || '—'}</p>
@@ -332,7 +332,7 @@ function Logistics() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div>
-                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Personal Information</h3>
+                <h3 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-4">Personal Information</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -356,7 +356,7 @@ function Logistics() {
               </div>
               <div className="border-t border-slate-100" />
               <div>
-                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Contact Information</h3>
+                <h3 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-4">Contact Information</h3>
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
@@ -374,7 +374,7 @@ function Logistics() {
               </div>
               <div className="border-t border-slate-100" />
               <div>
-                <h3 className="text-sm font-semibold text-[#2563EB] uppercase tracking-wide mb-4">Employment Details</h3>
+                <h3 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-4">Employment Details</h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -401,7 +401,7 @@ function Logistics() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition">Cancel</button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-[#2563EB] text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">Add Staff Member</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-[#052659] text-white rounded-lg text-sm font-medium hover:bg-[#5483B3] transition">Add Staff Member</button>
               </div>
             </form>
           </div>

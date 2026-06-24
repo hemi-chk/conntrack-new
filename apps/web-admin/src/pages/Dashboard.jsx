@@ -102,7 +102,7 @@ function Dashboard() {
     <div className="space-y-6">
 
       {/* Hero Banner */}
-      <div className="relative rounded-2xl p-8 overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #2563EB 60%, #3b82f6 100%)' }}>
+      <div className="relative rounded-2xl p-8 overflow-hidden shadow-lg" style={{ background: 'linear-gradient(135deg, #021024 0%, #052659 55%, #5483B3 100%)' }}>
         <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
         <div className="absolute bottom-0 right-40 w-40 h-40 bg-white/5 rounded-full translate-y-1/2" />
         <div className="absolute top-4 left-1/2 w-96 h-96 bg-blue-400/10 rounded-full -translate-x-1/2" />
@@ -118,7 +118,7 @@ function Dashboard() {
             <p className="text-blue-100 text-sm max-w-md">
               You have <span className="font-bold text-white">{issues.filter(i => i.type === 'error').length} critical issues</span> that need your attention today. Let's get started!
             </p>
-            <button className="mt-4 flex items-center gap-2 bg-white text-[#2563EB] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm">
+            <button className="mt-4 flex items-center gap-2 bg-white text-[#052659] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm">
               Review Issues
               <ArrowRight size={16} />
             </button>
@@ -209,7 +209,7 @@ function Dashboard() {
                     <p className="text-xs text-slate-400 mt-0.5">{issue.date}</p>
                   </div>
                 </div>
-                <button className="text-xs font-medium text-[#2563EB] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4">
+                <button className="text-xs font-medium text-[#052659] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4">
                   {issue.action} <ArrowRight size={12} />
                 </button>
               </div>
@@ -224,13 +224,13 @@ function Dashboard() {
               <h2 className="text-sm font-bold text-[#1E293B]">Recent Orders</h2>
               <p className="text-xs text-slate-400 mt-0.5">Latest activity</p>
             </div>
-            <button className="text-xs text-[#2563EB] font-medium hover:underline">View all</button>
+            <button className="text-xs text-[#052659] font-medium hover:underline">View all</button>
           </div>
           <div className="divide-y divide-slate-50">
             {recentOrders.map((order) => (
               <div key={order.id} className="p-4 hover:bg-slate-50 transition cursor-pointer group">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-bold text-[#2563EB]">{order.id}</span>
+                  <span className="text-sm font-bold text-[#052659]">{order.id}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     order.status === 'Completed' ? 'bg-green-100 text-green-700' :
                     order.status === 'Ongoing' ? 'bg-blue-100 text-blue-700' :
