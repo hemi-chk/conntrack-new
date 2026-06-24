@@ -18,6 +18,13 @@ function App() {
   const [currentPath, setCurrentPath] = useState('/')
   const [darkMode, setDarkMode] = useState(false)
 
+  // If arriving from another app's logout, clear admin session first
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('logout') === 'true') {
+    localStorage.clear()
+    window.history.replaceState(null, '', window.location.pathname)
+  }
+
   // Auth check
   const token = localStorage.getItem('token')
   const role = localStorage.getItem('role')

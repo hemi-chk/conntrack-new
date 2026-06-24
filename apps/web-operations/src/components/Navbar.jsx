@@ -6,7 +6,7 @@ function Navbar({ onMenuClick }) {
 
   const handleLogout = () => {
     localStorage.clear()
-    window.location.href = 'http://127.0.0.1:5173'
+    window.location.href = 'http://127.0.0.1:5173?logout=true'
   }
 
   return (
