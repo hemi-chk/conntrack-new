@@ -6,7 +6,7 @@ function Layout({ children, currentPath, onNavigate, darkMode, onToggleDark }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-[#0B1120]' : 'bg-[#F1F5F9]'}`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-[#021024]' : 'bg-[#EBF4FF]'}`}>
       <Sidebar
         isOpen={sidebarOpen}
         currentPath={currentPath}
