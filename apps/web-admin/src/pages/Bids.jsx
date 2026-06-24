@@ -106,17 +106,17 @@ function Bids() {
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Total Active Bids</p>
-          <p className="text-2xl font-bold text-orange-500 mt-1">
+          <p className="text-2xl font-bold text-[#5483B3] mt-1">
             {activeBids.reduce((sum, order) => sum + (order.bids?.length || 0), 0)}
           </p>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Closed Orders</p>
-          <p className="text-2xl font-bold text-green-600 mt-1">{closedBids.length}</p>
+          <p className="text-2xl font-bold text-[#052659] mt-1">{closedBids.length}</p>
         </div>
         <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500">Total Past Bids</p>
-          <p className="text-2xl font-bold text-blue-600 mt-1">
+          <p className="text-2xl font-bold text-[#7DA0CA] mt-1">
             {closedBids.reduce((sum, order) => sum + (order.all_bids?.length || 0), 0)}
           </p>
         </div>
@@ -133,7 +133,7 @@ function Bids() {
                 onClick={() => setActiveTab('active')}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition ${
                   activeTab === 'active'
-                    ? 'bg-[#22C55E] text-white shadow-sm shadow-green-200'
+                    ? 'bg-[#052659] text-white shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -143,7 +143,7 @@ function Bids() {
                 onClick={() => setActiveTab('closed')}
                 className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition ${
                   activeTab === 'closed'
-                    ? 'bg-[#FFF3AA] text-black shadow-sm shadow-yellow-200'
+                    ? 'bg-[#C1E8FF] text-[#052659] shadow-sm'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -178,7 +178,7 @@ function Bids() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-[#1E293B]">{order.order_id}</span>
-                          <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-medium flex items-center gap-1">
+                          <span className="px-2 py-0.5 bg-[#EBF4FF] text-[#5483B3] rounded-full text-xs font-medium flex items-center gap-1">
                             <Clock size={10} />
                             {order.bids?.length || 0} bid{(order.bids?.length || 0) !== 1 ? 's' : ''}
                           </span>
@@ -202,9 +202,9 @@ function Bids() {
                           <div key={bid.bid_id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg">
                             <div className="flex items-center gap-3">
                               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                                index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                                index === 1 ? 'bg-slate-100 text-slate-600' :
-                                'bg-orange-50 text-orange-600'
+                                index === 0 ? 'bg-[#C1E8FF] text-[#052659]' :
+                                index === 1 ? 'bg-[#EBF4FF] text-[#5483B3]' :
+                                'bg-slate-100 text-slate-500'
                               }`}>
                                 #{index + 1}
                               </div>
@@ -243,14 +243,14 @@ function Bids() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-[#1E293B]">{order.order_id}</span>
-                          <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-xs font-medium">Closed</span>
+                          <span className="px-2 py-0.5 bg-[#C1E8FF] text-[#052659] rounded-full text-xs font-medium">Closed</span>
                         </div>
                         <p className="text-sm text-slate-500 mt-0.5">{order.order_type} • {order.cargo_type}</p>
                       </div>
                       <div className="flex items-center gap-6">
                         <div className="text-right">
                           <p className="text-xs text-slate-500">Winner</p>
-                          <p className="text-sm font-medium text-green-600 flex items-center gap-1">
+                          <p className="text-sm font-medium text-[#5483B3] flex items-center gap-1">
                             <Trophy size={12} />{order.winner?.supplier}
                           </p>
                         </div>
@@ -306,11 +306,11 @@ function Bids() {
 
               <div>
                 <h4 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-3">Winner</h4>
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                <div className="bg-[#EBF4FF] border border-[#C1E8FF] rounded-xl p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <Trophy size={18} className="text-green-600" />
+                      <div className="w-10 h-10 bg-[#C1E8FF] rounded-full flex items-center justify-center">
+                        <Trophy size={18} className="text-[#052659]" />
                       </div>
                       <div>
                         <p className="font-bold text-[#1E293B]">{selectedClosedBid.winner?.supplier}</p>
@@ -319,7 +319,7 @@ function Bids() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-slate-500">Winning Amount</p>
-                      <p className="text-lg font-bold text-green-600">LKR {selectedClosedBid.winner?.amount?.toLocaleString()}</p>
+                      <p className="text-lg font-bold text-[#052659]">LKR {selectedClosedBid.winner?.amount?.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
@@ -334,13 +334,13 @@ function Bids() {
                     <div
                       key={bid.bid_id}
                       className={`flex items-center justify-between p-3 rounded-lg border ${
-                        bid.status === 'accepted' ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'
+                        bid.status === 'accepted' ? 'bg-[#EBF4FF] border-[#C1E8FF]' : 'bg-slate-50 border-slate-200'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         {bid.status === 'accepted'
-                          ? <CheckCircle size={16} className="text-green-600" />
-                          : <XCircle size={16} className="text-red-400" />
+                          ? <CheckCircle size={16} className="text-[#5483B3]" />
+                          : <XCircle size={16} className="text-slate-400" />
                         }
                         <div>
                           <p className="text-sm font-medium text-[#1E293B]">{bid.supplier}</p>

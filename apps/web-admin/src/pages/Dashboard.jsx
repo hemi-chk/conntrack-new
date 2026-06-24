@@ -57,9 +57,9 @@ function Dashboard() {
       sublabel: 'This month',
       value: loading ? '...' : stats.total_orders,
       icon: Package,
-      color: 'bg-blue-500',
-      light: 'bg-blue-50',
-      textColor: 'text-blue-600',
+      color: 'bg-[#5483B3]',
+      light: 'bg-[#EBF4FF]',
+      textColor: 'text-[#5483B3]',
       trend: '+12%',
       trendUp: true,
     },
@@ -68,9 +68,9 @@ function Dashboard() {
       sublabel: 'In transit now',
       value: loading ? '...' : stats.active_orders,
       icon: Truck,
-      color: 'bg-orange-500',
-      light: 'bg-orange-50',
-      textColor: 'text-orange-600',
+      color: 'bg-[#7DA0CA]',
+      light: 'bg-[#EBF4FF]',
+      textColor: 'text-[#7DA0CA]',
       trend: '3 need attention',
       trendUp: null,
     },
@@ -79,9 +79,9 @@ function Dashboard() {
       sublabel: 'Awaiting selection',
       value: loading ? '...' : stats.active_bids,
       icon: Clock,
-      color: 'bg-purple-500',
-      light: 'bg-purple-50',
-      textColor: 'text-purple-600',
+      color: 'bg-[#5483B3]',
+      light: 'bg-[#EBF4FF]',
+      textColor: 'text-[#5483B3]',
       trend: '2 orders open',
       trendUp: null,
     },
@@ -90,9 +90,9 @@ function Dashboard() {
       sublabel: 'Orders this month',
       value: loading ? '...' : stats.completed_orders,
       icon: CheckCircle,
-      color: 'bg-green-500',
-      light: 'bg-green-50',
-      textColor: 'text-green-600',
+      color: 'bg-[#052659]',
+      light: 'bg-[#EBF4FF]',
+      textColor: 'text-[#052659]',
       trend: '+8%',
       trendUp: true,
     },
@@ -149,7 +149,7 @@ function Dashboard() {
               </div>
               {stat.trendUp !== null && (
                 <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg ${
-                  stat.trendUp ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-500'
+                  stat.trendUp ? 'bg-[#C1E8FF] text-[#052659]' : 'bg-slate-50 text-slate-500'
                 }`}>
                   {stat.trendUp ? <TrendingUp size={12} /> : null}
                   {stat.trend}
@@ -160,7 +160,7 @@ function Dashboard() {
             <p className="text-sm font-medium text-[#1E293B] mt-1">{stat.label}</p>
             <p className="text-xs text-slate-400 mt-0.5">{stat.sublabel}</p>
             {stat.trendUp === null && (
-              <p className="text-xs text-orange-500 mt-1">{stat.trend}</p>
+              <p className="text-xs text-[#7DA0CA] mt-1">{stat.trend}</p>
             )}
           </div>
         ))}
@@ -173,15 +173,15 @@ function Dashboard() {
         <div className="col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
-                <AlertTriangle size={16} className="text-red-500" />
+              <div className="w-8 h-8 bg-[#EBF4FF] rounded-lg flex items-center justify-center">
+                <AlertTriangle size={16} className="text-[#5483B3]" />
               </div>
               <div>
                 <h2 className="text-sm font-bold text-[#1E293B]">Issues Requiring Attention</h2>
                 <p className="text-xs text-slate-400">{issues.length} total issues</p>
               </div>
             </div>
-            <span className="bg-red-100 text-red-600 text-xs font-bold px-3 py-1 rounded-full">
+            <span className="bg-[#052659] text-white text-xs font-bold px-3 py-1 rounded-full">
               {issues.filter(i => i.type === 'error').length} Critical
             </span>
           </div>
@@ -189,19 +189,17 @@ function Dashboard() {
             {issues.map((issue) => (
               <div key={issue.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition group">
                 <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 p-1 rounded-lg ${
-                    issue.type === 'error' ? 'bg-red-50' : 'bg-orange-50'
-                  }`}>
+                  <div className="mt-0.5 p-1 rounded-lg bg-[#EBF4FF]">
                     {issue.type === 'error'
-                      ? <XCircle size={14} className="text-red-500" />
-                      : <AlertTriangle size={14} className="text-orange-400" />
+                      ? <XCircle size={14} className="text-[#052659]" />
+                      : <AlertTriangle size={14} className="text-[#7DA0CA]" />
                     }
                   </div>
                   <div>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                       issue.type === 'error'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-orange-100 text-orange-600'
+                        ? 'bg-[#EBF4FF] text-[#052659]'
+                        : 'bg-[#EBF4FF] text-[#7DA0CA]'
                     }`}>
                       {issue.category}
                     </span>
@@ -232,9 +230,9 @@ function Dashboard() {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-bold text-[#052659]">{order.id}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    order.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                    order.status === 'Ongoing' ? 'bg-blue-100 text-blue-700' :
-                    'bg-orange-100 text-orange-700'
+                    order.status === 'Completed' ? 'bg-[#C1E8FF] text-[#052659]' :
+                    order.status === 'Ongoing' ? 'bg-[#EBF4FF] text-[#5483B3]' :
+                    'bg-[#EBF4FF] text-[#7DA0CA]'
                   }`}>
                     {order.status}
                   </span>

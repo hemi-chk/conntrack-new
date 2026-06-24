@@ -219,12 +219,12 @@ function Drivers() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active Drivers</p>
-              <p className="text-3xl font-bold text-green-600 mt-1">
+              <p className="text-3xl font-bold text-[#5483B3] mt-1">
                 {drivers.filter(d => d.status === 'active').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <span className="text-green-600 text-xl font-bold">✓</span>
+            <div className="w-12 h-12 bg-[#EBF4FF] rounded-xl flex items-center justify-center">
+              <span className="text-[#5483B3] text-xl font-bold">✓</span>
             </div>
           </div>
         </div>
@@ -232,12 +232,12 @@ function Drivers() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Inactive Drivers</p>
-              <p className="text-3xl font-bold text-red-500 mt-1">
+              <p className="text-3xl font-bold text-slate-500 mt-1">
                 {drivers.filter(d => d.status === 'inactive').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-              <span className="text-red-500 text-xl font-bold">×</span>
+            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+              <span className="text-slate-400 text-xl font-bold">×</span>
             </div>
           </div>
         </div>
@@ -314,8 +314,8 @@ function Drivers() {
                     <td className="py-3.5">
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
                         driver.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-600'
+                          ? 'bg-[#C1E8FF] text-[#052659]'
+                          : 'bg-slate-100 text-slate-500'
                       }`}>
                         {driver.status === 'active' ? 'Active' : 'Inactive'}
                       </span>
@@ -475,14 +475,14 @@ function Drivers() {
             <div className="p-6 border-t border-slate-100 space-y-3">
               <button
                 onClick={() => { setDriverToDeactivate(selectedDriver); setShowDeactivateModal(true) }}
-                className="w-full px-4 py-2.5 bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 rounded-xl text-sm font-semibold transition"
+                className="w-full px-4 py-2.5 bg-[#EBF4FF] text-[#5483B3] hover:bg-[#C1E8FF] border border-[#C1E8FF] rounded-xl text-sm font-semibold transition"
               >
                 {selectedDriver.status === 'active' ? '⚠️ Deactivate Driver' : '✅ Reactivate Driver'}
               </button>
               <div className="flex gap-3">
                 <button
                   onClick={() => { setDriverToRemove(selectedDriver); setShowRemoveModal(true) }}
-                  className="flex-1 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl text-sm font-semibold transition"
+                  className="flex-1 px-4 py-2.5 bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-xl text-sm font-semibold transition"
                 >
                   Remove Permanently
                 </button>

@@ -139,12 +139,12 @@ function Logistics() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active</p>
-              <p className="text-3xl font-bold text-green-600 mt-1">
+              <p className="text-3xl font-bold text-[#5483B3] mt-1">
                 {staff.filter(s => s.status === 'active').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <span className="text-green-600 font-bold text-xl">✓</span>
+            <div className="w-12 h-12 bg-[#EBF4FF] rounded-xl flex items-center justify-center">
+              <span className="text-[#5483B3] font-bold text-xl">✓</span>
             </div>
           </div>
         </div>
@@ -152,12 +152,12 @@ function Logistics() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Inactive</p>
-              <p className="text-3xl font-bold text-red-600 mt-1">
+              <p className="text-3xl font-bold text-slate-500 mt-1">
                 {staff.filter(s => s.status === 'inactive').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-              <span className="text-red-600 font-bold text-xl">×</span>
+            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+              <span className="text-slate-400 font-bold text-xl">×</span>
             </div>
           </div>
         </div>
@@ -213,7 +213,7 @@ function Logistics() {
                     <td className="py-3 text-slate-600">{s.email || '—'}</td>
                     <td className="py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                        s.status === 'active' ? 'bg-[#C1E8FF] text-[#052659]' : 'bg-slate-100 text-slate-500'
                       }`}>
                         {s.status}
                       </span>
@@ -302,14 +302,14 @@ function Logistics() {
             <div className="p-6 border-t border-slate-100 space-y-3">
               <button
                 onClick={() => { setStaffToDeactivate(selectedStaff); setShowDeactivateModal(true) }}
-                className="w-full px-4 py-2 bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-200 rounded-lg text-sm font-medium transition"
+                className="w-full px-4 py-2 bg-[#EBF4FF] text-[#5483B3] hover:bg-[#C1E8FF] border border-[#C1E8FF] rounded-lg text-sm font-medium transition"
               >
                 {selectedStaff.status === 'active' ? 'Deactivate Staff Member' : 'Reactivate Staff Member'}
               </button>
               <div className="flex gap-3">
                 <button
                   onClick={() => { setStaffToRemove(selectedStaff); setShowRemoveModal(true) }}
-                  className="flex-1 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-sm font-medium transition"
+                  className="flex-1 px-4 py-2 bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium transition"
                 >
                   Remove Permanently
                 </button>
@@ -414,7 +414,7 @@ function Logistics() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
             <div className="p-6 border-b border-slate-100 rounded-t-2xl">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center"><span className="text-orange-600 text-lg">⚠️</span></div>
+                <div className="w-10 h-10 bg-[#EBF4FF] rounded-xl flex items-center justify-center"><span className="text-[#5483B3] text-lg">⚠️</span></div>
                 <div>
                   <h2 className="text-lg font-bold text-[#1E293B]">{staffToDeactivate?.status === 'active' ? 'Deactivate' : 'Reactivate'} Staff Member</h2>
                   <p className="text-sm text-slate-500">{staffToDeactivate?.first_name} {staffToDeactivate?.last_name} — {staffToDeactivate?.employee_id}</p>
@@ -422,8 +422,8 @@ function Logistics() {
               </div>
             </div>
             <form onSubmit={handleDeactivate} className="p-6 space-y-4">
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                <p className="text-sm text-orange-600">
+              <div className="bg-[#EBF4FF] border border-[#C1E8FF] rounded-lg p-3">
+                <p className="text-sm text-[#5483B3]">
                   {staffToDeactivate?.status === 'active' ? '⚠️ This will suspend their system access temporarily.' : '⚠️ This will restore their system access.'}
                 </p>
               </div>

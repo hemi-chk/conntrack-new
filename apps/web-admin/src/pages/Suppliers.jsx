@@ -25,7 +25,7 @@ function UploadField({ label, name, onChange, required = false }) {
           </div>
           <div className="flex-1 min-w-0">
             {fileName ? (
-              <p className="text-sm text-green-600 font-medium truncate">✅ {fileName}</p>
+              <p className="text-sm text-[#5483B3] font-medium truncate">✅ {fileName}</p>
             ) : (
               <p className="text-sm text-slate-500">Click to upload</p>
             )}
@@ -225,12 +225,12 @@ function Suppliers() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Active Suppliers</p>
-              <p className="text-3xl font-bold text-green-600 mt-1">
+              <p className="text-3xl font-bold text-[#5483B3] mt-1">
                 {suppliers.filter(s => s.status === 'active').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-              <span className="text-green-600 text-xl font-bold">✓</span>
+            <div className="w-12 h-12 bg-[#EBF4FF] rounded-xl flex items-center justify-center">
+              <span className="text-[#5483B3] text-xl font-bold">✓</span>
             </div>
           </div>
         </div>
@@ -238,12 +238,12 @@ function Suppliers() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Inactive Suppliers</p>
-              <p className="text-3xl font-bold text-red-500 mt-1">
+              <p className="text-3xl font-bold text-slate-500 mt-1">
                 {suppliers.filter(s => s.status === 'inactive').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-              <span className="text-red-500 text-xl font-bold">×</span>
+            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center">
+              <span className="text-slate-400 text-xl font-bold">×</span>
             </div>
           </div>
         </div>
@@ -372,8 +372,8 @@ function Suppliers() {
                 </div>
                 <span className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
                   selectedSupplier.status === 'active'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-600'
+                    ? 'bg-[#C1E8FF] text-[#052659]'
+                    : 'bg-slate-100 text-slate-500'
                 }`}>
                   {selectedSupplier.status === 'active' ? '● Active' : '● Inactive'}
                 </span>
@@ -414,8 +414,8 @@ function Suppliers() {
                 }}
                 className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition border ${
                   selectedSupplier.status === 'active'
-                    ? 'bg-orange-50 text-orange-600 hover:bg-orange-100 border-orange-200'
-                    : 'bg-green-50 text-green-600 hover:bg-green-100 border-green-200'
+                    ? 'bg-[#EBF4FF] text-[#5483B3] hover:bg-[#C1E8FF] border-[#C1E8FF]'
+                    : 'bg-[#EBF4FF] text-[#052659] hover:bg-[#C1E8FF] border-[#C1E8FF]'
                 }`}
               >
                 {selectedSupplier.status === 'active' ? '⚠️ Deactivate Supplier' : '✅ Reactivate Supplier'}
@@ -660,8 +660,8 @@ function Suppliers() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
             <div className="p-6 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
-                  <span className="text-orange-600 text-lg">⚠️</span>
+                <div className="w-10 h-10 bg-[#EBF4FF] rounded-xl flex items-center justify-center">
+                  <span className="text-[#5483B3] text-lg">⚠️</span>
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-[#1E293B]">Deactivate Supplier</h2>
@@ -670,8 +670,8 @@ function Suppliers() {
               </div>
             </div>
             <form onSubmit={handleDeactivate} className="p-6 space-y-4">
-              <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-                <p className="text-sm text-orange-600">⚠️ Deactivating this supplier will prevent them from bidding on new orders.</p>
+              <div className="bg-[#EBF4FF] border border-[#C1E8FF] rounded-xl p-3">
+                <p className="text-sm text-[#5483B3]">⚠️ Deactivating this supplier will prevent them from bidding on new orders.</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Reason <span className="text-red-500">*</span></label>
