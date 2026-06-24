@@ -1,10 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Supabase client for storage uploads (frontend) - Using Service Key to bypass Storage RLS temporarily
+// Service-role client for storage uploads
 const supabase = createClient(
   'https://kfbhwmvaokazndizglkj.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmYmh3bXZhb2them5kaXpnbGtqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTU4MTE2NywiZXhwIjoyMDkxMTU3MTY3fQ.QHgit2FrAs11Pb2yVJOgC0hflu1EvEE_AyjZTCDlbG4'
 )
+
+// Anon-key client used only to refresh expired sessions
+const authClient = createClient(
+  'https://kfbhwmvaokazndizglkj.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmYmh3bXZhb2them5kaXpnbGtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODExNjcsImV4cCI6MjA5MTE1NzE2N30.gsqwtU29K75k0g_ZzeC3X00iijw3QFWcRIMesaLBlvA'
+)
+
+const clearSessionAndReload = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('refresh_token')
+  localStorage.removeItem('role')
+  localStorage.removeItem('user')
+  window.location.reload()
+}
 
 // Makes it easy to change base URL later (dev to production)
 const BASE_URL = 'http://127.0.0.1:5000/api'
@@ -18,9 +32,26 @@ const getHeaders = () => {
 }
 
 // WHY: Reusable fetch function with error handling
-const fetchData = async (endpoint) => {
+const fetchData = async (endpoint, _retry = true) => {
   try {
     const response = await fetch(`${BASE_URL}${endpoint}`, { headers: getHeaders() })
+
+    if (response.status === 401) {
+      if (_retry) {
+        const refreshToken = localStorage.getItem('refresh_token')
+        if (refreshToken) {
+          const { data, error } = await authClient.auth.refreshSession({ refresh_token: refreshToken })
+          if (!error && data?.session) {
+            localStorage.setItem('token', data.session.access_token)
+            localStorage.setItem('refresh_token', data.session.refresh_token)
+            return fetchData(endpoint, false)
+          }
+        }
+      }
+      clearSessionAndReload()
+      return
+    }
+
     if (!response.ok) throw new Error('Network response was not ok')
     return await response.json()
   } catch (error) {

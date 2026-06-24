@@ -49,6 +49,7 @@ app.post('/login', async (req, res) => {
 
     res.json({
       token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
       role: profile.role,
       user: {
         name: `${profile.first_name} ${profile.last_name}`,

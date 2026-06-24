@@ -34,6 +34,7 @@ export default function Login() {
       }
 
       localStorage.setItem("token", data.token)
+      localStorage.setItem("refresh_token", data.refresh_token || '')
       localStorage.setItem("role", data.role)
       localStorage.setItem("user", JSON.stringify(data.user))
 
