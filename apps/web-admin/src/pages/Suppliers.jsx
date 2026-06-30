@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminAPI, uploadFile } from '../services/api'
-import { Plus, X, Search, Building2, Upload } from 'lucide-react'
+import { Plus, X, Search, Building2, Upload, FileText } from 'lucide-react'
 
 // WHY: Reusable upload field component
 function UploadField({ label, name, onChange, required = false }) {
@@ -34,6 +34,25 @@ function UploadField({ label, name, onChange, required = false }) {
           <input type="file" name={name} accept="image/*,.pdf" onChange={handleFileChange} className="hidden" required={required} />
         </label>
       </div>
+    </div>
+  )
+}
+
+function DocSlot({ label, url }) {
+  return (
+    <div className="bg-slate-50 rounded-xl p-3">
+      <p className="text-xs text-slate-400 mb-1.5">{label}</p>
+      {url ? (
+        url.toLowerCase().endsWith('.pdf') ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium transition">
+            <FileText size={15} /> View PDF
+          </a>
+        ) : (
+          <img src={url} alt={label} className="w-full max-h-36 object-contain rounded-lg border border-[#C1E8FF] bg-white" />
+        )
+      ) : (
+        <p className="text-sm text-slate-400 italic">No document uploaded</p>
+      )}
     </div>
   )
 }
@@ -316,8 +335,8 @@ function Suppliers() {
                     <td className="py-3.5">
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
                         supplier.status === 'active'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-red-100 text-red-600'
+                          ? 'bg-[#C1E8FF] text-[#052659]'
+                          : 'bg-slate-100 text-slate-500'
                       }`}>
                         {supplier.status === 'active' ? 'Active' : 'Inactive'}
                       </span>
@@ -359,10 +378,11 @@ function Suppliers() {
             </div>
 
             <div className="p-6 space-y-6">
+
               {/* Profile Header */}
-              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl">
+              <div className="flex items-center justify-between p-4 bg-[#EBF4FF] rounded-2xl">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-[#052659] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg,#021024,#5483B3)' }}>
                     <Building2 size={24} className="text-white" />
                   </div>
                   <div>
@@ -379,31 +399,191 @@ function Suppliers() {
                 </span>
               </div>
 
-              {/* Company Information */}
+              {/* 1 — Company Information */}
               <div>
                 <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Company Information</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Registration Number', value: selectedSupplier.registration_number },
-                    { label: 'TIN Number', value: selectedSupplier.tin_number },
-                    { label: 'Contact Person', value: selectedSupplier.contact_person },
-                    { label: 'Contact Number', value: selectedSupplier.contact_number },
-                    { label: 'Email', value: selectedSupplier.email },
-                    { label: 'Experience', value: selectedSupplier.experience_years ? `${selectedSupplier.experience_years} years` : '—' },
-                    { label: 'HCV Fleet', value: selectedSupplier.hcv_count || '0' },
-                    { label: 'LCV Fleet', value: selectedSupplier.lcv_count || '0' },
-                  ].map((item) => (
-                    <div key={item.label} className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-xs text-slate-400">{item.label}</p>
-                      <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{item.value || '—'}</p>
-                    </div>
-                  ))}
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Registration Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.registration_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">VAT Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.vat_number || '—'}</p>
+                  </div>
                   <div className="bg-slate-50 rounded-xl p-3 col-span-2">
-                    <p className="text-xs text-slate-400">Address</p>
+                    <p className="text-xs text-slate-400">Company Address</p>
                     <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.address || '—'}</p>
                   </div>
                 </div>
+                <DocSlot label="Business Registration Document" url={selectedSupplier.business_registration_url} />
               </div>
+
+              {/* 2 — Tax Registration */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Tax Registration</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">TIN Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.tin_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">VAT Registration Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.vat_number || '—'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <DocSlot label="Tax Registration Certificate" url={selectedSupplier.tax_registration_url} />
+                  <DocSlot label="VAT Registration Certificate" url={selectedSupplier.vat_registration_url} />
+                </div>
+              </div>
+
+              {/* 3 — Directors & Shareholders */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Directors & Shareholder Details</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Director Full Name</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.director_name || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Director NIC / Passport</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.director_nic || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3 col-span-2">
+                    <p className="text-xs text-slate-400">Director Address</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.director_address || '—'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <DocSlot label="Director NIC / Passport Copy" url={selectedSupplier.director_nic_url} />
+                  <DocSlot label="Address Proof Document" url={selectedSupplier.address_proof_url} />
+                </div>
+              </div>
+
+              {/* 4 — Bank Account */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Business Bank Account</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3 col-span-2">
+                    <p className="text-xs text-slate-400">Bank Name</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.bank_name || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Account Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.account_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Account Name</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.account_name || '—'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <DocSlot label="Bank Statement" url={selectedSupplier.bank_statement_url} />
+                  <DocSlot label="Audited Financial Report" url={selectedSupplier.audit_report_url} />
+                </div>
+              </div>
+
+              {/* 5 — Company Profile */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Company Profile</h4>
+                <div className="space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 mb-1">Company Overview</p>
+                    <p className="text-sm text-[#1E293B] leading-relaxed">{selectedSupplier.company_overview || '—'}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <p className="text-xs text-slate-400">Years of Experience</p>
+                      <p className="text-sm font-semibold text-[#1E293B] mt-0.5">
+                        {selectedSupplier.experience_years ? `${selectedSupplier.experience_years} years` : '—'}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-3">
+                      <p className="text-xs text-slate-400">Services Offered</p>
+                      <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.services || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Past Clients</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.past_clients || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6 — Vehicle Capacity */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Vehicle Capacity</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">HCV (Heavy)</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.hcv_count ?? 0} vehicles</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">LCV (Light)</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.lcv_count ?? 0} vehicles</p>
+                  </div>
+                  <div className="bg-[#EBF4FF] rounded-xl p-3">
+                    <p className="text-xs text-[#5483B3]">Total Fleet</p>
+                    <p className="text-sm font-bold text-[#052659] mt-0.5">
+                      {(selectedSupplier.hcv_count ?? 0) + (selectedSupplier.lcv_count ?? 0)} vehicles
+                    </p>
+                  </div>
+                </div>
+                <DocSlot label="Vehicle Permit(s)" url={selectedSupplier.vehicle_permit_url} />
+              </div>
+
+              {/* 7 — Certifications */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Certifications & Permits</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <DocSlot label="ISO Certification" url={selectedSupplier.iso_certification_url} />
+                  <DocSlot label="Safety Certification" url={selectedSupplier.safety_certification_url} />
+                </div>
+              </div>
+
+              {/* 8 — Insurance */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Insurance Documents</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <DocSlot label="Liability Insurance" url={selectedSupplier.liability_insurance_url} />
+                  <DocSlot label="Vehicle Insurance" url={selectedSupplier.vehicle_insurance_url} />
+                </div>
+              </div>
+
+              {/* 9 — Contact Details */}
+              <div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Contact Details</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Contact Person</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.contact_person || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Position / Designation</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.contact_position || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Contact Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.contact_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Email Address</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedSupplier.email || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deactivation reason — shown only when inactive */}
+              {selectedSupplier.status === 'inactive' && selectedSupplier.deactivation_reason && (
+                <div>
+                  <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Deactivation Reason</h4>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-sm text-[#1E293B]">{selectedSupplier.deactivation_reason}</p>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             <div className="p-6 border-t border-slate-100 space-y-3">
