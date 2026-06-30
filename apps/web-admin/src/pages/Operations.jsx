@@ -236,66 +236,102 @@ function Operations() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
-              <h2 className="text-lg font-bold text-[#1E293B]">Staff Profile</h2>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#EBF4FF] rounded-xl flex items-center justify-center">
+                  <User size={18} className="text-[#5483B3]" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-[#1E293B]">Staff Profile</h2>
+                  <p className="text-xs text-slate-400">{selectedStaff.employee_id || 'Operations Staff'}</p>
+                </div>
+              </div>
               <button onClick={() => setSelectedStaff(null)} className="p-2 hover:bg-slate-100 rounded-xl transition"><X size={18} /></button>
             </div>
+
             <div className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
+              {/* Header banner */}
+              <div className="flex items-center justify-between p-4 bg-[#EBF4FF] rounded-2xl">
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                    <User size={24} className="text-[#5483B3]" />
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg,#021024,#5483B3)' }}>
+                    <span className="text-white text-xl font-bold">
+                      {selectedStaff.first_name?.[0]}{selectedStaff.last_name?.[0]}
+                    </span>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-[#1E293B]">{selectedStaff.first_name} {selectedStaff.last_name}</h3>
-                    <p className="text-sm text-slate-500">{selectedStaff.role}</p>
+                    <h3 className="text-lg font-bold text-[#1E293B]">{selectedStaff.first_name} {selectedStaff.last_name}</h3>
+                    <p className="text-sm text-slate-500">{selectedStaff.position || 'Operations'}</p>
                   </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  selectedStaff.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                }`}>{selectedStaff.status}</span>
+                <span className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
+                  selectedStaff.status === 'active' ? 'bg-[#C1E8FF] text-[#052659]' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {selectedStaff.status === 'active' ? '● Active' : '● Inactive'}
+                </span>
               </div>
 
+              {/* Personal Information */}
               <div>
-                <h4 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-3">Employment Details</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-500">Employee ID</p>
-                    <p className="text-sm font-medium text-[#1E293B] mt-1">{selectedStaff.employee_id || '—'}</p>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Personal Information</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">First Name</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.first_name || '—'}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-500">Role</p>
-                    <p className="text-sm font-medium text-[#1E293B] mt-1">{selectedStaff.role}</p>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Last Name</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.last_name || '—'}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-500">National ID</p>
-                    <p className="text-sm font-medium text-[#1E293B] mt-1">{selectedStaff.national_id || '—'}</p>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">National ID</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.national_id || '—'}</p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-xs text-slate-500">Joined</p>
-                    <p className="text-sm font-medium text-[#1E293B] mt-1">{selectedStaff.created_at?.split('T')[0] || '—'}</p>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Contact Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.contact_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Email Address</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.email || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Address</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.address || '—'}</p>
                   </div>
                 </div>
               </div>
 
+              {/* Employment Details */}
               <div>
-                <h4 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-3">Contact Information</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Mail size={16} className="text-[#5483B3]" />
-                    <div>
-                      <p className="text-xs text-slate-500">Email</p>
-                      <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.email || '—'}</p>
-                    </div>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Employment Details</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Employee ID</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.employee_id || '—'}</p>
                   </div>
-                  <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                    <Phone size={16} className="text-[#5483B3]" />
-                    <div>
-                      <p className="text-xs text-slate-500">Contact Number</p>
-                      <p className="text-sm font-medium text-[#1E293B]">{selectedStaff.contact_number || '—'}</p>
-                    </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Position</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.position || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Date Joined</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedStaff.date_joined || selectedStaff.created_at?.split('T')[0] || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Department</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5 capitalize">{selectedStaff.role || 'Operations'}</p>
                   </div>
                 </div>
               </div>
+
+              {/* Deactivation reason */}
+              {selectedStaff.status === 'inactive' && selectedStaff.deactivation_reason && (
+                <div>
+                  <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Deactivation Reason</h4>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-sm text-[#1E293B]">{selectedStaff.deactivation_reason}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-100 space-y-3">
