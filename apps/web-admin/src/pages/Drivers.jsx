@@ -102,10 +102,11 @@ function Drivers() {
       }
     }
 
-    const [profile_photo_url, police_report_url, license_copy_url] = await Promise.all([
+    const [profile_photo_url, police_report_url, license_copy_url, license_back_url] = await Promise.all([
       formData.profile_photo ? tryUpload('driver-profiles', formData.profile_photo, 'photos') : null,
       formData.police_report_file ? tryUpload('driver-documents', formData.police_report_file, 'police-reports') : null,
       formData.license_front ? tryUpload('driver-documents', formData.license_front, 'licenses') : null,
+      formData.license_back ? tryUpload('driver-documents', formData.license_back, 'licenses') : null,
     ])
 
     await adminAPI.addDriver({
@@ -126,6 +127,7 @@ function Drivers() {
       profile_photo_url,
       police_report_url,
       license_copy_url,
+      ...(license_back_url && { license_back_url }),
       status: 'active'
     })
 
@@ -358,12 +360,12 @@ function Drivers() {
 
             <div className="p-6 space-y-6">
               {/* Profile Header */}
-              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-2xl">
+              <div className="flex items-center justify-between p-4 bg-[#EBF4FF] rounded-2xl">
                 <div className="flex items-center gap-4">
                   {selectedDriver.profile_photo_url ? (
                     <img src={selectedDriver.profile_photo_url} alt="Profile" className="w-14 h-14 rounded-2xl object-cover shadow-sm" />
                   ) : (
-                    <div className="w-14 h-14 bg-gradient-to-br from-[#052659] to-blue-400 rounded-2xl flex items-center justify-center shadow-sm">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ background: 'linear-gradient(135deg,#021024,#5483B3)' }}>
                       <span className="text-white text-xl font-bold">
                         {selectedDriver.first_name?.[0]}{selectedDriver.last_name?.[0]}
                       </span>
@@ -378,8 +380,8 @@ function Drivers() {
                 </div>
                 <span className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
                   selectedDriver.status === 'active'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-red-100 text-red-600'
+                    ? 'bg-[#C1E8FF] text-[#052659]'
+                    : 'bg-slate-100 text-slate-500'
                 }`}>
                   {selectedDriver.status === 'active' ? '● Active' : '● Inactive'}
                 </span>
@@ -390,18 +392,23 @@ function Drivers() {
                 <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Personal Information</h4>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Date of Birth', value: selectedDriver.date_of_birth },
-                    { label: 'Gender', value: selectedDriver.gender },
+                    { label: 'Date of Birth', value: selectedDriver.date_of_birth
+                        ? `${selectedDriver.date_of_birth}  (Age ${calculateAge(selectedDriver.date_of_birth)})`
+                        : null },
+                    { label: 'Gender', value: selectedDriver.gender ? selectedDriver.gender.charAt(0).toUpperCase() + selectedDriver.gender.slice(1) : null },
                     { label: 'National ID', value: selectedDriver.national_id },
                     { label: 'Contact Number', value: selectedDriver.contact_number },
                     { label: 'Email', value: selectedDriver.contact_email },
-                    { label: 'Address', value: selectedDriver.residential_address },
                   ].map((item) => (
                     <div key={item.label} className="bg-slate-50 rounded-xl p-3">
                       <p className="text-xs text-slate-400">{item.label}</p>
                       <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{item.value || '—'}</p>
                     </div>
                   ))}
+                  <div className="bg-slate-50 rounded-xl p-3 col-span-2">
+                    <p className="text-xs text-slate-400">Residential Address</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.residential_address || '—'}</p>
+                  </div>
                 </div>
               </div>
 
@@ -423,15 +430,11 @@ function Drivers() {
                   <div className="bg-slate-50 rounded-xl p-3 mt-3">
                     <p className="text-xs text-slate-400 mb-2">Police Report Document</p>
                     {selectedDriver.police_report_url.toLowerCase().endsWith('.pdf') ? (
-                       <a href={selectedDriver.police_report_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-                         <FileText size={16} /> View PDF Document
-                       </a>
+                      <a href={selectedDriver.police_report_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
+                        <FileText size={16} /> View PDF Document
+                      </a>
                     ) : (
-                       <img 
-                         src={selectedDriver.police_report_url} 
-                         alt="Police Report" 
-                         className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-white"
-                       />
+                      <img src={selectedDriver.police_report_url} alt="Police Report" className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-white" />
                     )}
                   </div>
                 )}
@@ -453,23 +456,45 @@ function Drivers() {
                     </div>
                   ))}
                 </div>
-                {selectedDriver.license_copy_url && (
-                  <div className="bg-slate-50 rounded-xl p-3 mt-3">
-                    <p className="text-xs text-slate-400 mb-2">License Copy</p>
-                    {selectedDriver.license_copy_url.toLowerCase().endsWith('.pdf') ? (
-                      <a href={selectedDriver.license_copy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
-                        <FileText size={16} /> View License PDF
-                      </a>
-                    ) : (
-                      <img 
-                        src={selectedDriver.license_copy_url} 
-                        alt="License Copy" 
-                        className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-white"
-                      />
+                {(selectedDriver.license_copy_url || selectedDriver.license_back_url) && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    {selectedDriver.license_copy_url && (
+                      <div className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-xs text-slate-400 mb-2">License Front</p>
+                        {selectedDriver.license_copy_url.toLowerCase().endsWith('.pdf') ? (
+                          <a href={selectedDriver.license_copy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
+                            <FileText size={16} /> View PDF
+                          </a>
+                        ) : (
+                          <img src={selectedDriver.license_copy_url} alt="License Front" className="w-full max-h-36 object-contain rounded-lg border border-slate-200 bg-white" />
+                        )}
+                      </div>
+                    )}
+                    {selectedDriver.license_back_url && (
+                      <div className="bg-slate-50 rounded-xl p-3">
+                        <p className="text-xs text-slate-400 mb-2">License Back</p>
+                        {selectedDriver.license_back_url.toLowerCase().endsWith('.pdf') ? (
+                          <a href={selectedDriver.license_back_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
+                            <FileText size={16} /> View PDF
+                          </a>
+                        ) : (
+                          <img src={selectedDriver.license_back_url} alt="License Back" className="w-full max-h-36 object-contain rounded-lg border border-slate-200 bg-white" />
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
+
+              {/* Deactivation Reason — shown only when inactive */}
+              {selectedDriver.status === 'inactive' && selectedDriver.deactivation_reason && (
+                <div>
+                  <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Deactivation Reason</h4>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-sm text-[#1E293B]">{selectedDriver.deactivation_reason}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-slate-100 space-y-3">

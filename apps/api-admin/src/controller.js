@@ -264,7 +264,7 @@ export const getAllBids = async (req, res) => {
       .select(`
         *,
         orders (order_reference, order_type, cargo_type),
-        suppliers (company_name, contact_person, contact_number)
+        suppliers (supplier_id, supplier_reference, company_name, registration_number, tin_number, contact_person, contact_number, email, address, company_overview, experience_years, hcv_count, lcv_count, status)
       `)
       .order('submitted_at', { ascending: false })
 
