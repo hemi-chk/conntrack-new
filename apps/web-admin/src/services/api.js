@@ -164,6 +164,8 @@ export const adminAPI = {
   addStaff: (data) => postData('/admin/staff', data),
   updateStaffStatus: (id, data) => putData(`/admin/staff/${id}/status`, data),
   deleteStaff: (id) => deleteData(`/admin/staff/${id}`),
+  grantAccess: (data) => postData('/admin/staff/grant-access', data),
+  grantSupplierAccess: (data) => postData('/admin/staff/grant-supplier-access', data),
 
   // Bids
   getBids: () => fetchData('/admin/bids'),

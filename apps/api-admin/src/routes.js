@@ -13,6 +13,8 @@ import {
   addStaff,
   updateStaffStatus,
   deleteStaff,
+  grantAccess,
+  grantSupplierAccess,
   getAllBids,
   getAllIssues,
 } from './controller.js'
@@ -42,6 +44,8 @@ router.get('/staff', getAllStaff)
 router.post('/staff', addStaff)
 router.put('/staff/:id/status', updateStaffStatus)
 router.delete('/staff/:id', deleteStaff)
+router.post('/staff/grant-access', grantAccess)
+router.post('/staff/grant-supplier-access', grantSupplierAccess)
 
 // Bids
 router.get('/bids', getAllBids)

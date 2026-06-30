@@ -18,8 +18,8 @@ function Logistics() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [formData, setFormData] = useState({
-    first_name: '', last_name: '', email: '', contact_number: '',
-    position: '', employee_id: '', date_joined: '', national_id: '', address: '', password: '',
+    first_name: '', last_name: '', contact_number: '',
+    position: '', employee_id: '', date_joined: '', national_id: '', address: '',
   })
 
   const today = new Date().toISOString().split('T')[0]
@@ -54,10 +54,10 @@ function Logistics() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
-      await adminAPI.addStaff({ ...formData, role: 'logistics', status: 'active' })
+      await adminAPI.addStaff({ ...formData, role: 'logistics', status: 'active', temp_only: true })
       setStaff(await adminAPI.getStaff('logistics'))
       setShowForm(false)
-      setFormData({ first_name: '', last_name: '', email: '', contact_number: '', position: '', employee_id: '', date_joined: '', national_id: '', address: '', password: '' })
+      setFormData({ first_name: '', last_name: '', contact_number: '', position: '', employee_id: '', date_joined: '', national_id: '', address: '' })
     } catch (err) {
       alert('Failed to add staff member. Please try again.')
       console.error(err)
@@ -357,20 +357,11 @@ function Logistics() {
               <div className="border-t border-slate-100" />
               <div>
                 <h3 className="text-sm font-semibold text-[#052659] uppercase tracking-wide mb-4">Contact Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@contrack.lk" className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Contact Number <span className="text-red-500">*</span></label>
-                    <input type="text" name="contact_number" value={formData.contact_number} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Temporary Password <span className="text-red-500">*</span></label>
-                    <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Staff member will use this to log in" className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-                  </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Contact Number <span className="text-red-500">*</span></label>
+                  <input type="text" name="contact_number" value={formData.contact_number} onChange={handleChange} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" required />
                 </div>
+                <p className="text-xs text-slate-400 mt-3">Login credentials are granted separately from the Staff page.</p>
               </div>
               <div className="border-t border-slate-100" />
               <div>

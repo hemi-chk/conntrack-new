@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, X, Search, Users, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff } from 'lucide-react'
+import { X, Search, Users, Trash2, ToggleLeft, ToggleRight, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { adminAPI } from '../services/api'
 
 const ROLES = ['operations', 'logistics', 'supplier']
@@ -11,26 +11,25 @@ const ROLE_COLORS = {
   supplier:   { bg: '#FAF5FF', text: '#7E22CE', border: '#E9D5FF' },
 }
 
-const emptyForm = {
-  first_name: '', last_name: '', email: '', password: '',
-  role: 'operations', position: '', contact_number: '',
-  employee_id: '', national_id: '', address: '',
+const emptyGrant = {
+  role: 'operations', search: '', selectedPerson: null,
+  email: '', password: '', showPw: false,
 }
 
 export default function Staff({ darkMode }) {
   const [staff, setStaff]           = useState([])
+  const [suppliers, setSuppliers]   = useState([])
   const [loading, setLoading]       = useState(true)
-  const [showForm, setShowForm]     = useState(false)
-  const [formData, setFormData]     = useState(emptyForm)
-  const [formError, setFormError]   = useState('')
-  const [formLoading, setFormLoading] = useState(false)
+  const [showGrantModal, setShowGrantModal] = useState(false)
+  const [grant, setGrant]           = useState(emptyGrant)
+  const [grantLoading, setGrantLoading] = useState(false)
+  const [grantError, setGrantError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
-  const [showPassword, setShowPassword] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  useEffect(() => { fetchStaff() }, [])
+  useEffect(() => { fetchStaff(); fetchSuppliers() }, [])
 
   const fetchStaff = async () => {
     try {
@@ -43,6 +42,67 @@ export default function Staff({ darkMode }) {
     }
   }
 
+  const fetchSuppliers = async () => {
+    try {
+      const data = await adminAPI.getSuppliers()
+      setSuppliers(data || [])
+    } catch {
+      setSuppliers([])
+    }
+  }
+
+  const grantResults = !grant.search.trim() ? [] : grant.role === 'supplier'
+    ? suppliers.filter(s =>
+        (s.supplier_reference || '').toLowerCase().includes(grant.search.toLowerCase()) ||
+        (s.company_name || '').toLowerCase().includes(grant.search.toLowerCase())
+      ).slice(0, 8)
+    : staff.filter(s =>
+        s.role === grant.role &&
+        s.is_temp_account === true &&
+        (
+          (s.employee_id || '').toLowerCase().includes(grant.search.toLowerCase()) ||
+          `${s.first_name} ${s.last_name}`.toLowerCase().includes(grant.search.toLowerCase())
+        )
+      ).slice(0, 8)
+
+  const handleGrantAccess = async (e) => {
+    e.preventDefault()
+    if (!grant.password || grant.password.length < 6) {
+      setGrantError('Password must be at least 6 characters.')
+      return
+    }
+    setGrantLoading(true)
+    setGrantError('')
+    try {
+      if (grant.role === 'supplier') {
+        await adminAPI.grantSupplierAccess({
+          supplier_id: grant.selectedPerson.supplier_id,
+          email: grant.email,
+          password: grant.password,
+        })
+      } else {
+        await adminAPI.grantAccess({
+          profile_id: grant.selectedPerson.id,
+          email: grant.email,
+          password: grant.password,
+        })
+      }
+      await fetchStaff()
+      setShowGrantModal(false)
+      setGrant(emptyGrant)
+    } catch (err) {
+      setGrantError(err.message || 'Failed to grant access.')
+    } finally {
+      setGrantLoading(false)
+    }
+  }
+
+  const resetGrant = () => {
+    setShowGrantModal(false)
+    setGrant(emptyGrant)
+    setGrantError('')
+  }
+
   const filtered = staff.filter(s => {
     const name = `${s.first_name} ${s.last_name}`.toLowerCase()
     const matchSearch = name.includes(searchTerm.toLowerCase()) ||
@@ -51,31 +111,6 @@ export default function Staff({ darkMode }) {
     const matchRole = roleFilter === 'all' || s.role === roleFilter
     return matchSearch && matchRole
   })
-
-  const handleChange = e => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setFormError('')
-  }
-
-  const handleSubmit = async e => {
-    e.preventDefault()
-    if (!formData.password || formData.password.length < 6) {
-      setFormError('Password must be at least 6 characters.')
-      return
-    }
-    setFormLoading(true)
-    setFormError('')
-    try {
-      await adminAPI.addStaff(formData)
-      await fetchStaff()
-      setShowForm(false)
-      setFormData(emptyForm)
-    } catch (err) {
-      setFormError(err.message || 'Failed to create staff member.')
-    } finally {
-      setFormLoading(false)
-    }
-  }
 
   const handleToggleStatus = async (member) => {
     const newStatus = member.status === 'active' ? 'inactive' : 'active'
@@ -127,7 +162,7 @@ export default function Staff({ darkMode }) {
           </p>
         </div>
         <button
-          onClick={() => { setShowForm(true); setFormData(emptyForm); setFormError('') }}
+          onClick={() => setShowGrantModal(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: '#1E40AF', color: 'white', border: 'none',
@@ -135,7 +170,7 @@ export default function Staff({ darkMode }) {
             fontWeight: '600', cursor: 'pointer'
           }}
         >
-          <Plus size={16} /> Add Staff
+          <KeyRound size={16} /> Grant Access
         </button>
       </div>
 
@@ -224,7 +259,11 @@ export default function Staff({ darkMode }) {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: '13px', color: muted }}>{member.email}</td>
+                    <td style={{ padding: '14px 16px', fontSize: '13px', color: muted }}>
+                      {member.is_temp_account
+                        ? <span style={{ fontSize: '11px', background: '#FFF7ED', color: '#C2410C', border: '1px solid #FED7AA', borderRadius: '20px', padding: '2px 8px', fontWeight: '600' }}>Pending Access</span>
+                        : (member.email || '—')}
+                    </td>
                     <td style={{ padding: '14px 16px' }}>
                       <span style={{
                         background: rc.bg, color: rc.text, border: `1px solid ${rc.border}`,
@@ -271,154 +310,162 @@ export default function Staff({ darkMode }) {
         )}
       </div>
 
-      {/* Add Staff Modal */}
-      {showForm && (
+      {/* Grant Access Modal */}
+      {showGrantModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px'
         }}>
           <div style={{
-            background: card, borderRadius: '20px', width: '100%', maxWidth: '560px',
+            background: card, borderRadius: '20px', width: '100%', maxWidth: '520px',
             maxHeight: '90vh', overflowY: 'auto', padding: '32px', position: 'relative',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '700', color: text, margin: 0 }}>Add Staff Member</h2>
+                <h2 style={{ fontSize: '18px', fontWeight: '700', color: text, margin: 0 }}>Grant Portal Access</h2>
                 <p style={{ fontSize: '13px', color: muted, margin: '4px 0 0' }}>
-                  Creates a login account and assigns portal access
+                  {grant.selectedPerson ? 'Set login credentials for this person' : 'Find an existing record to grant login access'}
                 </p>
               </div>
-              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: muted }}>
+              <button onClick={resetGrant} style={{ background: 'none', border: 'none', cursor: 'pointer', color: muted }}>
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-              {/* Role selector — most important field, shown first */}
-              <div>
-                <label style={labelStyle(muted)}>Portal Access / Role *</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+            {/* Step 1: Role tabs + search */}
+            {!grant.selectedPerson && (
+              <>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
                   {ROLES.map(r => {
                     const rc = ROLE_COLORS[r]
-                    const selected = formData.role === r
+                    const sel = grant.role === r
                     return (
-                      <button
-                        key={r} type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, role: r }))}
+                      <button key={r} type="button"
+                        onClick={() => setGrant(g => ({ ...g, role: r, search: '', selectedPerson: null }))}
                         style={{
-                          padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600',
-                          cursor: 'pointer', border: selected ? `2px solid ${rc.text}` : `1.5px solid ${border}`,
-                          background: selected ? rc.bg : card, color: selected ? rc.text : muted,
-                        }}
-                      >
+                          flex: 1, padding: '8px 6px', borderRadius: '10px', fontSize: '13px', fontWeight: '600',
+                          cursor: 'pointer', border: sel ? `2px solid ${rc.text}` : `1.5px solid ${border}`,
+                          background: sel ? rc.bg : card, color: sel ? rc.text : muted,
+                        }}>
                         {r.charAt(0).toUpperCase() + r.slice(1)}
                       </button>
                     )
                   })}
                 </div>
-              </div>
 
-              {/* Name row */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={labelStyle(muted)}>First Name *</label>
-                  <input name="first_name" required value={formData.first_name} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="John" />
+                  <label style={labelStyle(muted)}>
+                    {grant.role === 'supplier' ? 'Supplier Reference or Company Name' : 'Employee ID or Name'}
+                  </label>
+                  <div style={{ position: 'relative', marginTop: '6px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: muted }} />
+                    <input
+                      value={grant.search}
+                      onChange={e => setGrant(g => ({ ...g, search: e.target.value }))}
+                      placeholder={grant.role === 'supplier' ? 'e.g. SUP001 or Acme Ltd…' : 'e.g. EMP001 or John Doe…'}
+                      style={{ ...inputStyle(inputBg, border, text), paddingLeft: '36px' }}
+                    />
+                  </div>
                 </div>
+
+                {grant.search.trim() && (
+                  <div style={{ marginTop: '12px', border: `1px solid ${border}`, borderRadius: '12px', overflow: 'hidden' }}>
+                    {grantResults.length === 0 ? (
+                      <div style={{ padding: '16px', textAlign: 'center', color: muted, fontSize: '13px' }}>
+                        {grant.role === 'supplier' ? 'No suppliers found' : 'No pending staff found — make sure they were added from their department page first'}
+                      </div>
+                    ) : (
+                      grantResults.map((item, idx) => (
+                        <button key={idx} type="button"
+                          onClick={() => setGrant(g => ({ ...g, selectedPerson: item }))}
+                          style={{
+                            width: '100%', display: 'block', textAlign: 'left',
+                            padding: '12px 16px', background: 'none', border: 'none',
+                            borderBottom: idx < grantResults.length - 1 ? `1px solid ${border}` : 'none',
+                            cursor: 'pointer',
+                          }}
+                          onMouseOver={e => e.currentTarget.style.background = (darkMode ? '#1e293b' : '#F8FAFC')}
+                          onMouseOut={e => e.currentTarget.style.background = 'none'}
+                        >
+                          {grant.role === 'supplier' ? (
+                            <>
+                              <div style={{ fontSize: '14px', fontWeight: '600', color: text }}>{item.company_name}</div>
+                              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Ref: {item.supplier_reference}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: '14px', fontWeight: '600', color: text }}>{item.first_name} {item.last_name}</div>
+                              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>ID: {item.employee_id} · {item.position || item.role}</div>
+                            </>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Step 2: Credentials form */}
+            {grant.selectedPerson && (
+              <form onSubmit={handleGrantAccess} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <button type="button"
+                  onClick={() => setGrant(g => ({ ...g, selectedPerson: null, email: '', password: '' }))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: muted, textAlign: 'left', fontSize: '13px', padding: 0 }}>
+                  ← Back to search
+                </button>
+
+                <div style={{ background: inputBg, border: `1px solid ${border}`, borderRadius: '12px', padding: '14px 16px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: text }}>
+                    {grant.role === 'supplier' ? grant.selectedPerson.company_name : `${grant.selectedPerson.first_name} ${grant.selectedPerson.last_name}`}
+                  </div>
+                  <div style={{ fontSize: '12px', color: muted, marginTop: '3px' }}>
+                    {grant.role === 'supplier'
+                      ? `Supplier Ref: ${grant.selectedPerson.supplier_reference}`
+                      : `Employee ID: ${grant.selectedPerson.employee_id} · ${grant.selectedPerson.position || grant.role}`}
+                  </div>
+                </div>
+
                 <div>
-                  <label style={labelStyle(muted)}>Last Name *</label>
-                  <input name="last_name" required value={formData.last_name} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="Doe" />
+                  <label style={labelStyle(muted)}>Login Email *</label>
+                  <input type="email" required value={grant.email}
+                    onChange={e => { setGrant(g => ({ ...g, email: e.target.value })); setGrantError('') }}
+                    style={{ ...inputStyle(inputBg, border, text), marginTop: '6px' }}
+                    placeholder="name@contrack.lk" />
                 </div>
-              </div>
 
-              {/* Email */}
-              <div>
-                <label style={labelStyle(muted)}>Email Address *</label>
-                <input name="email" type="email" required value={formData.email} onChange={handleChange}
-                  style={inputStyle(inputBg, border, text)} placeholder="john@contrack.lk" />
-              </div>
+                <div>
+                  <label style={labelStyle(muted)}>Password *</label>
+                  <div style={{ position: 'relative', marginTop: '6px' }}>
+                    <input type={grant.showPw ? 'text' : 'password'} required value={grant.password}
+                      onChange={e => { setGrant(g => ({ ...g, password: e.target.value })); setGrantError('') }}
+                      style={{ ...inputStyle(inputBg, border, text), paddingRight: '44px' }}
+                      placeholder="Min. 6 characters" />
+                    <button type="button" onClick={() => setGrant(g => ({ ...g, showPw: !g.showPw }))}
+                      style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: muted }}>
+                      {grant.showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
 
-              {/* Password */}
-              <div>
-                <label style={labelStyle(muted)}>Password *</label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    name="password" type={showPassword ? 'text' : 'password'}
-                    required value={formData.password} onChange={handleChange}
-                    style={{ ...inputStyle(inputBg, border, text), paddingRight: '44px' }}
-                    placeholder="Min. 6 characters"
-                  />
-                  <button type="button" onClick={() => setShowPassword(p => !p)}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: muted }}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                {grantError && (
+                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#DC2626' }}>
+                    {grantError}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                  <button type="button" onClick={resetGrant}
+                    style={{ flex: 1, padding: '11px', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', border: `1.5px solid ${border}`, background: card, color: muted }}>
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={grantLoading}
+                    style={{ flex: 2, padding: '11px', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: grantLoading ? 'not-allowed' : 'pointer', border: 'none', background: '#1E40AF', color: 'white', opacity: grantLoading ? 0.7 : 1 }}>
+                    {grantLoading ? 'Granting Access…' : 'Grant Portal Access'}
                   </button>
                 </div>
-              </div>
-
-              {/* Position & Contact */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle(muted)}>Position</label>
-                  <input name="position" value={formData.position} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="e.g. Manager" />
-                </div>
-                <div>
-                  <label style={labelStyle(muted)}>Contact Number</label>
-                  <input name="contact_number" value={formData.contact_number} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="0771234567" />
-                </div>
-              </div>
-
-              {/* Employee ID & National ID */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle(muted)}>Employee ID</label>
-                  <input name="employee_id" value={formData.employee_id} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="EMP001" />
-                </div>
-                <div>
-                  <label style={labelStyle(muted)}>National ID</label>
-                  <input name="national_id" value={formData.national_id} onChange={handleChange}
-                    style={inputStyle(inputBg, border, text)} placeholder="123456789V" />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div>
-                <label style={labelStyle(muted)}>Address</label>
-                <input name="address" value={formData.address} onChange={handleChange}
-                  style={inputStyle(inputBg, border, text)} placeholder="No. 1, Colombo" />
-              </div>
-
-              {formError && (
-                <div style={{
-                  background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px',
-                  padding: '10px 14px', fontSize: '13px', color: '#DC2626'
-                }}>
-                  {formError}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                <button type="button" onClick={() => setShowForm(false)}
-                  style={{
-                    flex: 1, padding: '11px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
-                    cursor: 'pointer', border: `1.5px solid ${border}`, background: card, color: muted,
-                  }}>
-                  Cancel
-                </button>
-                <button type="submit" disabled={formLoading}
-                  style={{
-                    flex: 2, padding: '11px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
-                    cursor: formLoading ? 'not-allowed' : 'pointer', border: 'none',
-                    background: '#1E40AF', color: 'white', opacity: formLoading ? 0.7 : 1,
-                  }}>
-                  {formLoading ? 'Creating...' : 'Create Staff Member'}
-                </button>
-              </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}

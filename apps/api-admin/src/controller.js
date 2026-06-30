@@ -187,17 +187,22 @@ export const getAllStaff = async (req, res) => {
 
 export const addStaff = async (req, res) => {
   try {
-    const { email, password, role, first_name, last_name, contact_number, position, employee_id, national_id, address } = req.body
+    const { email, password, role, first_name, last_name, contact_number, position, employee_id, national_id, address, temp_only } = req.body
 
-    // Step 1: Create the auth user so profiles.id FK is satisfied
+    const authEmail = temp_only
+      ? `tmp.${employee_id || Date.now()}.${Math.random().toString(36).slice(2, 8)}@pending.internal`
+      : email
+    const authPassword = temp_only
+      ? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      : password
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
+      email: authEmail,
+      password: authPassword,
       email_confirm: true,
     })
     if (authError) throw authError
 
-    // Step 2: Insert profile using the new auth user's ID
     const { data, error } = await supabase
       .from('profiles')
       .insert({
@@ -211,10 +216,64 @@ export const addStaff = async (req, res) => {
         national_id,
         address,
         status: 'active',
+        is_temp_account: !!temp_only,
       })
       .select()
 
     if (error) throw error
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const grantAccess = async (req, res) => {
+  try {
+    const { profile_id, email, password } = req.body
+
+    const { error: authError } = await supabase.auth.admin.updateUserById(profile_id, {
+      email,
+      password,
+      email_confirm: true,
+    })
+    if (authError) throw authError
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_temp_account: false, updated_at: new Date() })
+      .eq('id', profile_id)
+      .select()
+    if (error) throw error
+
+    res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const grantSupplierAccess = async (req, res) => {
+  try {
+    const { supplier_id, email, password } = req.body
+
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+    if (authError) throw authError
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        role: 'supplier',
+        status: 'active',
+        is_temp_account: false,
+        employee_id: String(supplier_id),
+      })
+      .select()
+    if (error) throw error
+
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
