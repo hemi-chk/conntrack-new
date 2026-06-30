@@ -58,7 +58,6 @@ export default function Staff({ darkMode }) {
       ).slice(0, 8)
     : staff.filter(s =>
         s.role === grant.role &&
-        s.is_temp_account === true &&
         (
           (s.employee_id || '').toLowerCase().includes(grant.search.toLowerCase()) ||
           `${s.first_name} ${s.last_name}`.toLowerCase().includes(grant.search.toLowerCase())
@@ -372,14 +371,17 @@ export default function Staff({ darkMode }) {
                   <div style={{ marginTop: '12px', border: `1px solid ${border}`, borderRadius: '12px', overflow: 'hidden' }}>
                     {grantResults.length === 0 ? (
                       <div style={{ padding: '16px', textAlign: 'center', color: muted, fontSize: '13px' }}>
-                        {grant.role === 'supplier' ? 'No suppliers found' : 'No pending staff found — make sure they were added from their department page first'}
+                        {grant.role === 'supplier' ? 'No suppliers found' : 'No staff found — make sure they were added from their department page first'}
                       </div>
                     ) : (
                       grantResults.map((item, idx) => (
                         <button key={idx} type="button"
-                          onClick={() => setGrant(g => ({ ...g, selectedPerson: item }))}
+                          onClick={() => setGrant(g => ({
+                            ...g, selectedPerson: item,
+                            email: (grant.role !== 'supplier' && !item.is_temp_account) ? (item.email || '') : '',
+                          }))}
                           style={{
-                            width: '100%', display: 'block', textAlign: 'left',
+                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left',
                             padding: '12px 16px', background: 'none', border: 'none',
                             borderBottom: idx < grantResults.length - 1 ? `1px solid ${border}` : 'none',
                             cursor: 'pointer',
@@ -388,14 +390,24 @@ export default function Staff({ darkMode }) {
                           onMouseOut={e => e.currentTarget.style.background = 'none'}
                         >
                           {grant.role === 'supplier' ? (
-                            <>
+                            <div>
                               <div style={{ fontSize: '14px', fontWeight: '600', color: text }}>{item.company_name}</div>
                               <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>Ref: {item.supplier_reference}</div>
-                            </>
+                            </div>
                           ) : (
                             <>
-                              <div style={{ fontSize: '14px', fontWeight: '600', color: text }}>{item.first_name} {item.last_name}</div>
-                              <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>ID: {item.employee_id} · {item.position || item.role}</div>
+                              <div>
+                                <div style={{ fontSize: '14px', fontWeight: '600', color: text }}>{item.first_name} {item.last_name}</div>
+                                <div style={{ fontSize: '12px', color: muted, marginTop: '2px' }}>ID: {item.employee_id} · {item.position || item.role}</div>
+                              </div>
+                              <span style={{
+                                fontSize: '11px', fontWeight: '600', borderRadius: '20px', padding: '2px 8px', flexShrink: 0, marginLeft: '8px',
+                                background: item.is_temp_account ? '#FFF7ED' : '#F0FDF4',
+                                color: item.is_temp_account ? '#C2410C' : '#15803D',
+                                border: `1px solid ${item.is_temp_account ? '#FED7AA' : '#BBF7D0'}`,
+                              }}>
+                                {item.is_temp_account ? 'Pending' : 'Active'}
+                              </span>
                             </>
                           )}
                         </button>
@@ -425,6 +437,12 @@ export default function Staff({ darkMode }) {
                       : `Employee ID: ${grant.selectedPerson.employee_id} · ${grant.selectedPerson.position || grant.role}`}
                   </div>
                 </div>
+
+                {grant.role !== 'supplier' && !grant.selectedPerson.is_temp_account && (
+                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '10px 14px', fontSize: '12px', color: '#15803D' }}>
+                    This person already has portal access ({grant.selectedPerson.email}). Submitting will update their login email and password.
+                  </div>
+                )}
 
                 <div>
                   <label style={labelStyle(muted)}>Login Email *</label>
@@ -461,7 +479,9 @@ export default function Staff({ darkMode }) {
                   </button>
                   <button type="submit" disabled={grantLoading}
                     style={{ flex: 2, padding: '11px', borderRadius: '10px', fontSize: '14px', fontWeight: '600', cursor: grantLoading ? 'not-allowed' : 'pointer', border: 'none', background: '#1E40AF', color: 'white', opacity: grantLoading ? 0.7 : 1 }}>
-                    {grantLoading ? 'Granting Access…' : 'Grant Portal Access'}
+                    {grantLoading
+                      ? (grant.role !== 'supplier' && !grant.selectedPerson.is_temp_account ? 'Updating…' : 'Granting Access…')
+                      : (grant.role !== 'supplier' && !grant.selectedPerson.is_temp_account ? 'Update Login Credentials' : 'Grant Portal Access')}
                   </button>
                 </div>
               </form>
