@@ -414,76 +414,84 @@ function Drivers() {
 
               {/* Police Clearance */}
               <div>
-                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Police Clearance</h4>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Police Clearance Report</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Report Number', value: selectedDriver.police_report_number },
-                    { label: 'Issue Date', value: selectedDriver.police_report_issue_date },
-                  ].map((item) => (
-                    <div key={item.label} className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-xs text-slate-400">{item.label}</p>
-                      <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{item.value || '—'}</p>
-                    </div>
-                  ))}
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Report Reference Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.police_report_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Issue Date</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.police_report_issue_date || '—'}</p>
+                  </div>
                 </div>
-                {selectedDriver.police_report_url && (
-                  <div className="bg-slate-50 rounded-xl p-3 mt-3">
-                    <p className="text-xs text-slate-400 mb-2">Police Report Document</p>
-                    {selectedDriver.police_report_url.toLowerCase().endsWith('.pdf') ? (
+                <div className="bg-slate-50 rounded-xl p-3 mt-3">
+                  <p className="text-xs text-slate-400 mb-2">Police Report Document</p>
+                  {selectedDriver.police_report_url ? (
+                    selectedDriver.police_report_url.toLowerCase().endsWith('.pdf') ? (
                       <a href={selectedDriver.police_report_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
                         <FileText size={16} /> View PDF Document
                       </a>
                     ) : (
-                      <img src={selectedDriver.police_report_url} alt="Police Report" className="w-full max-h-48 object-contain rounded-lg border border-slate-200 bg-white" />
-                    )}
-                  </div>
-                )}
+                      <img src={selectedDriver.police_report_url} alt="Police Report" className="w-full max-h-48 object-contain rounded-lg border border-[#C1E8FF] bg-white" />
+                    )
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No document uploaded</p>
+                  )}
+                </div>
               </div>
 
               {/* License Details */}
               <div>
-                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">License Details</h4>
+                <h4 className="text-xs font-bold text-[#052659] uppercase tracking-widest mb-3">Driving License Details</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'License Number', value: selectedDriver.license_number },
-                    { label: 'License Class', value: selectedDriver.license_class },
-                    { label: 'Issue Date', value: selectedDriver.license_issue_date },
-                    { label: 'Expiry Date', value: selectedDriver.license_expiry },
-                  ].map((item) => (
-                    <div key={item.label} className="bg-slate-50 rounded-xl p-3">
-                      <p className="text-xs text-slate-400">{item.label}</p>
-                      <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{item.value || '—'}</p>
-                    </div>
-                  ))}
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">License Number</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.license_number || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">License Class</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.license_class || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Issue Date</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.license_issue_date || '—'}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400">Expiry Date</p>
+                    <p className="text-sm font-semibold text-[#1E293B] mt-0.5">{selectedDriver.license_expiry || '—'}</p>
+                  </div>
                 </div>
-                {(selectedDriver.license_copy_url || selectedDriver.license_back_url) && (
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    {selectedDriver.license_copy_url && (
-                      <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-xs text-slate-400 mb-2">License Front</p>
-                        {selectedDriver.license_copy_url.toLowerCase().endsWith('.pdf') ? (
-                          <a href={selectedDriver.license_copy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
-                            <FileText size={16} /> View PDF
-                          </a>
-                        ) : (
-                          <img src={selectedDriver.license_copy_url} alt="License Front" className="w-full max-h-36 object-contain rounded-lg border border-slate-200 bg-white" />
-                        )}
-                      </div>
-                    )}
-                    {selectedDriver.license_back_url && (
-                      <div className="bg-slate-50 rounded-xl p-3">
-                        <p className="text-xs text-slate-400 mb-2">License Back</p>
-                        {selectedDriver.license_back_url.toLowerCase().endsWith('.pdf') ? (
-                          <a href={selectedDriver.license_back_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
-                            <FileText size={16} /> View PDF
-                          </a>
-                        ) : (
-                          <img src={selectedDriver.license_back_url} alt="License Back" className="w-full max-h-36 object-contain rounded-lg border border-slate-200 bg-white" />
-                        )}
-                      </div>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 mb-2">License Front</p>
+                    {selectedDriver.license_copy_url ? (
+                      selectedDriver.license_copy_url.toLowerCase().endsWith('.pdf') ? (
+                        <a href={selectedDriver.license_copy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
+                          <FileText size={16} /> View PDF
+                        </a>
+                      ) : (
+                        <img src={selectedDriver.license_copy_url} alt="License Front" className="w-full max-h-36 object-contain rounded-lg border border-[#C1E8FF] bg-white" />
+                      )
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">No document uploaded</p>
                     )}
                   </div>
-                )}
+                  <div className="bg-slate-50 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 mb-2">License Back</p>
+                    {selectedDriver.license_back_url ? (
+                      selectedDriver.license_back_url.toLowerCase().endsWith('.pdf') ? (
+                        <a href={selectedDriver.license_back_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-[#5483B3] hover:text-[#052659] text-sm font-medium">
+                          <FileText size={16} /> View PDF
+                        </a>
+                      ) : (
+                        <img src={selectedDriver.license_back_url} alt="License Back" className="w-full max-h-36 object-contain rounded-lg border border-[#C1E8FF] bg-white" />
+                      )
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">No document uploaded</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Deactivation Reason — shown only when inactive */}
