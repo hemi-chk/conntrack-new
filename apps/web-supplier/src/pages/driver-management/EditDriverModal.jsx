@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
+import { uploadFile } from '../../services/api';
 
 const inputCls = "w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white";
 const labelCls = "block mb-0.5 text-xs font-semibold text-gray-600";
@@ -14,6 +15,9 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
     contact_email: '', residential_address: '', availability_status: 'available'
   });
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [licenseFile, setLicenseFile] = useState(null);
+  const [policeReportFile, setPoliceReportFile] = useState(null);
 
   useEffect(() => {
     if (driver) {
@@ -76,24 +80,56 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
     return null;
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    setError('');
     const err = validate();
     if (err) { setError(err); return; }
 
-    onUpdate(driver.driver_id || driver.id, {
-      ...formData,
-      supplier_id: profileData?.id || profileData?.supplier_id
-    });
+    try {
+      setIsUploading(true);
+
+      const tryUpload = async (bucket, file, folder) => {
+        if (!(file instanceof File)) return null;
+        try {
+          const url = await uploadFile(bucket, file, folder);
+          if (!url) throw new Error("No URL returned from storage");
+          return url;
+        } catch (err) {
+          throw err;
+        }
+      };
+
+      const [newLicenseUrl, newPoliceReportUrl] = await Promise.all([
+        tryUpload('driver-document', licenseFile, 'licenses'),
+        tryUpload('driver-document', policeReportFile, 'police-reports')
+      ]);
+
+      onUpdate(driver.driver_id || driver.id, {
+        ...formData,
+        supplier_id: profileData?.id || profileData?.supplier_id,
+        license_copy_url: newLicenseUrl || driver.license_copy_url,
+        police_report_url: newPoliceReportUrl || driver.police_report_url
+      });
+
+      setLicenseFile(null);
+      setPoliceReportFile(null);
+    } catch (err) {
+      setError(err.message || 'Failed to update driver');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl animate-in fade-in zoom-in duration-200">
+      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-primary">Edit Driver</h2>
-          <p className="text-xs text-primary/70 mt-0.5">All fields are required. Updating: {driver.emp_id || driver.driver_id}</p>
+        <div className="bg-primary px-6 py-4 flex justify-between items-center text-white">
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Edit Driver</h2>
+            <p className="text-blue-100 text-[10px] opacity-80 mt-0.5">All fields are required. Updating: {driver.emp_id || driver.driver_id}</p>
+          </div>
         </div>
 
         {/* Form Body */}
@@ -172,6 +208,36 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
               <label className={labelCls}>Address *</label>
               <input type="text" name="residential_address" value={formData.residential_address} onChange={handleChange} className={inputCls} />
             </div>
+
+            {/* Row 6: Document Uploads */}
+            <div>
+              <label className={labelCls}>Update License (PDF/Image)</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setLicenseFile(e.target.files[0])}
+                className={inputCls}
+              />
+              {driver.license_copy_url && (
+                <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                  Existing document available
+                </p>
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Update Police Report (PDF/Image)</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setPoliceReportFile(e.target.files[0])}
+                className={inputCls}
+              />
+              {driver.police_report_url && (
+                <p className="text-[10px] text-primary mt-1 flex items-center gap-1">
+                  Existing document available
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Error */}
@@ -187,8 +253,13 @@ export const EditDriverModal = ({ isOpen, onClose, driver, onUpdate }) => {
           <button onClick={onClose} className="px-5 py-2 text-sm bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-semibold transition-colors">
             Cancel
           </button>
-          <button onClick={handleUpdate} className="px-5 py-2 text-sm bg-primary hover:bg-blue-800 text-white rounded-lg font-semibold transition-colors shadow-sm">
-            Save Changes
+          <button
+            onClick={handleUpdate}
+            disabled={isUploading}
+            className="px-5 py-2 text-sm bg-primary hover:bg-blue-800 text-white rounded-lg font-semibold transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isUploading && <Loader2 size={16} className="animate-spin" />}
+            {isUploading ? 'Uploading...' : 'Save Changes'}
           </button>
         </div>
 

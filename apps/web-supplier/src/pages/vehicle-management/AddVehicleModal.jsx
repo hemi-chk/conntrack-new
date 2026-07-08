@@ -86,12 +86,14 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl duration-200 bg-white border border-gray-100 shadow-2xl rounded-2xl animate-in fade-in zoom-in">
+      <div className="w-full max-w-4xl duration-200 bg-white border border-gray-100 shadow-2xl rounded-2xl animate-in fade-in zoom-in overflow-hidden">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-primary">Add New Vehicle</h2>
-          <p className="text-xs text-primary/70 mt-0.5">All fields are required. Enter vehicle details and document expiry dates.</p>
+        <div className="bg-primary px-6 py-4 flex justify-between items-center text-white">
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Add New Vehicle</h2>
+            <p className="text-blue-100 text-[10px] opacity-80 mt-0.5">All fields are required. Enter vehicle details and document expiry dates.</p>
+          </div>
         </div>
 
         {/* Form Body */}

@@ -84,12 +84,14 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
 
   return (
     <div className="flex fixed inset-0 z-50 justify-center items-center p-4 backdrop-blur-sm bg-gray-900/40">
-      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl duration-200 animate-in fade-in zoom-in">
+      <div className="w-full max-w-4xl bg-white rounded-2xl border border-gray-100 shadow-2xl duration-200 animate-in fade-in zoom-in overflow-hidden">
 
         {/* Header */}
-        <div className="px-6 pt-5 pb-3 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-primary">Edit Vehicle</h2>
-          <p className="text-xs text-primary/70 mt-0.5">All fields are required. Updating: {vehicle.vehicle_number}</p>
+        <div className="bg-primary px-6 py-4 flex justify-between items-center text-white">
+          <div>
+            <h2 className="text-lg font-bold leading-tight">Edit Vehicle</h2>
+            <p className="text-blue-100 text-[10px] opacity-80 mt-0.5">All fields are required. Updating: {vehicle.vehicle_number}</p>
+          </div>
         </div>
 
         {/* Form Body */}
