@@ -275,6 +275,23 @@ export const getTrackingByOrderId = async (req, res) => {
     const { orderId } = req.params;
 
     try {
+        let actualOrderId = orderId;
+
+        // If the orderId is not a numeric string, treat it as order_reference
+        if (orderId && !/^\d+$/.test(orderId)) {
+            const { data: orderData, error: orderError } = await supabase
+                .from('orders')
+                .select('order_id')
+                .eq('order_reference', orderId)
+                .maybeSingle();
+
+            if (orderError) throw orderError;
+            if (!orderData) {
+                return res.status(200).json({ trackingAvailable: false });
+            }
+            actualOrderId = orderData.order_id;
+        }
+
         const { data, error } = await supabase
             .from('container_tracking')
             .select(`
@@ -315,7 +332,7 @@ export const getTrackingByOrderId = async (req, res) => {
                     )
                 )
             `)
-            .eq('order_id', orderId)
+            .eq('order_id', actualOrderId)
             .order('recorded_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -377,13 +394,18 @@ export const createIssue = async (req, res) => {
             reported_by
         } = req.body;
 
+        const cleanOrderId = order_id && order_id !== "" ? parseInt(order_id, 10) : null;
+        const cleanSupplierId = supplier_id && supplier_id !== "" ? parseInt(supplier_id, 10) : null;
+        const cleanDriverId = driver_id && driver_id !== "" ? parseInt(driver_id, 10) : null;
+        const cleanReportedBy = reported_by && reported_by !== "" ? reported_by : null;
+
         const { data, error } = await supabase
             .from('issues')
             .insert([{
-                order_id,
-                supplier_id,
-                driver_id,
-                reported_by,
+                order_id: cleanOrderId,
+                supplier_id: cleanSupplierId,
+                driver_id: cleanDriverId,
+                reported_by: cleanReportedBy,
                 issue_type,
                 priority,
                 description,
