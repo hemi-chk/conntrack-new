@@ -1,7 +1,9 @@
 import React from 'react';
-import { X, AlertTriangle, Shield, Calendar, Truck, Activity } from 'lucide-react';
+import { X, AlertTriangle, Shield, Calendar, Truck, Activity, ExternalLink, Download, FileText } from 'lucide-react';
 
 export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete }) => {
+  const [previewUrl, setPreviewUrl] = React.useState(null);
+
   if (!isOpen || !vehicle) return null;
 
   const today = new Date();
@@ -59,7 +61,7 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
               <h3 className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 pb-0.5 flex items-center gap-1.5">
                 <Truck size={10} /> Identity
               </h3>
-              <DetailItem label="Vehicle Number" value={vehicle.vehicle_number} mono />
+              <DetailItem label="Vehicle Number" value={vehicle.vehicle_number} />
               <DetailItem label="Vehicle Type" value={vehicle.type || vehicle.vehicle_type} />
             </div>
 
@@ -85,6 +87,18 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
                 label="Port Pass Expiry"
                 value={vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toLocaleDateString('en-GB') : ''}
               />
+              {vehicle.Vehicle_Insurance_Copy && (
+                <div className="flex flex-col">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5">Insurance Copy</p>
+                  <button onClick={() => setPreviewUrl(vehicle.Vehicle_Insurance_Copy)} className="text-left text-xs font-medium text-primary hover:underline truncate">View Document</button>
+                </div>
+              )}
+              {vehicle.Vehicle_Port_Pass_Copy && (
+                <div className="flex flex-col">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-0.5">Port Pass Copy</p>
+                  <button onClick={() => setPreviewUrl(vehicle.Vehicle_Port_Pass_Copy)} className="text-left text-xs font-medium text-primary hover:underline truncate">View Document</button>
+                </div>
+              )}
             </div>
 
           </div>
@@ -143,6 +157,75 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
             </button>
           </div>
         </div>
+        
+        {/* Internal Document Preview Overlay */}
+        {previewUrl && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-12 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="relative w-full h-full max-w-6xl bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-white/20">
+              
+              {/* Preview Header */}
+              <div className="flex justify-between items-center px-6 py-4 bg-gray-50/50 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <FileText size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-dark uppercase tracking-widest text-[10px]">Document Preview</h3>
+                    <p className="text-[9px] text-gray-400 font-medium truncate max-w-[200px] sm:max-w-md">{previewUrl}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setPreviewUrl(null)} 
+                  className="p-2 hover:bg-gray-200 text-gray-500 hover:text-dark rounded-xl transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Preview Content */}
+              <div className="flex-1 bg-gray-50 relative overflow-hidden">
+                {previewUrl.toLowerCase().includes('.pdf') ? (
+                  <iframe 
+                    src={`${previewUrl}#toolbar=0`} 
+                    className="w-full h-full border-none" 
+                    title="PDF Preview"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center p-4 sm:p-10 select-none">
+                    <img 
+                      src={previewUrl} 
+                      alt="Document Preview" 
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-gray-100" 
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Preview Footer */}
+              <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-3 justify-center">
+                <button 
+                  onClick={() => window.open(previewUrl, '_blank')}
+                  className="flex items-center gap-2 px-4 py-2 text-[10px] font-black text-primary bg-white border border-primary/20 rounded-xl hover:bg-primary hover:text-white transition-all shadow-sm group"
+                >
+                  OPEN IN NEW TAB
+                  <ExternalLink size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                </button>
+                
+                <a 
+                  href={previewUrl}
+                  download={`document_${Date.now()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 text-[10px] font-black text-success bg-white border border-success/20 rounded-xl hover:bg-success hover:text-white transition-all shadow-sm group"
+                >
+                  DOWNLOAD DOCUMENT
+                  <Download size={12} className="group-hover:translate-y-0.5 transition-transform" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

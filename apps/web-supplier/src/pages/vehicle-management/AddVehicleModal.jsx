@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
+import { uploadFile } from '../../services/api';
 
 const inputCls = "w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white";
 const labelCls = "block mb-0.5 text-xs font-semibold text-gray-600";
@@ -18,6 +19,9 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
   const { profileData } = useProfile();
   const [formData, setFormData] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [insuranceFile, setInsuranceFile] = useState(null);
+  const [portPassFile, setPortPassFile] = useState(null);
 
   if (!isOpen) return null;
 
@@ -52,15 +56,39 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
     return null;
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    setError('');
     const err = validate();
     if (err) { setError(err); return; }
 
-    onAdd({
-      ...formData,
-      supplier_id: profileData?.id || profileData?.supplier_id
-    });
-    setFormData(emptyForm);
+    try {
+      setIsUploading(true);
+
+      const tryUpload = async (file, folder) => {
+        if (!(file instanceof File)) return null;
+        return uploadFile('Vehicle_Documents', file, folder);
+      };
+
+      const [insuranceUrl, portPassUrl] = await Promise.all([
+        tryUpload(insuranceFile, 'insurance'),
+        tryUpload(portPassFile, 'port-passes')
+      ]);
+
+      await onAdd({
+        ...formData,
+        supplier_id: profileData?.id || profileData?.supplier_id,
+        Vehicle_Insurance_Copy: insuranceUrl,
+        Vehicle_Port_Pass_Copy: portPassUrl
+      });
+      
+      setFormData(emptyForm);
+      setInsuranceFile(null);
+      setPortPassFile(null);
+    } catch (err) {
+      setError(err.message || 'Failed to add vehicle');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -117,6 +145,26 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
               <label className={labelCls}>Port Pass Expiry *</label>
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
             </div>
+            
+            {/* Row 3: File Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setInsuranceFile(e.target.files[0])}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setPortPassFile(e.target.files[0])}
+                className={inputCls}
+              />
+            </div>
 
           </div>
 
@@ -133,8 +181,13 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
           <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-700 transition-colors bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleAdd} className="px-5 py-2 text-sm font-semibold text-white transition-colors rounded-lg shadow-sm bg-primary hover:bg-blue-800">
-            Add Vehicle
+          <button 
+            onClick={handleAdd}
+            disabled={isUploading}
+            className="flex gap-2 items-center px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors bg-primary hover:bg-blue-800 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isUploading && <Loader2 size={16} className="animate-spin" />}
+            {isUploading ? 'Uploading...' : 'Add Vehicle'}
           </button>
         </div>
 

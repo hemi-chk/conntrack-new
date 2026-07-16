@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
+import { uploadFile } from '../../services/api';
 
 const inputCls = "w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white";
 const labelCls = "block mb-0.5 text-xs font-semibold text-gray-600";
@@ -10,21 +11,28 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
   const [formData, setFormData] = useState({
     vehicle_number: '',
     type: 'LCV',
+    condition_status: 'good',
     availability_status: 'available',
     insurance_expiry: '',
     port_pass_expiry: ''
   });
   const [error, setError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [insuranceFile, setInsuranceFile] = useState(null);
+  const [portPassFile, setPortPassFile] = useState(null);
 
   useEffect(() => {
     if (vehicle) {
       setFormData({
         vehicle_number: vehicle.vehicle_number || '',
         type: vehicle.vehicle_type || vehicle.type || 'LCV',
+        condition_status: vehicle.condition_status || 'good',
         availability_status: vehicle.availability_status || vehicle.status || 'available',
         insurance_expiry: vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toISOString().split('T')[0] : '',
         port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : ''
       });
+      setInsuranceFile(null);
+      setPortPassFile(null);
     }
   }, [vehicle, isOpen]);
 
@@ -39,9 +47,9 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
   };
 
   const validate = () => {
-    const { vehicle_number, type, availability_status, insurance_expiry, port_pass_expiry } = formData;
+    const { vehicle_number, type, condition_status, availability_status, insurance_expiry, port_pass_expiry } = formData;
 
-    if (!vehicle_number || !type || !availability_status || !insurance_expiry || !port_pass_expiry) {
+    if (!vehicle_number || !type || !condition_status || !availability_status || !insurance_expiry || !port_pass_expiry) {
       return 'All fields are required. Please fill in every field.';
     }
 
@@ -61,14 +69,35 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     return null;
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    setError('');
     const err = validate();
     if (err) { setError(err); return; }
 
-    onUpdate(vehicle.vehicle_number, {
-      ...formData,
-      supplier_id: profileData?.id || profileData?.supplier_id
-    });
+    try {
+      setIsUploading(true);
+
+      const tryUpload = async (file, folder) => {
+        if (!(file instanceof File)) return null;
+        return uploadFile('Vehicle_Documents', file, folder);
+      };
+
+      const [insuranceUrl, portPassUrl] = await Promise.all([
+        tryUpload(insuranceFile, 'insurance'),
+        tryUpload(portPassFile, 'port-passes')
+      ]);
+
+      await onUpdate(vehicle.vehicle_number, {
+        ...formData,
+        supplier_id: profileData?.id || profileData?.supplier_id,
+        Vehicle_Insurance_Copy: insuranceUrl || vehicle.Vehicle_Insurance_Copy,
+        Vehicle_Port_Pass_Copy: portPassUrl || vehicle.Vehicle_Port_Pass_Copy
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to update vehicle');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -99,6 +128,14 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
                 <option value="HCV">HCV</option>
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Condition Status *</label>
+              <select name="condition_status" value={formData.condition_status} onChange={handleChange} className={inputCls}>
+                <option value="good">good</option>
+                <option value="maintenance">maintenance</option>
+                <option value="out_of_service">out_of_service</option>
+              </select>
+            </div>
 
             {/* Row 2: Status & Documents */}
             <div>
@@ -118,6 +155,26 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
             </div>
 
+            {/* Row 3: File Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setInsuranceFile(e.target.files[0])}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input
+                type="file"
+                accept=".pdf,image/*"
+                onChange={(e) => setPortPassFile(e.target.files[0])}
+                className={inputCls}
+              />
+            </div>
+
           </div>
 
           {/* Error */}
@@ -133,8 +190,13 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
           <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-700 bg-white rounded-lg border border-gray-300 transition-colors hover:bg-gray-50">
             Cancel
           </button>
-          <button onClick={handleUpdate} className="px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors bg-primary hover:bg-blue-800">
-            Save Changes
+          <button 
+            onClick={handleUpdate}
+            disabled={isUploading}
+            className="flex gap-2 items-center px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors bg-primary hover:bg-blue-800 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isUploading && <Loader2 size={16} className="animate-spin" />}
+            {isUploading ? 'Uploading...' : 'Save Changes'}
           </button>
         </div>
 

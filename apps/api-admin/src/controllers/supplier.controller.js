@@ -153,7 +153,9 @@ export const addVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      supplier_id
+      supplier_id,
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
     
     const insertData = {
@@ -165,7 +167,9 @@ export const addVehicle = async (req, res) => {
       port_pass_status: port_pass_status || 'valid',
       port_pass_expiry,
       condition_status: condition_status || 'good',
-      supplier_id
+      supplier_id,
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     }
 
     const { data, error } = await supabase
@@ -192,7 +196,9 @@ export const updateVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      supplier_id
+      supplier_id,
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
 
     const updateData = {
@@ -205,6 +211,9 @@ export const updateVehicle = async (req, res) => {
       port_pass_expiry,
       condition_status
     }
+    
+    if (Vehicle_Insurance_Copy !== undefined) updateData.Vehicle_Insurance_Copy = Vehicle_Insurance_Copy
+    if (Vehicle_Port_Pass_Copy !== undefined) updateData.Vehicle_Port_Pass_Copy = Vehicle_Port_Pass_Copy
 
     let query = supabase
       .from('vehicles')
