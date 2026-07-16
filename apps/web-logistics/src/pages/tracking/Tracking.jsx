@@ -5,7 +5,7 @@ import {
     Building2, Globe, Star, Navigation, ShieldCheck, CheckCircle2, Loader2
 } from 'lucide-react';
 
-import { Input, Button, Card, CardContent, CardHeader, CardTitle, Badge } from "@conntrack/ui";
+import { Input, Button, Card, CardContent, CardHeader, CardTitle, Badge } from "@/ui";
 import api from "../../config/api";
 
 const TrackingPage = () => {

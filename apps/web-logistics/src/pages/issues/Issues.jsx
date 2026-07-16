@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, Send, XCircle, ChevronRight } from 'lucide-react';
 import api from "../../config/api";
-import { Button } from "@conntrack/ui";
+import { Button } from "@/ui";
 
 const Issues = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);

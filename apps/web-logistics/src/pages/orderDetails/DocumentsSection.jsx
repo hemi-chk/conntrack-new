@@ -12,7 +12,7 @@ import {
   Trash2
 } from "lucide-react";
 
-import { Button } from "@conntrack/ui";
+import { Button } from "@/ui";
 
 export default function DocumentsSection({
   disabled = false,

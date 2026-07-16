@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Printer, FileBarChart, Loader2, PackageCheck, User } from "lucide-react";
-import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input } from "@conntrack/ui";
+import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input } from "@/ui";
 
 // Import the centralized axios instance
 import api from "../../config/api";

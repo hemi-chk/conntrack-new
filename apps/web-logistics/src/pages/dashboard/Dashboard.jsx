@@ -6,7 +6,7 @@ import {
     Eye
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from "@conntrack/ui";
+import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from "@/ui";
 
 import api from "../../config/api";
 

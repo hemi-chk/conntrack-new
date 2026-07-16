@@ -7,7 +7,7 @@ import {
   Loader2
 } from "lucide-react";
 
-import { Button, Badge, useToast } from "@conntrack/ui";
+import { Button, Badge, useToast } from "@/ui";
 import api from "../../config/api";
 
 export default function BidsSection({ orderId, onSelectWinner }) {

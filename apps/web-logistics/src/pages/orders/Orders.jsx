@@ -25,7 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
     Badge,
-} from "@conntrack/ui";
+} from "@/ui";
 
 import api from "../../config/api";
 

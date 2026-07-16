@@ -4,7 +4,7 @@ import {
   Package, Map, ShieldCheck, Info, Truck,
   Calendar, Anchor, Weight, Briefcase, Loader2
 } from "lucide-react";
-import { Button, Card, CardContent, Badge } from "@conntrack/ui";
+import { Button, Card, CardContent, Badge } from "@/ui";
 import OrderSummary from "./OrderSummary";
 import api from "../../config/api";
 import { FiFileText, FiCheckCircle } from "react-icons/fi";
@@ -94,4 +94,4 @@ export default function OrderDetails() {
       </div>
     </div>
   );
-}
+}

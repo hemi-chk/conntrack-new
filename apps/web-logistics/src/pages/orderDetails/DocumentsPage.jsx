@@ -10,7 +10,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-import { Button, Badge } from "@conntrack/ui";
+import { Button, Badge } from "@/ui";
 import DocumentsSection from "./DocumentsSection";
 import OrderSummary from "./OrderSummary";
 
