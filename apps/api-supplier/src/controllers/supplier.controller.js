@@ -91,9 +91,8 @@ export const updateSupplierLogo = async (req, res) => {
   }
 }
 
-// GET /api/supplier/ - Fetch all supplier data (not called by any frontend
-// currently, kept as-is/unscoped since it predates this fix and routes.js
-// still wires it up)
+// GET /api/supplier/ - Fetch all supplier data
+
 export const getSupplierData = async (req, res) => {
   try {
     const { data, error } = await supabase

@@ -84,5 +84,6 @@ router.get('/inspections/:vehicleId', getVehicleInspections)
 router.post('/inspections', addInspectionRecord)
 
 router.get('/:id', getSupplierProfile)
+router.patch('/:id/logo', updateSupplierLogo)
 
 export default router

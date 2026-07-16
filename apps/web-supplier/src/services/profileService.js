@@ -33,3 +33,4 @@ export const updateSupplierLogo = async (file) => {
     throw error;
   }
 };
+
