@@ -14,7 +14,7 @@ export const uploadFile = async (bucket, file, folder = '') => {
   const fileName = `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
   
   // Automatic fallback in case of name mismatch (singular vs plural)
-  const bucketsToTry = [bucket, 'driver-documents', 'drivers', 'documents'];
+  const bucketsToTry = [bucket, 'driver-documents', 'drivers', 'documents', 'vehicle-documents', 'vehicles'];
   
   for (const b of bucketsToTry) {
     try {
