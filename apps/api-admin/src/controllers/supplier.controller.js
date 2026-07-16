@@ -52,6 +52,27 @@ export const getSupplierProfile = async (req, res) => {
   }
 }
 
+// PATCH /api/supplier/:id/logo - Update supplier logo URL
+export const updateSupplierLogo = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { supplier_logo } = req.body
+    if (!supplier_logo) return res.status(400).json({ error: 'supplier_logo URL is required' })
+
+    const { data, error } = await supabase
+      .from('suppliers')
+      .update({ supplier_logo })
+      .eq('supplier_id', id)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Supplier not found' })
+    res.json(data[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
 // GET /api/supplier/ - Fetch all supplier data
 export const getSupplierData = async (req, res) => {
   try {

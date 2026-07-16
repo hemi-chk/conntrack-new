@@ -20,7 +20,8 @@ import {
   getVehicleInspections,
   addInspectionRecord,
   getDashboardStats,
-  getSupplierProfile
+  getSupplierProfile,
+  updateSupplierLogo
 } from '../controllers/supplier.controller.js'
 
 const router = express.Router()
@@ -58,5 +59,6 @@ router.get('/inspections/:vehicleId', getVehicleInspections)
 router.post('/inspections', addInspectionRecord)
 
 router.get('/:id', getSupplierProfile)
+router.patch('/:id/logo', updateSupplierLogo)
 
 export default router

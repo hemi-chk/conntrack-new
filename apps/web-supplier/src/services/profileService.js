@@ -10,3 +10,18 @@ export const getSupplierProfile = async (id) => {
     throw error;
   }
 };
+
+export const updateSupplierLogo = async (id, logoUrl) => {
+  try {
+    const res = await fetch(`${BASE_URL}/supplier/${id}/logo`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supplier_logo: logoUrl }),
+    });
+    if (!res.ok) throw new Error('Failed to update supplier logo.');
+    return await res.json();
+  } catch (error) {
+    console.error('Error updating logo:', error);
+    throw error;
+  }
+};

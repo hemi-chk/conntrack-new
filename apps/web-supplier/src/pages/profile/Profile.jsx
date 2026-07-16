@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { useProfile } from '../../hooks/useProfile';
+import { CURRENT_SUPPLIER_ID } from '../../hooks/useProfile';
+import { uploadFile } from '../../services/api';
+import { updateSupplierLogo } from '../../services/profileService';
 import {
   Mail,
   Phone,
@@ -14,11 +17,31 @@ import {
   Banknote,
   Globe,
   LogOut,
-  Info
+  Info,
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 export const Profile = () => {
-  const { profileData, isLoading, error } = useProfile();
+  const { profileData, isLoading, error, refreshProfile } = useProfile();
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const logoInputRef = useRef(null);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      setIsUploadingLogo(true);
+      const url = await uploadFile('supplier_documents', file, 'logos');
+      await updateSupplierLogo(CURRENT_SUPPLIER_ID, url);
+      await refreshProfile();
+    } catch (err) {
+      console.error('Logo upload failed:', err);
+    } finally {
+      setIsUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,8 +92,36 @@ export const Profile = () => {
         <div className="flex flex-col gap-6">
           {/* Main Info Card */}
           <div className="flex flex-col gap-6 items-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm sm:flex-row sm:items-start">
-            <div className="flex justify-center items-center w-24 h-24 bg-blue-50 rounded-xl border border-blue-100 text-primary shrink-0">
-              <Building2 size={40} />
+            {/* Logo with upload overlay */}
+            <div
+              className="relative w-24 h-24 shrink-0 cursor-pointer group"
+              onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
+            >
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
+              {profileData?.supplier_logo ? (
+                <img
+                  src={profileData.supplier_logo}
+                  alt="Company Logo"
+                  className="w-24 h-24 rounded-xl object-cover border border-blue-100"
+                />
+              ) : (
+                <div className="flex justify-center items-center w-24 h-24 bg-blue-50 rounded-xl border border-blue-100 text-primary">
+                  <Building2 size={40} />
+                </div>
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                {isUploadingLogo
+                  ? <Loader2 size={22} className="text-white animate-spin" />
+                  : <Camera size={22} className="text-white" />}
+                {!isUploadingLogo && <span className="text-white text-[9px] font-bold mt-1">CHANGE</span>}
+              </div>
             </div>
             <div className="flex flex-col flex-1 gap-2 items-center sm:items-start">
               <div className="flex gap-3 items-center">
