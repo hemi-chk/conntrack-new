@@ -310,7 +310,7 @@ exports.updateMissionStatus = async (req, res) => {
             console.log('Skipping order_assignments update for intermediate stage:', status);
         }
 
-        // 2. Add a detailed record to the new order_tracking_history table
+        // 2. Add a detailed record to order_tracking_history
         console.log('Recording journey milestone in order_tracking_history...');
         const { error: historyError } = await supabase
             .from('order_tracking_history')
@@ -327,6 +327,37 @@ exports.updateMissionStatus = async (req, res) => {
         if (historyError) {
             console.error('Step 2 (History) Failed:', historyError.message);
             throw historyError;
+        }
+
+        // 3. Write to container_tracking so logistics/operations see live position
+        const { data: assignment } = await supabase
+            .from('order_assignments')
+            .select('driver_id')
+            .eq('assignment_id', assignmentId)
+            .single();
+
+        await supabase.from('container_tracking').insert([{
+            order_id: orderId,
+            driver_id: assignment?.driver_id || null,
+            latitude: latitude || null,
+            longitude: longitude || null,
+            current_location: locationName || null,
+            status: status,
+            recorded_at: new Date()
+        }]);
+
+        // 4. Map driver stage to order-level status and update orders table
+        const statusMap = {
+            started: 'in_transit',
+            in_transit: 'in_transit',
+            at_freezone: 'at_freezone',
+            at_port: 'at_port',
+            delivered: 'completed',
+            completed: 'completed',
+        };
+        const orderStatus = statusMap[status.toLowerCase()];
+        if (orderStatus) {
+            await supabase.from('orders').update({ current_status: orderStatus }).eq('order_id', orderId);
         }
 
         console.log('--- DB Update Complete ---');

@@ -1,5 +1,82 @@
 import { useEffect, useState } from "react";
-import { PlusSquare, AlertTriangle } from "lucide-react";
+import { PlusSquare, AlertTriangle, UserCheck } from "lucide-react";
+
+const OPS_API = "http://localhost:5000/api/operations";
+
+function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, onClose }) {
+  const { drivers, vehicles, driverId, vehicleId, loading, error } = state;
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
+          <div>
+            <h2 className="text-xl font-semibold text-[#1E293B]">Assign Driver</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Order {order.id} — select a driver and vehicle from the winning supplier
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-[#1E293B] hover:bg-slate-50">
+            Close
+          </button>
+        </div>
+        {loading && (
+          <div className="flex items-center justify-center py-10 text-sm text-slate-500">
+            <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#1E40AF] border-t-transparent" />
+            Loading drivers and vehicles…
+          </div>
+        )}
+        {!loading && error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        )}
+        {!loading && !error && (
+          <>
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-semibold text-[#1E293B]">Driver</label>
+              {drivers.length === 0 ? (
+                <p className="text-sm text-slate-400">No drivers found for this supplier.</p>
+              ) : (
+                <select value={driverId} onChange={e => setDriverId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#1E40AF]">
+                  <option value="">Select a driver…</option>
+                  {drivers.map(d => (
+                    <option key={d.driver_id} value={d.driver_id}>
+                      {d.first_name} {d.last_name} — {d.license_number || 'No license on file'}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="mb-6">
+              <label className="mb-2 block text-sm font-semibold text-[#1E293B]">Vehicle</label>
+              {vehicles.length === 0 ? (
+                <p className="text-sm text-slate-400">No vehicles found for this supplier.</p>
+              ) : (
+                <select value={vehicleId} onChange={e => setVehicleId(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#1E40AF]">
+                  <option value="">Select a vehicle…</option>
+                  {vehicles.map(v => (
+                    <option key={v.vehicle_id} value={v.vehicle_id}>
+                      {v.vehicle_number} — {v.vehicle_type} ({v.availability_status || 'available'})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button onClick={onSubmit} disabled={!driverId || !vehicleId}
+                className="flex-[2] rounded-lg bg-[#15803D] px-4 py-2 text-sm text-white hover:bg-[#166534] disabled:opacity-40">
+                Confirm Assignment
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Orders({ onNavigate }) {
   // Main page states for tabs, dropdown menu, selected order panel, issue popup, archive popup, and order data
@@ -11,6 +88,8 @@ function Orders({ onNavigate }) {
   const [ordersData, setOrdersData] = useState([]);
   const [archivedOrderIds, setArchivedOrderIds] = useState([]);
   const [reportedIssues, setReportedIssues] = useState([]);
+  const [assignDriverOrder, setAssignDriverOrder] = useState(null);
+  const [assignDriverState, setAssignDriverState] = useState({ drivers: [], vehicles: [], driverId: '', vehicleId: '', loading: false, error: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   // Issue reporting form states
@@ -348,6 +427,51 @@ function Orders({ onNavigate }) {
   };
 
   // Opens issue report form only for valid operational stages
+  const openAssignDriver = async (order) => {
+    setAssignDriverState({ drivers: [], vehicles: [], driverId: '', vehicleId: '', loading: true, error: '' });
+    setAssignDriverOrder(order);
+    try {
+      const infoRes = await fetch(`${OPS_API}/orders/${order.orderId}/assignment-info`);
+      const info = await infoRes.json();
+      const supplierId = info?.supplier_id;
+      if (!supplierId) {
+        setAssignDriverState(s => ({ ...s, loading: false, error: 'No winning supplier found for this order. Ensure Logistics has finalized a bid.' }));
+        return;
+      }
+      const [driversRes, vehiclesRes] = await Promise.all([
+        fetch(`${OPS_API}/drivers?supplier_id=${supplierId}`),
+        fetch(`${OPS_API}/vehicles?supplier_id=${supplierId}`),
+      ]);
+      const drivers = await driversRes.json();
+      const vehicles = await vehiclesRes.json();
+      setAssignDriverState(s => ({ ...s, drivers: drivers || [], vehicles: vehicles || [], loading: false }));
+    } catch {
+      setAssignDriverState(s => ({ ...s, loading: false, error: 'Failed to load drivers/vehicles.' }));
+    }
+  };
+
+  const submitAssignDriver = async () => {
+    const { driverId, vehicleId } = assignDriverState;
+    if (!driverId || !vehicleId) {
+      setAssignDriverState(s => ({ ...s, error: 'Please select both a driver and a vehicle.' }));
+      return;
+    }
+    setAssignDriverState(s => ({ ...s, loading: true, error: '' }));
+    try {
+      const res = await fetch(`${OPS_API}/orders/${assignDriverOrder.orderId}/assign-driver`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driver_id: driverId, vehicle_id: vehicleId }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Failed'); }
+      setAssignDriverOrder(null);
+      setAssignDriverState({ drivers: [], vehicles: [], driverId: '', vehicleId: '', loading: false, error: '' });
+      fetchOrders();
+    } catch (err) {
+      setAssignDriverState(s => ({ ...s, loading: false, error: err.message }));
+    }
+  };
+
   const openIssueForm = (order) => {
     if (!canReportIssue(order.status)) {
       alert(
@@ -696,11 +820,24 @@ function Orders({ onNavigate }) {
             handleAction={handleAction}
             goToTracking={goToTracking}
             openIssueForm={openIssueForm}
+            openAssignDriver={openAssignDriver}
             setArchiveOrder={setArchiveOrder}
             canReportIssue={canReportIssue}
           />
         )}
       </div>
+
+      {/* Assign Driver Modal */}
+      {assignDriverOrder && (
+        <AssignDriverModal
+          order={assignDriverOrder}
+          state={assignDriverState}
+          setDriverId={(id) => setAssignDriverState(s => ({ ...s, driverId: id }))}
+          setVehicleId={(id) => setAssignDriverState(s => ({ ...s, vehicleId: id }))}
+          onSubmit={submitAssignDriver}
+          onClose={() => setAssignDriverOrder(null)}
+        />
+      )}
 
       {/* Issue report modal */}
       {issueOrder && (
@@ -874,6 +1011,7 @@ function OrderDetailsPanel({
   handleAction,
   goToTracking,
   openIssueForm,
+  openAssignDriver,
   setArchiveOrder,
   canReportIssue,
 }) {
@@ -1054,6 +1192,15 @@ function OrderDetailsPanel({
             className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
           >
             Open Bidding
+          </button>
+        )}
+
+        {selectedOrder.status === "Bid Accepted" && (
+          <button
+            onClick={() => openAssignDriver(selectedOrder)}
+            className="flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm text-white hover:bg-[#166534]"
+          >
+            <UserCheck size={15} /> Assign Driver
           </button>
         )}
 

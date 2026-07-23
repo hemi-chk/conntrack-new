@@ -934,12 +934,141 @@ router.get('/test-bids', (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const { data, error } = await supabase.from('customers').select('*')
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
 
-    if (error) {
-      return res.status(500).json({ error: error.message })
+// GET DRIVERS FOR A SUPPLIER (used by assign-driver modal)
+router.get('/drivers', async (req, res) => {
+  try {
+    const { supplier_id } = req.query
+    let query = supabase.from('drivers').select('driver_id, first_name, last_name, contact_number, license_number')
+    if (supplier_id) query = query.eq('supplier_id', supplier_id)
+    const { data, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET VEHICLES FOR A SUPPLIER (used by assign-driver modal)
+router.get('/vehicles', async (req, res) => {
+  try {
+    const { supplier_id } = req.query
+    let query = supabase.from('vehicles').select('vehicle_id, vehicle_number, vehicle_type, availability_status')
+    if (supplier_id) query = query.eq('supplier_id', supplier_id)
+    const { data, error } = await query
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || [])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// GET WINNING SUPPLIER FOR AN ORDER (so the modal can pre-filter drivers/vehicles)
+router.get('/orders/:orderId/assignment-info', async (req, res) => {
+  try {
+    const { orderId } = req.params
+    const { data, error } = await supabase
+      .from('order_assignments')
+      .select('assignment_id, supplier_id, driver_id, vehicle_id, status, suppliers(company_name), drivers(first_name, last_name), vehicles(vehicle_number, vehicle_type)')
+      .eq('order_id', orderId)
+      .maybeSingle()
+    if (error) return res.status(500).json({ error: error.message })
+    res.json(data || null)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ASSIGN DRIVER + VEHICLE TO AN ORDER
+router.post('/orders/:orderId/assign-driver', async (req, res) => {
+  try {
+    const { orderId } = req.params
+    const { driver_id, vehicle_id } = req.body
+
+    if (!driver_id || !vehicle_id) {
+      return res.status(400).json({ error: 'driver_id and vehicle_id are required' })
     }
 
-    res.json(data || [])
+    // Update the existing order_assignments row (created by logistics at finalize)
+    const { data: existing } = await supabase
+      .from('order_assignments')
+      .select('assignment_id, supplier_id')
+      .eq('order_id', orderId)
+      .maybeSingle()
+
+    let assignment
+    if (existing) {
+      const { data, error } = await supabase
+        .from('order_assignments')
+        .update({ driver_id, vehicle_id, status: 'driver_assigned', updated_at: new Date().toISOString() })
+        .eq('assignment_id', existing.assignment_id)
+        .select()
+        .single()
+      if (error) return res.status(500).json({ error: error.message })
+      assignment = data
+    } else {
+      // Fallback: create from scratch if logistics step was skipped
+      const { data, error } = await supabase
+        .from('order_assignments')
+        .insert([{ order_id: Number(orderId), driver_id, vehicle_id, status: 'driver_assigned', assigned_at: new Date().toISOString() }])
+        .select()
+        .single()
+      if (error) return res.status(500).json({ error: error.message })
+      assignment = data
+    }
+
+    // Update order status to driver_assigned
+    await supabase.from('orders').update({ current_status: 'driver_assigned' }).eq('order_id', orderId)
+
+    // Fetch order reference for notification message
+    const { data: order } = await supabase.from('orders').select('order_reference').eq('order_id', orderId).single()
+
+    // Notify the driver (mobile app polls this)
+    await supabase.from('notifications').insert([{
+      driver_id,
+      order_id: Number(orderId),
+      title: 'New Job Assigned',
+      message: `You have been assigned to order ${order?.order_reference || orderId}. Please check your app for details.`,
+      type: 'driver_assigned',
+      is_read: false,
+      created_at: new Date().toISOString(),
+    }])
+
+    // Mark vehicle as unavailable
+    await supabase.from('vehicles').update({ availability_status: 'assigned' }).eq('vehicle_id', vehicle_id)
+
+    res.status(200).json({ success: true, assignment })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// UPDATE ORDER STATUS (in_transit → at_freezone → at_port → completed)
+router.patch('/orders/:orderId/status', async (req, res) => {
+  try {
+    const { orderId } = req.params
+    const { status } = req.body
+
+    const allowed = ['driver_assigned', 'in_transit', 'at_freezone', 'at_port', 'completed', 'cancelled']
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Allowed: ${allowed.join(', ')}` })
+    }
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update({ current_status: status, updated_at: new Date().toISOString() })
+      .eq('order_id', orderId)
+      .select()
+      .single()
+
+    if (error) return res.status(500).json({ error: error.message })
+    res.json({ success: true, order: data })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

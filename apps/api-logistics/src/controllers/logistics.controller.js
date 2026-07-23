@@ -87,62 +87,103 @@ export const finalizeOrder = async (req, res) => {
     const userId = req.user?.id;
 
     try {
-        // 1️⃣ Fetch order details to know who created it (Operations)
-        const { data: orderData } = await supabase
-            .from('orders')
-            .select('created_by, order_reference')
-            .eq('order_id', orderId)
-            .single();
+        // 1️⃣ Fetch order + winning bid details together
+        const [{ data: orderData }, { data: winningBid }] = await Promise.all([
+            supabase.from('orders').select('created_by, order_reference').eq('order_id', orderId).single(),
+            supabase.from('bids').select('bid_id, supplier_id, bidding_id').eq('bid_id', bidId).single(),
+        ]);
 
-        // 2️⃣ Accept selected bid & record selector
+        const orderRef = orderData?.order_reference || `Order #${orderId}`;
+
+        // 2️⃣ Accept selected bid_selection row
         await supabase
             .from('bid_selection')
-            .update({
-                selection_status: 'accepted',
-                selected_by: userId || null
-            })
+            .update({ selection_status: 'accepted', selected_by: userId || null })
             .eq('selection_id', selectionId);
 
-        // 3️⃣ Reject all other shortlisted bids
+        // 3️⃣ Reject all other shortlisted bid_selection rows
         await supabase
             .from('bid_selection')
-            .update({
-                selection_status: 'rejected'
-            })
+            .update({ selection_status: 'rejected' })
             .eq('order_id', orderId)
             .neq('selection_id', selectionId);
 
-        // 4️⃣ Update bids table
-        await supabase
-            .from('bids')
-            .update({ bid_status: 'accepted' })
-            .eq('bid_id', bidId);
+        // 4️⃣ Mark winning bid as accepted in bids table
+        await supabase.from('bids').update({ bid_status: 'accepted' }).eq('bid_id', bidId);
 
-        // 5️⃣ Update order status to 'bid_accepted'
-        await supabase
-            .from('orders')
-            .update({
-                current_status: 'bid_accepted'
-            })
-            .eq('order_id', orderId);
+        // 5️⃣ Mark all other bids for this order as rejected in bids table
+        const { data: losingSelections } = await supabase
+            .from('bid_selection')
+            .select('bid_id, supplier_id')
+            .eq('order_id', orderId)
+            .eq('selection_status', 'rejected');
 
-        // 6️⃣ Notify Operational team
-        if (orderData?.created_by) {
-            await supabase
-                .from('notifications')
-                .insert([{
-                    order_id: orderId,
-                    recipient_id: orderData.created_by,
-                    title: 'Winning Bid Selected',
-                    message: `Logistics has selected a bid for ${orderData.order_reference || orderId}. Please notify the supplier.`,
-                    type: 'system',
-                    status: 'pending'
-                }]);
+        if (losingSelections?.length) {
+            const losingBidIds = losingSelections.map(s => s.bid_id);
+            await supabase.from('bids').update({ bid_status: 'rejected' }).in('bid_id', losingBidIds);
         }
 
-        res.status(200).json({ 
-            success: true, 
-            message: "Order finalized and sent to Operations for supplier notification." 
+        // 6️⃣ Update order status
+        await supabase.from('orders').update({ current_status: 'bid_accepted' }).eq('order_id', orderId);
+
+        // 7️⃣ Create order_assignments row for the winning supplier (driver assigned later by Operations)
+        if (winningBid?.supplier_id) {
+            await supabase.from('order_assignments').insert([{
+                order_id: Number(orderId),
+                supplier_id: winningBid.supplier_id,
+                bid_id: bidId,
+                status: 'pending_driver',
+                assigned_at: new Date().toISOString(),
+            }]);
+        }
+
+        // 8️⃣ Notify Operations team
+        if (orderData?.created_by) {
+            await supabase.from('notifications').insert([{
+                order_id: orderId,
+                recipient_id: orderData.created_by,
+                title: 'Winning Bid Selected',
+                message: `Logistics has selected a winning bid for ${orderRef}. Please assign a driver to proceed.`,
+                type: 'bid_accepted',
+                is_read: false,
+                created_at: new Date().toISOString(),
+            }]);
+        }
+
+        // 9️⃣ Notify winning supplier
+        if (winningBid?.supplier_id) {
+            await supabase.from('notifications').insert([{
+                supplier_id: winningBid.supplier_id,
+                order_id: Number(orderId),
+                title: 'Bid Accepted',
+                message: `Congratulations! Your bid for order ${orderRef} has been accepted. A driver will be assigned shortly.`,
+                type: 'bid_accepted',
+                is_read: false,
+                created_at: new Date().toISOString(),
+            }]);
+        }
+
+        // 🔟 Notify losing suppliers
+        if (losingSelections?.length) {
+            const losingSupplierIds = [...new Set(losingSelections.map(s => s.supplier_id).filter(Boolean))];
+            if (losingSupplierIds.length) {
+                await supabase.from('notifications').insert(
+                    losingSupplierIds.map(supplierId => ({
+                        supplier_id: supplierId,
+                        order_id: Number(orderId),
+                        title: 'Bid Not Selected',
+                        message: `Thank you for bidding on order ${orderRef}. Another supplier has been selected for this order.`,
+                        type: 'bid_rejected',
+                        is_read: false,
+                        created_at: new Date().toISOString(),
+                    }))
+                );
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Order finalized. Supplier notified, Operations team alerted to assign a driver.",
         });
 
     } catch (error) {

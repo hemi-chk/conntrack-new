@@ -145,8 +145,13 @@ export const AssignedJobs = () => {
               ) : (
                 assignedJobs.map((bid) => {
                   const order = bid.bidding?.orders || {};
-                  const driverName = bid.drivers ? `${bid.drivers.first_name} ${bid.drivers.last_name}` : "Assign driver";
-                  const vehicleNum = bid.vehicles?.vehicle_number || "Assign Vehicle";
+                  const assignment = order.order_assignments?.[0];
+                  const assignedDriver = assignment?.drivers;
+                  const assignedVehicle = assignment?.vehicles;
+                  const driverName = assignedDriver
+                    ? `${assignedDriver.first_name} ${assignedDriver.last_name}`
+                    : bid.drivers ? `${bid.drivers.first_name} ${bid.drivers.last_name}` : "Pending";
+                  const vehicleNum = assignedVehicle?.vehicle_number || bid.vehicles?.vehicle_number || "Pending";
 
                   return (
                     <tr key={bid.bid_id} className="transition-colors hover:bg-gray-50">
