@@ -1,0 +1,191 @@
+version: "3.9"
+
+x-api-env: &api-env
+  SUPABASE_URL: ${SUPABASE_URL}
+  SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+  AMQP_URL: amqp://${RABBITMQ_USER:-conntrack}:${RABBITMQ_PASS:-conntrack123}@rabbitmq:5672
+
+services:
+  # ── Message Broker ───────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: conntrack-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-conntrack}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-conntrack123}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API Services ─────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+      dockerfile: apps/api-gateway/Dockerfile
+    container_name: conntrack-api-gateway
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      AUTH_SERVICE_URL: http://api-auth:5001
+      ADMIN_SERVICE_URL: http://api-admin:5002
+      OPERATIONS_SERVICE_URL: http://api-operations:5003
+      LOGISTICS_SERVICE_URL: http://api-logistics:5004
+      SUPPLIER_SERVICE_URL: http://api-supplier:5005
+      DRIVER_SERVICE_URL: http://api-driver:5006
+    depends_on:
+      - api-auth
+      - api-admin
+      - api-operations
+      - api-logistics
+      - api-supplier
+      - api-driver
+    restart: unless-stopped
+
+  api-auth:
+    build:
+      context: .
+      dockerfile: apps/api-auth/Dockerfile
+    container_name: conntrack-api-auth
+    ports:
+      - "5001:5001"
+    environment:
+      <<: *api-env
+      PORT: 5001
+    restart: unless-stopped
+
+  api-admin:
+    build:
+      context: .
+      dockerfile: apps/api-admin/Dockerfile
+    container_name: conntrack-api-admin
+    ports:
+      - "5002:5002"
+    environment:
+      <<: *api-env
+      PORT: 5002
+    restart: unless-stopped
+
+  api-operations:
+    build:
+      context: .
+      dockerfile: apps/api-operations/Dockerfile
+    container_name: conntrack-api-operations
+    ports:
+      - "5003:5003"
+    environment:
+      <<: *api-env
+      PORT: 5003
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-logistics:
+    build:
+      context: .
+      dockerfile: apps/api-logistics/Dockerfile
+    container_name: conntrack-api-logistics
+    ports:
+      - "5004:5004"
+    environment:
+      <<: *api-env
+      PORT: 5004
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-supplier:
+    build:
+      context: .
+      dockerfile: apps/api-supplier/Dockerfile
+    container_name: conntrack-api-supplier
+    ports:
+      - "5005:5005"
+    environment:
+      <<: *api-env
+      PORT: 5005
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api-driver:
+    build:
+      context: .
+      dockerfile: apps/api-driver/Dockerfile
+    container_name: conntrack-api-driver
+    ports:
+      - "5006:5006"
+    environment:
+      <<: *api-env
+      PORT: 5006
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Web Frontends ─────────────────────────────────────────────────────────────
+  web-admin:
+    build:
+      context: .
+      dockerfile: apps/web-admin/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+    container_name: conntrack-web-admin
+    ports:
+      - "3001:80"
+    restart: unless-stopped
+
+  web-operations:
+    build:
+      context: .
+      dockerfile: apps/web-operations/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+    container_name: conntrack-web-operations
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+
+  web-logistics:
+    build:
+      context: .
+      dockerfile: apps/web-logistics/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+    container_name: conntrack-web-logistics
+    ports:
+      - "3003:80"
+    restart: unless-stopped
+
+  web-supplier:
+    build:
+      context: .
+      dockerfile: apps/web-supplier/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+    container_name: conntrack-web-supplier
+    ports:
+      - "3004:80"
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:

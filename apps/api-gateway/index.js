@@ -13,12 +13,12 @@ app.use(cors())
 
 // Define routing map
 const services = {
-  '/api/auth': 'http://localhost:5001',
-  '/api/admin': 'http://localhost:5002',
-  '/api/operations': 'http://localhost:5003',
-  '/api/logistics': 'http://localhost:5004',
-  '/api/supplier': 'http://localhost:5005',
-  '/api/driver': 'http://localhost:5006',
+  '/api/auth': process.env.AUTH_SERVICE_URL || 'http://localhost:5001',
+  '/api/admin': process.env.ADMIN_SERVICE_URL || 'http://localhost:5002',
+  '/api/operations': process.env.OPERATIONS_SERVICE_URL || 'http://localhost:5003',
+  '/api/logistics': process.env.LOGISTICS_SERVICE_URL || 'http://localhost:5004',
+  '/api/supplier': process.env.SUPPLIER_SERVICE_URL || 'http://localhost:5005',
+  '/api/driver': process.env.DRIVER_SERVICE_URL || 'http://localhost:5006',
 }
 
 // Attach proxy middleware

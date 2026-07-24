@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { connectMessaging } from '@conntrack/messaging'
 import logisticsRoutes from './src/routes/logistics.routes.js'
 
 dotenv.config()
@@ -18,8 +19,10 @@ app.get('/health', (req, res) => {
   res.json({ service: 'logistics', status: 'ok' })
 })
 
-app.listen(PORT, () => {
-  console.log(`Logistics Service running on port ${PORT}`)
+connectMessaging(process.env.AMQP_URL).then(() => {
+  app.listen(PORT, () => {
+    console.log(`Logistics Service running on port ${PORT}`)
+  })
 })
 
 export default app

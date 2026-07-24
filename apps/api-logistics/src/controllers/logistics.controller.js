@@ -1,4 +1,5 @@
 import { supabase } from '@conntrack/database';
+import { publish } from '@conntrack/messaging';
 
 // --- DASHBOARD METHODS ---
 
@@ -178,6 +179,27 @@ export const finalizeOrder = async (req, res) => {
                         created_at: new Date().toISOString(),
                     }))
                 );
+            }
+        }
+
+        // Publish events for message consumers
+        await publish('bid.accepted', {
+            order_id: Number(orderId),
+            order_reference: orderRef,
+            supplier_id: winningBid?.supplier_id,
+            bid_id: bidId,
+        });
+
+        if (losingSelections?.length) {
+            for (const s of losingSelections) {
+                if (s.supplier_id) {
+                    await publish('bid.rejected', {
+                        order_id: Number(orderId),
+                        order_reference: orderRef,
+                        supplier_id: s.supplier_id,
+                        bid_id: s.bid_id,
+                    });
+                }
             }
         }
 

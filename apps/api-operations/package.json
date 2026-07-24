@@ -8,6 +8,7 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
+    "@conntrack/messaging": "*",
     "@supabase/supabase-js": "^2.103.2",
     "cors": "^2.8.5",
     "dotenv": "^16.0.0",

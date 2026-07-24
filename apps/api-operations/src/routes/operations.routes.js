@@ -1,5 +1,6 @@
 import express from 'express'
 import { supabase } from '../config/supabase.js'
+import { publish } from '@conntrack/messaging'
 
 const router = express.Router()
 
@@ -651,6 +652,14 @@ router.post('/bidding/open', async (req, res) => {
 
     const notifiedCount = await createSupplierBiddingNotifications(order, bidding)
 
+    await publish('order.bidding.opened', {
+      order_id: order.order_id,
+      order_reference: order.order_reference,
+      order_type: order.order_type,
+      bidding_id: bidding.bidding_id,
+      end_time: bidding.end_time,
+    })
+
     res.status(201).json({
       message:
         biddingAction === 'created'
@@ -1042,6 +1051,14 @@ router.post('/orders/:orderId/assign-driver', async (req, res) => {
 
     // Mark vehicle as unavailable
     await supabase.from('vehicles').update({ availability_status: 'assigned' }).eq('vehicle_id', vehicle_id)
+
+    await publish('driver.assigned', {
+      order_id: Number(orderId),
+      order_reference: order?.order_reference || orderId,
+      driver_id,
+      vehicle_id,
+      assignment_id: assignment.assignment_id,
+    })
 
     res.status(200).json({ success: true, assignment })
   } catch (error) {
