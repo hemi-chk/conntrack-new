@@ -33,16 +33,6 @@ export default function OrderSummary({ order }) {
         </div>
 
         <div className="flex gap-3">
-          {isAssigned && (
-            <Button
-              variant="outline"
-              className="border-blue-200 text-[#1E40AF] hover:bg-blue-50 shadow-sm"
-              onClick={() => navigate(`/tracking/${order.order_id}`)}
-            >
-              <Map size={18} className="mr-2" />
-              Live Track
-            </Button>
-          )}
         </div>
       </div>
 

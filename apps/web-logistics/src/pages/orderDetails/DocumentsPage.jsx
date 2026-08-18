@@ -375,30 +375,6 @@ export default function DocumentsPage() {
 
           )}
 
-          {/* TRACK BUTTON */}
-          {isTrackable && (
-
-            <Button
-              size="sm"
-              variant="outline"
-              className="ml-auto border-blue-200 text-[#1E40AF] hover:bg-blue-50"
-              onClick={() =>
-                navigate(
-                  `/tracking/${order.order_id}`
-                )
-              }
-            >
-              <Map
-                size={14}
-                className="mr-1"
-              />
-
-              Live Track
-
-            </Button>
-
-          )}
-
         </div>
 
       </div>

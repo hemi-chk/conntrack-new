@@ -13,7 +13,8 @@ import {
     uploadDocuments,
     deleteDocument,
     getAllIssues,
-    updateIssueStatus
+    updateIssueStatus,
+    updateTrackingLocation
 } from "../controllers/logistics.controller.js";
 
 const router = express.Router();
@@ -156,5 +157,14 @@ router.patch(
     updateIssueStatus
 );
 
+router.post(
+    "/tracking/location",
+    updateTrackingLocation
+);
+
+router.get(
+    "/orders/:orderId/tracking",
+    getTrackingByOrderId
+);
 
 export default router;

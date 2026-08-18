@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button, Card, CardContent, Badge } from "@/ui";
 import OrderSummary from "./OrderSummary";
+import TrackingMeter from "./TrackingMeter";
 import api from "../../config/api";
 
 
@@ -56,6 +57,9 @@ export default function OrderDetails() {
 
       {/* Reusable Order Summary Component */}
       <OrderSummary order={order} />
+
+      {/* Tracking Meter Component */}
+      <TrackingMeter orderId={order.order_id} orderType={order.order_type} />
 
       {/* Action Buttons */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm px-6 py-4 flex flex-wrap items-center gap-3">

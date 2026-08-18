@@ -80,16 +80,6 @@ export default function BidSelectionPage() {
         <Badge variant="outline" className="capitalize bg-white ml-2">
           {order.order_type}
         </Badge>
-        {isAssigned && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="ml-auto border-blue-200 text-[#1E40AF] hover:bg-blue-50"
-            onClick={() => navigate(`/tracking/${order.order_id}`)}
-          >
-            <Map size={14} className="mr-1" /> Live Track
-          </Button>
-        )}
       </div>
 
       {/* CONTENT */}

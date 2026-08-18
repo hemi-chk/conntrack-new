@@ -44,35 +44,68 @@ export const getShortlistedBids = async (req, res) => {
     const { orderId } = req.params;
 
     try {
-        const { data, error } = await supabase
+        // First try bid_selection
+        const { data: selectionData, error: selectionError } = await supabase
             .from('bid_selection')
             .select(`
                 selection_id,
                 bid_id,
+                selection_status,
                 bids (
                     bid_id,
                     bid_amount,
                     eta,
+                    bid_status,
                     suppliers (company_name, rating),
                     vehicles (vehicle_type)
                 )
             `)
-            .eq('order_id', orderId)
-            .eq('selection_status', 'sent_to_logistics');
+            .eq('order_id', orderId);
 
-        if (error) throw error;
+        if (selectionError) throw selectionError;
 
-        const formatted = data.map(item => ({
-            id: item.bid_id,
-            selectionId: item.selection_id,
-            supplierName: item.bids?.suppliers?.company_name || "Unknown",
-            amount: item.bids?.bid_amount,
-            rating: item.bids?.suppliers?.rating || 0,
-            vehicle: item.bids?.vehicles?.vehicle_type || "N/A",
-            eta: item.bids?.eta || "N/A"
+        if (selectionData && selectionData.length > 0) {
+            const formatted = selectionData.map(item => ({
+                id: item.bid_id,
+                selectionId: item.selection_id,
+                selectionStatus: item.selection_status,
+                supplierName: item.bids?.suppliers?.company_name || "Unknown Supplier",
+                amount: item.bids?.bid_amount,
+                rating: item.bids?.suppliers?.rating || 0,
+                vehicle: item.bids?.vehicles?.vehicle_type || "N/A",
+                eta: item.bids?.eta || "N/A"
+            }));
+
+            return res.status(200).json(formatted);
+        }
+
+        // Fallback: Retrieve directly from `bids` table connected by order_id
+        const { data: bidsData, error: bidsError } = await supabase
+            .from('bids')
+            .select(`
+                bid_id,
+                bid_amount,
+                eta,
+                bid_status,
+                suppliers (company_name, rating),
+                vehicles (vehicle_type)
+            `)
+            .eq('order_id', orderId);
+
+        if (bidsError) throw bidsError;
+
+        const formattedBids = (bidsData || []).map(bid => ({
+            id: bid.bid_id,
+            selectionId: null,
+            selectionStatus: bid.bid_status === 'accepted' ? 'accepted' : 'pending',
+            supplierName: bid.suppliers?.company_name || "Unknown Supplier",
+            amount: bid.bid_amount,
+            rating: bid.suppliers?.rating || 0,
+            vehicle: bid.vehicles?.vehicle_type || "N/A",
+            eta: bid.eta || "N/A"
         }));
 
-        res.status(200).json(formatted);
+        res.status(200).json(formattedBids);
 
     } catch (error) {
         res.status(500).json({ message: "Error retrieving bids", error: error.message });
@@ -93,32 +126,41 @@ export const finalizeOrder = async (req, res) => {
             .eq('order_id', orderId)
             .single();
 
-        // 2️⃣ Accept selected bid & record selector
-        await supabase
-            .from('bid_selection')
-            .update({
-                selection_status: 'accepted',
-                selected_by: userId || null
-            })
-            .eq('selection_id', selectionId);
+        // 2️⃣ Accept selected bid & record selector if selectionId exists
+        if (selectionId) {
+            await supabase
+                .from('bid_selection')
+                .update({
+                    selection_status: 'accepted',
+                    selected_by: userId || null
+                })
+                .eq('selection_id', selectionId);
 
-        // 3️⃣ Reject all other shortlisted bids
-        await supabase
-            .from('bid_selection')
-            .update({
-                selection_status: 'rejected'
-            })
-            .eq('order_id', orderId)
-            .neq('selection_id', selectionId);
+            // Reject all other shortlisted bids
+            await supabase
+                .from('bid_selection')
+                .update({
+                    selection_status: 'rejected'
+                })
+                .eq('order_id', orderId)
+                .neq('selection_id', selectionId);
+        }
 
-        // 4️⃣ Update bids table
-        await supabase
-            .from('bids')
-            .update({ bid_status: 'accepted' })
-            .eq('bid_id', bidId);
+        // 3️⃣ Update bids table (Accept selected bid & reject others for this order)
+        if (bidId) {
+            await supabase
+                .from('bids')
+                .update({ bid_status: 'accepted' })
+                .eq('bid_id', bidId);
 
-        // 5️⃣ Update order status to 'bid_accepted'
-        // (Wait for supplier to assign driver before moving to 'driver_assigned')
+            await supabase
+                .from('bids')
+                .update({ bid_status: 'rejected' })
+                .eq('order_id', orderId)
+                .neq('bid_id', bidId);
+        }
+
+        // 4️⃣ Update order status to 'bid_accepted'
         await supabase
             .from('orders')
             .update({
@@ -126,7 +168,7 @@ export const finalizeOrder = async (req, res) => {
             })
             .eq('order_id', orderId);
 
-        // 6️⃣ Notify Operational team
+        // 5️⃣ Notify Operational team
         if (orderData?.created_by) {
             await supabase
                 .from('notifications')
@@ -140,9 +182,9 @@ export const finalizeOrder = async (req, res) => {
                 }]);
         }
 
-        res.status(200).json({ 
-            success: true, 
-            message: "Order finalized and sent to Operations for supplier notification." 
+        res.status(200).json({
+            success: true,
+            message: "Order finalized and sent to Operations for supplier notification."
         });
 
     } catch (error) {
@@ -235,6 +277,8 @@ export const getTrackingByOrderId = async (req, res) => {
                 tracking_id,
                 status,
                 current_location,
+                latitude,
+                longitude,
                 recorded_at,
 
                 orders (
@@ -287,6 +331,8 @@ export const getTrackingByOrderId = async (req, res) => {
             tracking_details: {
                 status: data.status,
                 location: data.current_location,
+                latitude: data.latitude,
+                longitude: data.longitude,
                 timestamp: data.recorded_at
             },
 
@@ -576,6 +622,54 @@ export const deleteDocument = async (req, res) => {
         res.status(500).json({
             success: false,
             message: error.message
+        });
+    }
+};
+export const updateTrackingLocation = async (req, res) => {
+    try {
+        const {
+            order_id,
+            driver_id,
+            latitude,
+            longitude,
+            current_location,
+            status
+        } = req.body;
+
+        if (!order_id || latitude == null || longitude == null) {
+            return res.status(400).json({
+                success: false,
+                message: "order_id, latitude and longitude are required"
+            });
+        }
+
+        const { data, error } = await supabase
+            .from("container_tracking")
+            .insert({
+                order_id,
+                driver_id: driver_id || null,
+                latitude,
+                longitude,
+                current_location: current_location || null,
+                status: status || "in_transit"
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.status(201).json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+        console.error("Tracking update error:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to update tracking location",
+            error: error.message
         });
     }
 };
