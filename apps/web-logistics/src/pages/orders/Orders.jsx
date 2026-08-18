@@ -31,39 +31,15 @@ import api from "../../config/api";
 
 // ---------------- STATUS BADGE ----------------
 const getStatusBadge = (status) => {
-    const base = "font-medium border px-2.5 py-0.5 rounded-full capitalize";
+    const base = "font-semibold border px-3 py-0.5 rounded-full capitalize text-xs bg-blue-50 text-blue-700 border-blue-200 shadow-sm";
     const s = status?.toLowerCase() || "created";
+    const displayName = s.replace(/_/g, " ");
 
-    switch (s) {
-        case "created":
-        case "open_for_bids":
-            return (
-                <Badge className={`${base} bg-blue-50 text-blue-700 border-blue-200`}>
-                    {s.replace(/_/g, " ")}
-                </Badge>
-            );
-        case "bid_accepted":
-        case "driver_assigned":
-            return (
-                <Badge className={`${base} bg-indigo-50 text-indigo-700 border-indigo-200`}>
-                    {s.replace(/_/g, " ")}
-                </Badge>
-            );
-        case "in_transit":
-            return (
-                <Badge className={`${base} bg-orange-50 text-orange-700 border-orange-200`}>
-                    In Transit
-                </Badge>
-            );
-        case "completed":
-            return (
-                <Badge className={`${base} bg-emerald-50 text-emerald-700 border-emerald-200`}>
-                    Completed
-                </Badge>
-            );
-        default:
-            return <Badge variant="secondary" className={base}>{s}</Badge>;
-    }
+    return (
+        <Badge className={base}>
+            {displayName}
+        </Badge>
+    );
 };
 
 // ---------------- MAIN COMPONENT ----------------
@@ -124,21 +100,21 @@ export default function OrdersPage({ title, type }) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Order</TableHead>
-                                    <TableHead>Route</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead className="pl-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Order</TableHead>
+                                    <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Route</TableHead>
+                                    <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
+                                    <TableHead className="pr-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
 
                             <TableBody>
                                 {filtered.map((order) => (
-                                    <TableRow key={order.order_id}>
+                                    <TableRow key={order.order_id} className="hover:bg-slate-50/50 transition-colors">
 
                                         {/* ORDER */}
-                                        <TableCell>
+                                        <TableCell className="pl-6 py-4">
                                             <div>
-                                                <p className="font-bold text-[#1E40AF]">
+                                                <p className="font-semibold text-[#1E40AF]">
                                                     {order.order_reference}
                                                 </p>
                                                 <p className="text-xs text-slate-400">
@@ -148,40 +124,40 @@ export default function OrdersPage({ title, type }) {
                                         </TableCell>
 
                                         {/* ROUTE */}
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4 text-sm font-medium text-slate-600">
                                             {order.pickup_state} - {order.destination_state}
                                         </TableCell>
 
                                         {/* STATUS */}
-                                        <TableCell>
+                                        <TableCell className="px-4 py-4">
                                             {getStatusBadge(order.current_status)}
                                         </TableCell>
 
                                         {/* ACTIONS */}
-                                        <TableCell className="text-right space-x-2">
-
-                                            {/* VIEW DETAILS */}
-                                            <Link to={`/orders/${order.order_id}`}>
-                                                <Button size="sm" variant="outline">
-                                                    View
+                                        <TableCell className="pr-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {/* VIEW DETAILS */}
+                                                <Button size="sm" variant="outline" asChild>
+                                                    <Link to={`/orders/${order.order_id}`}>
+                                                        View
+                                                    </Link>
                                                 </Button>
-                                            </Link>
 
-                                            {/* BIDS */}
-                                            <Link to={`/orders/${order.order_id}/bids`}>
-                                                <Button size="sm" variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50">
-                                                    Bids
+                                                {/* BIDS */}
+                                                <Button size="sm" variant="outline" asChild className="text-blue-600 border-blue-600 hover:bg-blue-50">
+                                                    <Link to={`/orders/${order.order_id}/bids`}>
+                                                        Bids
+                                                    </Link>
                                                 </Button>
-                                            </Link>
 
-                                            {/* DOCUMENTS */}
-                                            <Link to={`/orders/${order.order_id}/documents`}>
-                                                <Button size="sm" variant="secondary">
-                                                    <FiFileText className="mr-1" />
-                                                    Docs
+                                                {/* DOCUMENTS */}
+                                                <Button size="sm" variant="outline" asChild className="text-slate-700 border-slate-200 hover:bg-slate-50">
+                                                    <Link to={`/orders/${order.order_id}/documents`}>
+                                                        <FiFileText className="mr-1" />
+                                                        Docs
+                                                    </Link>
                                                 </Button>
-                                            </Link>
-
+                                            </div>
                                         </TableCell>
 
                                     </TableRow>

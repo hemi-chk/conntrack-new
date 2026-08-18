@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Package, Truck, AlertTriangle,
-    ArrowRight, Activity, Calendar, Loader2, RefreshCcw, CheckCircle2, Navigation,
-    Eye
+    Calendar, Loader2, RefreshCcw, CheckCircle2, Activity
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from "@/ui";
@@ -120,7 +119,6 @@ export default function Dashboard() {
                         </div>
                         <div>
                             <CardTitle className="text-lg text-slate-800">Recent Activity</CardTitle>
-
                         </div>
                     </div>
                 </CardHeader>
@@ -128,25 +126,25 @@ export default function Dashboard() {
                     <Table>
                         <TableHeader className="bg-slate-50">
                             <TableRow>
-                                <TableHead className="font-semibold">Order ID</TableHead>
-                                <TableHead className="font-semibold">Reference</TableHead>
-                                <TableHead className="font-semibold">Type</TableHead>
-                                <TableHead className="font-semibold">Asset / Driver</TableHead>
-                                <TableHead className="font-semibold">Status</TableHead>
-                                <TableHead className="text-right font-semibold">Action</TableHead>
+                                <TableHead className="text-left font-semibold align-middle">Order ID</TableHead>
+                                <TableHead className="text-left font-semibold align-middle">Reference</TableHead>
+                                <TableHead className="text-left font-semibold align-middle">Type</TableHead>
+                                <TableHead className="text-left font-semibold align-middle">Asset / Driver</TableHead>
+                                <TableHead className="text-left font-semibold align-middle">Status</TableHead>
+                                <TableHead className="text-right font-semibold align-middle">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {data.recentActivity?.length > 0 ? (
                                 data.recentActivity.map((order) => (
                                     <TableRow key={order.order_id} className="hover:bg-slate-50/80 group">
-                                        <TableCell className="font-medium text-slate-500 text-xs">
+                                        <TableCell className="text-left align-middle font-medium text-slate-500 text-xs">
                                             #{order.order_id}
                                         </TableCell>
-                                        <TableCell className="font-bold text-[#1E40AF]">
+                                        <TableCell className="text-left align-middle font-bold text-[#1E40AF]">
                                             {order.order_reference || "N/A"}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-left align-middle">
                                             <Badge
                                                 variant="secondary"
                                                 className={order.order_type === 'import'
@@ -156,13 +154,13 @@ export default function Dashboard() {
                                                 {(order.order_type || "Unknown").toUpperCase()}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
+                                        <TableCell className="text-left align-middle">
+                                            <div className="flex flex-col justify-center">
                                                 <span className="text-sm font-semibold text-slate-700">{order.vehicle_number || "Unassigned"}</span>
                                                 <span className="text-xs text-slate-500">{order.driver_name || "No driver assigned"}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="text-left align-middle">
                                             <div className="flex items-center gap-2">
                                                 <span className={`h-2 w-2 rounded-full ${order.current_status === 'completed' ? 'bg-emerald-500' :
                                                     order.current_status === 'in_transit' ? 'bg-blue-500' :
@@ -171,7 +169,7 @@ export default function Dashboard() {
                                                 <span className="text-sm font-medium capitalize text-slate-600">{(order.current_status || "pending").replace('_', ' ')}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right align-middle">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -185,7 +183,7 @@ export default function Dashboard() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center">
+                                    <TableCell colSpan={6} className="h-32 text-center align-middle">
                                         <div className="flex flex-col items-center justify-center text-slate-400">
                                             <Package className="h-8 w-8 mb-2 opacity-20" />
                                             <p className="italic">No active logistics records found.</p>
