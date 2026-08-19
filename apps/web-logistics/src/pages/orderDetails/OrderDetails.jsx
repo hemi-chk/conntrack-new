@@ -8,6 +8,7 @@ import {
 import { Button, Card, CardContent, Badge } from "@/ui";
 import OrderSummary from "./OrderSummary";
 import TrackingMeter from "./TrackingMeter";
+import ContainerMap from "./ContainerMap";
 import api from "../../config/api";
 
 
@@ -61,6 +62,12 @@ export default function OrderDetails() {
       {/* Tracking Meter Component */}
       <TrackingMeter orderId={order.order_id} orderType={order.order_type} />
 
+      {/* Socket.io Live Container Location Map Component */}
+      <ContainerMap 
+        orderId={order.order_id} 
+        status={order.current_status}
+      />
+
       {/* Action Buttons */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm px-6 py-4 flex flex-wrap items-center gap-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-2">Quick Actions</p>
@@ -88,3 +95,4 @@ export default function OrderDetails() {
     </div>
   );
 }
+
