@@ -169,14 +169,6 @@ const TrackingMeter = ({ orderId, orderType }) => {
                 </p>
               </div>
             </div>
-
-            {/* Live Container Map */}
-            <ContainerMap
-              latitude={trackingData.tracking_details?.latitude}
-              longitude={trackingData.tracking_details?.longitude}
-              locationName={trackingData.tracking_details?.location}
-              status={trackingData.tracking_details?.status}
-            />
           </>
         )}
       </CardContent>
@@ -185,3 +177,4 @@ const TrackingMeter = ({ orderId, orderType }) => {
 };
 
 export default TrackingMeter;
+
