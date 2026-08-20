@@ -12,7 +12,9 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     type: 'LCV',
     availability_status: 'available',
     insurance_expiry: '',
-    port_pass_expiry: ''
+    port_pass_expiry: '',
+    insurance_file: null,
+    port_pass_file: null
   });
   const [error, setError] = useState('');
 
@@ -23,7 +25,9 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
         type: vehicle.vehicle_type || vehicle.type || 'LCV',
         availability_status: vehicle.availability_status || vehicle.status || 'available',
         insurance_expiry: vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toISOString().split('T')[0] : '',
-        port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : ''
+        port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : '',
+        insurance_file: null,
+        port_pass_file: null
       });
     }
   }, [vehicle, isOpen]);
@@ -36,6 +40,11 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
   };
 
   const validate = () => {
@@ -114,6 +123,16 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
             <div>
               <label className={labelCls}>Port Pass Expiry *</label>
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
+            </div>
+
+            {/* Row 3: Document Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
 
           </div>

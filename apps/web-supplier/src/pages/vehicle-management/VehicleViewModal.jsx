@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertTriangle, Shield, Calendar, Truck, Activity } from 'lucide-react';
+import { X, AlertTriangle, Shield, Calendar, Truck, Activity, FileText, ExternalLink } from 'lucide-react';
 
 const DetailItem = ({ label, value, mono = false }) => (
   <div className="flex flex-col">
@@ -85,6 +85,25 @@ export const VehicleViewModal = ({ isOpen, onClose, vehicle, onEdit, onDelete })
                 label="Port Pass Expiry"
                 value={vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toLocaleDateString('en-GB') : ''}
               />
+
+              <div className="pt-1.5 space-y-1.5">
+                <button
+                  onClick={() => vehicle.Vehicle_Insurance_Copy && window.open(vehicle.Vehicle_Insurance_Copy, '_blank')}
+                  disabled={!vehicle.Vehicle_Insurance_Copy}
+                  className="flex justify-between items-center px-2.5 py-1.5 w-full text-[10px] font-bold rounded-lg border border-gray-200 transition-colors group hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="flex gap-1.5 items-center"><FileText size={12} className="text-primary" /> Insurance Copy</span>
+                  <ExternalLink size={10} className="text-gray-300 group-hover:text-primary" />
+                </button>
+                <button
+                  onClick={() => vehicle.Vehicle_Port_Pass_Copy && window.open(vehicle.Vehicle_Port_Pass_Copy, '_blank')}
+                  disabled={!vehicle.Vehicle_Port_Pass_Copy}
+                  className="flex justify-between items-center px-2.5 py-1.5 w-full text-[10px] font-bold rounded-lg border border-gray-200 transition-colors group hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="flex gap-1.5 items-center"><Shield size={12} className="text-primary" /> Port Pass Copy</span>
+                  <ExternalLink size={10} className="text-gray-300 group-hover:text-primary" />
+                </button>
+              </div>
             </div>
 
           </div>

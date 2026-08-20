@@ -1,6 +1,7 @@
 import express from 'express'
-import { 
-  getSupplierData, 
+import multer from 'multer'
+import {
+  getSupplierData,
   createSupplierRecord,
   getVehicles,
   addVehicle,
@@ -20,20 +21,45 @@ import {
   getVehicleInspections,
   addInspectionRecord,
   getDashboardStats,
-  getSupplierProfile
+  getSupplierProfile,
+  updateSupplierLogo
 } from '../controllers/supplier.controller.js'
 
 const router = express.Router()
+
+// =============================================
+// MULTER CONFIG
+// =============================================
+const storage = multer.memoryStorage()
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg']
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only PDF, PNG, JPG files allowed'))
+    }
+  }
+})
+const uploadVehicleDocs = upload.fields([
+  { name: 'insurance', maxCount: 1 },
+  { name: 'port_pass', maxCount: 1 }
+])
 
 // --- Supplier Routes ---
 router.get('/dashboard-stats', getDashboardStats)
 router.get('/', getSupplierData)
 router.post('/', createSupplierRecord)
+router.patch('/:id/logo', upload.single('logo'), updateSupplierLogo)
 
 // --- Vehicle Routes ---
 router.get('/vehicles', getVehicles)
-router.post('/vehicles', addVehicle)
-router.put('/vehicles/:id', updateVehicle)
+router.post('/vehicles', uploadVehicleDocs, addVehicle)
+router.put('/vehicles/:id', uploadVehicleDocs, updateVehicle)
 router.delete('/vehicles/:id', deleteVehicle)
 
 // --- Driver Routes ---

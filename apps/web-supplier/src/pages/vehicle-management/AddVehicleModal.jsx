@@ -11,7 +11,9 @@ const emptyForm = {
   availability_status: 'available',
   condition_status: 'good',
   insurance_expiry: '',
-  port_pass_expiry: ''
+  port_pass_expiry: '',
+  insurance_file: null,
+  port_pass_file: null
 };
 
 export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
@@ -27,6 +29,11 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
   };
 
   const validate = () => {
@@ -114,6 +121,16 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
             <div>
               <label className={labelCls}>Port Pass Expiry *</label>
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
+            </div>
+
+            {/* Row 3: Document Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
 
           </div>
