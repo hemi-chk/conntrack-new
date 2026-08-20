@@ -6,6 +6,7 @@
 
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -18,12 +19,14 @@ import {
   View,
   ActivityIndicator
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
 import { theme } from "../constants/theme";
+import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function DriverProfile({ route, navigation }) {
   // Extract user context from navigation route
@@ -48,7 +51,7 @@ export default function DriverProfile({ route, navigation }) {
   const handleToggleDutyStatus = async (newValue) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/driver/update-duty-status`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/update-duty-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -96,7 +99,7 @@ export default function DriverProfile({ route, navigation }) {
         setIsUploadingPhoto(true);
         const driverId = user?.driver_id || user?.emp_id;
         
-        const response = await fetch(`${API_BASE_URL}/api/driver/upload-profile-photo`, {
+        const response = await authFetch(`${API_BASE_URL}/api/driver/upload-profile-photo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -156,7 +159,7 @@ export default function DriverProfile({ route, navigation }) {
       setIsUploadingPhoto(true);
       const driverId = user?.driver_id || user?.emp_id;
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/remove-profile-photo`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/remove-profile-photo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ driverId }),
@@ -323,7 +326,16 @@ export default function DriverProfile({ route, navigation }) {
         <View style={styles.logoutContainer}>
           <Button
             title={t("logout")}
-            onPress={() => navigation.navigate("Login")}
+            onPress={async () => {
+              await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+              await AsyncStorage.removeItem("saved_user");
+              await AsyncStorage.removeItem("saved_driver_id");
+              await AsyncStorage.removeItem("remember_me");
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            }}
           />
         </View>
 

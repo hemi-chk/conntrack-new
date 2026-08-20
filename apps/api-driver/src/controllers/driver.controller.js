@@ -44,8 +44,33 @@ exports.getAssignedOrders = async (req, res) => {
 // 2. Update live GPS tracking for a container
 exports.updateTracking = async (req, res) => {
     try {
-        const { orderId, latitude, longitude, status, description } = req.body;
+        const { orderId, assignmentId, latitude, longitude, status, description } = req.body;
         const driverId = req.driver.driver_id;
+
+        if (!driverId || !orderId || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+            return res.status(400).json({ success: false, message: 'Missing or invalid tracking data' });
+        }
+
+        if (Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180) {
+            return res.status(400).json({ success: false, message: 'Coordinates are out of range' });
+        }
+
+        if (assignmentId) {
+            const { data: assignment, error: assignmentError } = await supabase
+                .from('order_assignments')
+                .select('assignment_id')
+                .eq('assignment_id', assignmentId)
+                .eq('order_id', orderId)
+                .eq('driver_id', driverId)
+                .neq('status', 'completed')
+                .neq('status', 'delivered')
+                .maybeSingle();
+
+            if (assignmentError) throw assignmentError;
+            if (!assignment) {
+                return res.status(403).json({ success: false, message: 'Tracking assignment is not owned by this driver' });
+            }
+        }
 
         const { data, error } = await supabase
             .from('container_tracking')
@@ -53,8 +78,8 @@ exports.updateTracking = async (req, res) => {
                 {
                     order_id: orderId,
                     driver_id: driverId,
-                    latitude,
-                    longitude,
+                    latitude: Number(latitude),
+                    longitude: Number(longitude),
                     status,
                     description,
                     recorded_at: new Date()
@@ -152,6 +177,10 @@ exports.loginDriver = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid password' });
         }
 
+        if (!process.env.DRIVER_JWT_SECRET) {
+            return res.status(500).json({ success: false, message: 'Authentication is not configured' });
+        }
+
         console.log('Match Found:', data.first_name, data.last_name);
 
         // Fetch associated vehicle details
@@ -198,6 +227,10 @@ exports.changePassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+        }
+
         // 1. Fetch the driver's current password hash
         const { data, error } = await supabase
             .from('drivers')
@@ -213,13 +246,14 @@ exports.changePassword = async (req, res) => {
         if (!data.password_hash) {
             return res.status(400).json({ success: false, message: 'No password set for this account. Contact your administrator.' });
         }
+
         const isMatch = await bcrypt.compare(oldPassword, data.password_hash);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: 'Current password incorrect' });
         }
 
         // 3. Hash New Password
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
         // 4. Update Database
@@ -495,7 +529,11 @@ exports.updateDutyStatus = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
     try {
+<<<<<<< HEAD:apps/api-driver/src/controllers/driver.controller.js
         const { first_name, last_name, contact_number } = req.body;
+=======
+        const { driverId, first_name, last_name, contact_number, emergency_contact, empId } = req.body;
+>>>>>>> d33176f (Complete driver app and API updates):apps/api-admin/src/controllers/driver.controller.js
 
         console.log('--- Profile Update Attempt ---');
         console.log('Received Body:', JSON.stringify(req.body, null, 2));
@@ -508,6 +546,7 @@ exports.updateProfile = async (req, res) => {
                 first_name,
                 last_name,
                 contact_number,
+                emergency_contact,
                 updated_at: new Date()
             })
             .eq('driver_id', req.driver.driver_id);

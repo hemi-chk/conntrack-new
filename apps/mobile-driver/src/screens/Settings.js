@@ -10,10 +10,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { AUTH_TOKEN_KEY } from "../utils/authFetch";
 
 export default function Settings({ route, navigation }) {
   const { t } = useTranslation();
@@ -80,7 +82,9 @@ export default function Settings({ route, navigation }) {
           style: "destructive",
           onPress: async () => {
             // Clear all sensitive and persistence data
+            await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
             await AsyncStorage.removeItem("saved_driver_id");
+            await AsyncStorage.removeItem("saved_user");
             await AsyncStorage.removeItem("saved_password");
             await AsyncStorage.removeItem("remember_me");
             await AsyncStorage.removeItem("driver_token");

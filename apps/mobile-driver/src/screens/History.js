@@ -13,6 +13,7 @@ import { theme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { API_BASE_URL } from "../constants/config";
+import { authFetch } from "../utils/authFetch";
 
 export default function History({ route, navigation }) {
   const { t } = useTranslation();
@@ -35,7 +36,7 @@ export default function History({ route, navigation }) {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/history/${driverId}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/history/${driverId}`);
       const result = await response.json();
 
       if (result.success) {

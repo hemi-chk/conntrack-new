@@ -14,6 +14,7 @@ import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { API_BASE_URL } from "../constants/config";
+import { authFetch } from "../utils/authFetch";
 
 export default function VehicleInfo({ route, navigation }) {
   // Extract user context to identify associated supplier/vehicle
@@ -35,7 +36,7 @@ export default function VehicleInfo({ route, navigation }) {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/assigned-vehicle/${driverId}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/assigned-vehicle/${driverId}`);
       const result = await response.json();
 
       if (result.success && result.data) {

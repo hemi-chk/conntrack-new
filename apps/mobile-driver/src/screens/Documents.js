@@ -16,6 +16,7 @@ import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { API_BASE_URL } from "../constants/config";
+import { authFetch } from "../utils/authFetch";
 
 export default function Documents({ route, navigation }) {
   const { t } = useTranslation();
@@ -38,7 +39,7 @@ export default function Documents({ route, navigation }) {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/order-documents/${orderId}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/order-documents/${orderId}`);
       const result = await response.json();
 
       if (result.success) {

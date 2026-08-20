@@ -4,15 +4,16 @@
  * and an issue reporting form that syncs with the management backend.
  */
 
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions, TextInput, ActivityIndicator, Modal, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { authFetch } from "../utils/authFetch";
 
 const { width } = Dimensions.get("window");
 
@@ -113,7 +114,8 @@ export default function Support({ route, navigation }) {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/driver/report-issue`, {
+      const driverId = user?.driver_id || user?.emp_id;
+      const response = await authFetch(`${API_BASE_URL}/api/driver/report-issue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

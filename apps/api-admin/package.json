@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "reset-driver-password": "node scripts/reset_driver_password.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -12,9 +13,10 @@
     "dotenv": "^16.0.0",
     "multer": "^1.4.5-lts.1",
     "bcryptjs": "^2.4.3",
-    "@conntrack/api-core": "*"
+    "@conntrack/api-core": "*",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.0"
+    "nodemon": "^3.0.2"
   }
 }

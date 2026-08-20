@@ -5,6 +5,8 @@
  */
 
 import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   TextInput,
@@ -23,23 +25,22 @@ import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
 
 import { API_BASE_URL } from "../constants/config";
+import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function EditProfile({ route, navigation }) {
-  // Extract initial user data from navigation parameters
   const { user } = route.params || {};
   const { t } = useTranslation();
 
-  // Local state for form fields
   const [firstName, setFirstName] = useState(user?.first_name || "");
   const [lastName, setLastName] = useState(user?.last_name || "");
   const [phone, setPhone] = useState(user?.contact_number || "");
+  const [emergencyContact, setEmergencyContact] = useState(user?.emergency_contact || "");
   const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Validates and submits updated profile information to the server.
    */
   const handleSave = async () => {
-    // Basic presence validation
     if (!firstName || !lastName || !phone) {
       Alert.alert("Error", "Please fill in all fields");
       return;
@@ -47,7 +48,7 @@ export default function EditProfile({ route, navigation }) {
 
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/driver/update-profile`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/update-profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -55,14 +56,15 @@ export default function EditProfile({ route, navigation }) {
           empId: user?.emp_id,
           first_name: firstName,
           last_name: lastName,
-          contact_number: phone
+          contact_number: phone,
+          emergency_contact: emergencyContact
         }),
       });
 
       const result = await response.json();
       if (result.success) {
         Alert.alert("Success", "Profile updated successfully");
-        navigation.goBack(); // Return to profile overview
+        navigation.goBack();
       } else {
         Alert.alert("Error", "Failed to update profile");
       }
@@ -81,7 +83,6 @@ export default function EditProfile({ route, navigation }) {
         style={styles.container}
       >
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* HEADER SECTION */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -92,7 +93,6 @@ export default function EditProfile({ route, navigation }) {
             </Typography>
           </View>
 
-          {/* EDITABLE FORM FIELDS */}
           <Typography variant="body" weight="medium" style={styles.label}>{t("first_name") || "First Name"}</Typography>
           <TextInput 
             value={firstName} 
@@ -118,7 +118,16 @@ export default function EditProfile({ route, navigation }) {
             placeholderTextColor={theme.colors.textMuted}
           />
 
-          {/* PRIMARY ACTION: Save Changes */}
+          <Typography variant="body" weight="medium" style={styles.label}>{t("emergency_contact") || "Emergency Contact"}</Typography>
+          <TextInput 
+            value={emergencyContact} 
+            onChangeText={setEmergencyContact} 
+            style={styles.input} 
+            keyboardType="phone-pad"
+            placeholderTextColor={theme.colors.textMuted}
+            placeholder={t("enter_emergency_contact") || "Emergency Contact Phone Number"}
+          />
+
           <Button 
             title={isLoading ? "Saving..." : t("save_changes")}
             style={styles.saveButton}
@@ -126,7 +135,6 @@ export default function EditProfile({ route, navigation }) {
             onPress={handleSave}
           />
 
-          {/* SECONDARY ACTIONS: Security and Session Management */}
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => navigation.navigate("ChangePassword", { user })}
@@ -142,7 +150,19 @@ export default function EditProfile({ route, navigation }) {
             onPress={() =>
               Alert.alert(t("sign_out"), t("are_you_sure_logout"), [
                 { text: t("cancel"), style: "cancel" },
-                { text: t("logout"), onPress: () => navigation.navigate("Login") },
+                { 
+                  text: t("logout"), 
+                  onPress: async () => {
+                    await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+                    await AsyncStorage.removeItem("saved_user");
+                    await AsyncStorage.removeItem("saved_driver_id");
+                    await AsyncStorage.removeItem("remember_me");
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: "Login" }],
+                    });
+                  } 
+                },
               ])
             }
           >

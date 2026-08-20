@@ -4,31 +4,32 @@
  * Supports "Remember Me" functionality using local AsyncStorage.
  */
 
-import { useState, useEffect } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
-  ActivityIndicator,
-  ScrollView
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialIcons } from "@expo/vector-icons";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
-import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { AUTH_TOKEN_KEY } from "../utils/authFetch";
 
 export default function LoginScreen({ navigation }) {
   const [driverId, setDriverId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,12 +42,25 @@ export default function LoginScreen({ navigation }) {
     const loadCredentials = async () => {
       try {
         const savedId = await AsyncStorage.getItem("saved_driver_id");
-        const savedPass = await AsyncStorage.getItem("saved_password");
         const savedRemember = await AsyncStorage.getItem("remember_me");
-
+        const savedUser = await AsyncStorage.getItem("saved_user");
+        const savedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+        // If previously asked to remember credentials, restore them
         if (savedRemember === "true") {
-          if (savedId) setDriverId(savedId);
-          if (savedPass) setPassword(savedPass);
+          if (savedToken && savedUser) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Dashboard", params: { user: JSON.parse(savedUser) } }],
+            });
+            return;
+          }
+
+          if (savedId) {
+            setDriverId(savedId);
+            // Try to load saved password from secure store for this driver id
+            const savedPassword = await SecureStore.getItemAsync(`saved_password_${savedId}`);
+            if (savedPassword) setPassword(savedPassword);
+          }
           setRememberMe(true);
         }
       } catch (error) {
@@ -55,6 +69,20 @@ export default function LoginScreen({ navigation }) {
     };
     loadCredentials();
   }, []);
+
+  // If driverId changes and Remember Me is enabled, try to load matching saved password
+  useEffect(() => {
+    const loadPasswordForDriver = async () => {
+      if (!rememberMe || !driverId) return;
+      try {
+        const savedPassword = await SecureStore.getItemAsync(`saved_password_${driverId}`);
+        if (savedPassword) setPassword(savedPassword);
+      } catch (err) {
+        console.error('Error loading saved password for driver:', err);
+      }
+    };
+    loadPasswordForDriver();
+  }, [driverId, rememberMe]);
 
   /**
    * Primary login handler. 
@@ -82,19 +110,27 @@ export default function LoginScreen({ navigation }) {
       const result = await response.json();
 
       if (result.success) {
-        // Persist the session token so subsequent API calls can authenticate
-        await AsyncStorage.setItem("driver_token", result.token);
-
         // Persist credentials locally if "Remember Me" is enabled
         if (rememberMe) {
           await AsyncStorage.setItem("saved_driver_id", driverId);
-          await AsyncStorage.setItem("saved_password", password);
+          await AsyncStorage.setItem("saved_user", JSON.stringify(result.user));
           await AsyncStorage.setItem("remember_me", "true");
+          // Save password securely (per-driver key)
+          try {
+            await SecureStore.setItemAsync(`saved_password_${driverId}`, password);
+          } catch (err) {
+            console.warn('Could not save password to secure store:', err);
+          }
         } else {
-          // Clear credentials if "Remember Me" is disabled
+          // Clear saved Driver ID and any stored password for this driver
           await AsyncStorage.removeItem("saved_driver_id");
-          await AsyncStorage.removeItem("saved_password");
+          await AsyncStorage.removeItem("saved_user");
           await AsyncStorage.setItem("remember_me", "false");
+          try {
+            await SecureStore.deleteItemAsync(`saved_password_${driverId}`);
+          } catch (err) {
+            // ignore
+          }
         }
 
         // Navigate to the Dashboard and pass user object for context
@@ -147,14 +183,28 @@ export default function LoginScreen({ navigation }) {
                   autoCapitalize="none"
                 />
 
-                <TextInput
-                  placeholder="Password"
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  style={styles.input}
-                  placeholderTextColor={theme.colors.textMuted}
-                />
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    placeholder="Password"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    style={[styles.input, styles.passwordInput]}
+                    placeholderTextColor={theme.colors.textMuted}
+                  />
+                  <TouchableOpacity
+                    style={styles.showPasswordButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    accessible
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                  >
+                    <MaterialIcons
+                      name={showPassword ? "visibility-off" : "visibility"}
+                      size={22}
+                      color={theme.colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
 
                 {/* LOGIN PREFERENCES & HELP */}
                 <View style={styles.optionsRow}>
@@ -281,5 +331,21 @@ const styles = StyleSheet.create({
   },
   backToLogin: {
     marginTop: theme.spacing.md,
+  }
+  ,
+  passwordInputContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 44,
+  },
+  showPasswordButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    height: 32,
+    width: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   }
 });
