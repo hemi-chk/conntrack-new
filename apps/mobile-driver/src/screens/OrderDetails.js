@@ -1,23 +1,23 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Animated, Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Alert, Animated, Dimensions, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
+import { API_BASE_URL } from "../constants/config";
 import { theme } from "../constants/theme";
 import { useOrder } from "../context/OrderContext";
-import * as Location from "expo-location";
-import { API_BASE_URL } from "../constants/config";
-import { Alert, ActivityIndicator } from "react-native";
-import * as Haptics from "expo-haptics";
+import { authFetch } from "../utils/authFetch";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function OrderDetails({ route: navRoute, navigation }) {
-  const { orderStatus, setOrderStatus } = useOrder();
+  const { orderStatus, setOrderStatus, registerTrackingMission } = useOrder();
   const { t } = useTranslation();
   
   // Get real order data from Dashboard
@@ -40,24 +40,40 @@ export default function OrderDetails({ route: navRoute, navigation }) {
 
   // Sync local status with mission data from server on load
   useEffect(() => {
+    registerTrackingMission(activeMission);
     if (activeMission.status) {
       setOrderStatus(activeMission.status.toLowerCase());
     }
   }, [activeMission.status]);
+
+  const mapRef = useRef(null);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+
+  // Request location permission on mount to show user location dot
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        setHasLocationPermission(status === 'granted');
+      } catch (err) {
+        console.warn("Error requesting foreground location permissions:", err);
+      }
+    })();
+  }, []);
 
   const order = {
     id: orderData.order_reference || "IMP-12345",
     pickup: {
       name: orderData.origin_name || t("freezone_warehouse"),
       address: orderData.origin_address || t("katunayake_address"),
-      latitude: 6.933,
-      longitude: 79.85
+      latitude: Number(orderData.origin_latitude || orderData.pickup_latitude || 6.933),
+      longitude: Number(orderData.origin_longitude || orderData.pickup_longitude || 79.85)
     },
     drop: {
       name: orderData.destination_name || t("colombo_port_terminal"),
       address: orderData.destination_address || t("colombo_port_address"),
-      latitude: 6.948,
-      longitude: 79.873
+      latitude: Number(orderData.destination_latitude || orderData.dropoff_latitude || 6.948),
+      longitude: Number(orderData.destination_longitude || orderData.dropoff_longitude || 79.873)
     },
     instructions: orderData.special_instructions || orderData.instructions || t("temp_sensitive_cargo"),
     eta: "45 mins",
@@ -67,14 +83,67 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     weight: orderData.cargo_weight ? `${orderData.cargo_weight} ${t("tons")}` : t("n_a")
   };
 
-  const route = [
-    { latitude: 6.933, longitude: 79.85 },
-    { latitude: 6.936, longitude: 79.855 },
-    { latitude: 6.939, longitude: 79.86 },
-    { latitude: 6.942, longitude: 79.865 },
-    { latitude: 6.945, longitude: 79.87 },
-    { latitude: 6.948, longitude: 79.873 }
-  ];
+  const [route, setRoute] = useState([
+    order.pickup,
+    order.drop
+  ]);
+
+  // Fetch actual driving route from OSRM
+  useEffect(() => {
+    const fetchRoute = async () => {
+      const pLat = order.pickup.latitude;
+      const pLng = order.pickup.longitude;
+      const dLat = order.drop.latitude;
+      const dLng = order.drop.longitude;
+
+      if (!pLat || !pLng || !dLat || !dLng) {
+        setRoute([order.pickup, order.drop]);
+        return;
+      }
+
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
+        const response = await fetch(url);
+        const json = await response.json();
+        
+        if (json.code === "Ok" && json.routes && json.routes[0]) {
+          const coords = json.routes[0].geometry.coordinates.map(coord => ({
+            latitude: coord[1],
+            longitude: coord[0]
+          }));
+          if (coords.length > 0) {
+            setRoute(coords);
+            return;
+          }
+        }
+        setRoute([order.pickup, order.drop]);
+      } catch (error) {
+        console.warn("OrderDetails: OSRM route fetch failed, using straight line fallback:", error);
+        setRoute([order.pickup, order.drop]);
+      }
+    };
+
+    fetchRoute();
+  }, [order.pickup.latitude, order.pickup.longitude, order.drop.latitude, order.drop.longitude]);
+
+  // Auto-fit coordinates to see both markers
+  useEffect(() => {
+    if (mapRef.current && order.pickup.latitude && order.drop.latitude) {
+      const timer = setTimeout(() => {
+        mapRef.current.fitToCoordinates(
+          [
+            { latitude: order.pickup.latitude, longitude: order.pickup.longitude },
+            { latitude: order.drop.latitude, longitude: order.drop.longitude }
+          ],
+          {
+            edgePadding: { top: 120, right: 60, bottom: SCREEN_HEIGHT * 0.45 + 60, left: 60 },
+            animated: true,
+          }
+        );
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [order.pickup.latitude, order.drop.latitude]);
 
   const getStatusInfo = () => {
     switch (orderStatus) {
@@ -91,6 +160,39 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   };
 
   const statusInfo = getStatusInfo();
+
+  /**
+   * Launcher for turn-by-turn navigation in external maps (Google / Apple Maps).
+   */
+  const handleOpenNavigation = () => {
+    const isHeadingToPickup = !orderStatus || orderStatus === "assigned" || orderStatus === "started" || orderStatus === "heading to pickup";
+    const target = isHeadingToPickup ? order.pickup : order.drop;
+    
+    const lat = target.latitude;
+    const lng = target.longitude;
+    const label = encodeURIComponent(target.name);
+    
+    const url = Platform.select({
+      ios: `maps://app?daddr=${lat},${lng}&q=${label}`,
+      android: `google.navigation:q=${lat},${lng}`
+    });
+    
+    if (url) {
+      Linking.canOpenURL(url)
+        .then((supported) => {
+          if (supported) {
+            Linking.openURL(url);
+          } else {
+            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            Linking.openURL(webUrl);
+          }
+        })
+        .catch((err) => {
+          console.error("An error occurred launching navigation:", err);
+          Alert.alert("Error", "Could not launch native navigation app.");
+        });
+    }
+  };
 
   /**
    * Syncs the mission stage with the backend database.
@@ -111,13 +213,35 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     try {
       setIsUpdating(true);
       
-      // 📍 GPS integration temporarily disabled for testing
-      const locationName = "Manual Update";
-      const latitude = 6.9271;
-      const longitude = 79.8612;
+      let latitude = 6.9271;
+      let longitude = 79.8612;
+      let locationName = "Manual Update";
+
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+            timeout: 5000
+          });
+          if (location) {
+            latitude = location.coords.latitude;
+            longitude = location.coords.longitude;
+            
+            const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+            if (geocode && geocode[0]) {
+              locationName = `${geocode[0].city || geocode[0].region || "Colombo"}, ${geocode[0].country || "Sri Lanka"}`;
+            } else {
+              locationName = "Live Update";
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Could not retrieve GPS coordinates:", err);
+      }
 
       // Send to backend
-      const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,6 +278,8 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     <View style={styles.container}>
       {/* MAP */}
       <MapView
+        ref={mapRef}
+        showsUserLocation={hasLocationPermission}
         style={styles.map}
         initialRegion={{
           latitude: 6.94,
@@ -181,6 +307,27 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           lineDashPattern={[0]}
         />
       </MapView>
+
+      {/* FLOATING ACTION BUTTONS */}
+      <View style={styles.floatingButtonsContainer}>
+        {/* Fullscreen Map Button */}
+        <TouchableOpacity
+          style={styles.floatingCircleButton}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate("Map", { order: activeMission })}
+        >
+          <MaterialIcons name="fullscreen" size={24} color={theme.colors.text} />
+        </TouchableOpacity>
+
+        {/* Start Navigation Button */}
+        <TouchableOpacity
+          style={[styles.floatingCircleButton, { marginTop: 12, backgroundColor: theme.colors.primary }]}
+          activeOpacity={0.8}
+          onPress={handleOpenNavigation}
+        >
+          <MaterialIcons name="navigation" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
 
       {/* TOP BAR */}
       <SafeAreaView style={styles.header} edges={["top"]}>
@@ -341,12 +488,20 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
             />
           ) : (orderStatus === "transit" || orderStatus === "in transit") ? (
-            <Button
-              title={t("mark_delivered")}
-              onPress={() => syncStatusWithDb("delivered")}
-              loading={isUpdating}
-              style={[styles.actionButton, { backgroundColor: theme.colors.success }]}
-            />
+            <>
+              <Button
+                title={t("start_trip")}
+                onPress={() => syncStatusWithDb("started")}
+                loading={isUpdating}
+                style={styles.actionButton}
+              />
+              <Button
+                title={t("mark_delivered")}
+                onPress={() => syncStatusWithDb("delivered")}
+                loading={isUpdating}
+                style={[styles.actionButton, { backgroundColor: theme.colors.success, marginTop: theme.spacing.sm }]}
+              />
+            </>
           ) : orderStatus === "delivered" ? (
             <View style={styles.completedBox}>
               <MaterialIcons name="check-circle" size={24} color={theme.colors.success} />
@@ -559,5 +714,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 8,
+  },
+  floatingButtonsContainer: {
+    position: "absolute",
+    right: theme.spacing.lg,
+    top: 120,
+    zIndex: 100,
+  },
+  floatingCircleButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
+    ...theme.shadows.md,
   },
 });
