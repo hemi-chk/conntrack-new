@@ -8,9 +8,9 @@ export default function Login() {
   const [error, setError] = useState("")
 
   const externalRedirectMap = {
-    operations: "http://127.0.0.1:5174",
-    supplier: "http://127.0.0.1:5175",
-    logistics: "http://127.0.0.1:5176",
+    operations: import.meta.env.VITE_OPERATIONS_URL || "http://127.0.0.1:5174",
+    supplier: import.meta.env.VITE_SUPPLIER_URL || "http://127.0.0.1:5175",
+    logistics: import.meta.env.VITE_LOGISTICS_URL || "http://127.0.0.1:5176",
   }
 
   const handleLogin = async (e) => {
