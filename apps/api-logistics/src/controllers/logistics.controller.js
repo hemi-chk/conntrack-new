@@ -165,14 +165,27 @@ export const getShortlistedBids = async (req, res) => {
 
         const formatted = selectionData.map(item => {
 
-            let selectionStatus =
-                item.selection_status ||
-                (item.selected === true
-                    ? "WINNER"
-                    : "SHORTLISTED");
+            const rawSelectionStatus =
+                String(item.selection_status || "")
+                    .trim()
+                    .toLowerCase();
 
-            selectionStatus =
-                String(selectionStatus).toUpperCase();
+            let selectionStatus = "SHORTLISTED";
+
+            if (
+                rawSelectionStatus === "accepted" ||
+                rawSelectionStatus === "winner" ||
+                rawSelectionStatus === "selected" ||
+                item.selected === true
+            ) {
+                selectionStatus = "WINNER";
+            } else if (
+                rawSelectionStatus === "rejected" ||
+                rawSelectionStatus === "not_selected" ||
+                rawSelectionStatus === "not selected"
+            ) {
+                selectionStatus = "REJECTED";
+            }
 
 
             return {
@@ -431,15 +444,27 @@ export const finalizeOrder = async (req, res) => {
         }
 
 
-        const currentSelectionStatus =
-            String(
-                selectedSelection.selection_status ||
-                (
-                    selectedSelection.selected === true
-                        ? "WINNER"
-                        : "SHORTLISTED"
-                )
-            ).toUpperCase();
+        const rawCurrentSelectionStatus =
+            String(selectedSelection.selection_status || "")
+                .trim()
+                .toLowerCase();
+
+        let currentSelectionStatus = "SHORTLISTED";
+
+        if (
+            rawCurrentSelectionStatus === "accepted" ||
+            rawCurrentSelectionStatus === "winner" ||
+            rawCurrentSelectionStatus === "selected" ||
+            selectedSelection.selected === true
+        ) {
+            currentSelectionStatus = "WINNER";
+        } else if (
+            rawCurrentSelectionStatus === "rejected" ||
+            rawCurrentSelectionStatus === "not_selected" ||
+            rawCurrentSelectionStatus === "not selected"
+        ) {
+            currentSelectionStatus = "REJECTED";
+        }
 
 
         // ----------------------------------------------------
@@ -487,10 +512,12 @@ export const finalizeOrder = async (req, res) => {
             .from('bid_selection')
             .select(`
                 selection_id,
-                bid_id
+                bid_id,
+                selection_status,
+                selected
             `)
             .eq('order_id', actualOrderId)
-            .eq('selection_status', 'WINNER')
+            .or('selection_status.eq.accepted,selected.eq.true')
             .neq('selection_id', selectionId)
             .limit(1);
 
@@ -520,6 +547,11 @@ export const finalizeOrder = async (req, res) => {
 
         // ----------------------------------------------------
         // 8. MARK SELECTED BID AS WINNER
+        //
+        // IMPORTANT:
+        // Database constraint uses lowercase status values.
+        // accepted = winner
+        // rejected = unsuccessful
         // ----------------------------------------------------
 
         const {
@@ -529,7 +561,7 @@ export const finalizeOrder = async (req, res) => {
             .update({
 
                 selection_status:
-                    'WINNER',
+                    'accepted',
 
                 selected:
                     true,
@@ -560,7 +592,9 @@ export const finalizeOrder = async (req, res) => {
 
 
         // ----------------------------------------------------
-        // 9. MARK THE OTHER 4 SHORTLISTED BIDS AS REJECTED
+        // 9. MARK ALL OTHER SHORTLISTED BIDS AS REJECTED
+        //
+        // Works whether Operations sent 1, 2, 3, 4, or 5 bids.
         // ----------------------------------------------------
 
         const {
@@ -570,7 +604,7 @@ export const finalizeOrder = async (req, res) => {
             .update({
 
                 selection_status:
-                    'REJECTED',
+                    'rejected',
 
                 selected:
                     false
