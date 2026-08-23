@@ -90,13 +90,66 @@ router.get(
     getOrderById
 );
 
-// Shortlisted bids
+
+// =============================================
+// BID SELECTION - LOGISTICS
+// =============================================
+
+/**
+ * GET SHORTLISTED BIDS
+ *
+ * Operations Team shortlists maximum 5 bids
+ * and sends them to Logistics.
+ *
+ * Logistics receives those shortlisted bids
+ * through this endpoint.
+ *
+ * Expected flow:
+ *
+ * Operations
+ *      ↓
+ * bid_selection
+ *      ↓
+ * SHORTLISTED bids
+ *      ↓
+ * Logistics BidsSection
+ *
+ * Frontend:
+ * GET /api/logistics/orders/:orderId/shortlisted-bids
+ */
 router.get(
     "/orders/:orderId/shortlisted-bids",
     getShortlistedBids
 );
 
-// Finalize order
+
+/**
+ * FINALIZE WINNER
+ *
+ * Logistics selects ONE winner from the
+ * shortlisted bids received from Operations.
+ *
+ * Frontend sends:
+ *
+ * {
+ *   bidId,
+ *   selectionId
+ * }
+ *
+ * Controller should:
+ *
+ * Selected bid:
+ * status = WINNER
+ *
+ * Other shortlisted bids:
+ * status = REJECTED
+ *
+ * The decision is then available for
+ * the Operations Team.
+ *
+ * Frontend:
+ * POST /api/logistics/orders/:orderId/finalize
+ */
 router.post(
     "/orders/:orderId/finalize",
     finalizeOrder
@@ -166,5 +219,6 @@ router.get(
     "/orders/:orderId/tracking",
     getTrackingByOrderId
 );
+
 
 export default router;
