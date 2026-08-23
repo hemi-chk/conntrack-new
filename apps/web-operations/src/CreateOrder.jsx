@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { Country, State } from "country-state-city";
+import { uploadFile } from "./services/api";
 
 function CreateOrder({ onNavigate }) {
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000";
   // Initial form structure used to reset the form after submit/cancel
   const initialState = {
     orderId: "Auto-generated",
     orderType: "Export",
     cargoType: "",
     cargoWeight: "",
-    pickupCountry: "",
-    pickupState: "",
-    destinationCountry: "",
-    destinationState: "",
+    pickupDistrict: "",
+    pickupLocation: "",
+    destinationDistrict: "",
+    destinationLocation: "",
     pickupDate: "",
     arrivalDate: "",
     vehicleSize: "",
@@ -54,6 +57,88 @@ function CreateOrder({ onNavigate }) {
     "General Cargo",
   ];
 
+  // Sri Lanka district and location data
+  const districtLocations = {
+    "Colombo District": [
+      "Colombo Port",
+      "Colombo City",
+      "Orugodawatta Yard",
+      "Ratmalana Industrial Area",
+      "Pettah Warehouse",
+      "Dematagoda Yard",
+    ],
+    "Gampaha District": [
+      "Katunayake Airport",
+      "Katunayake Export Zone",
+      "Biyagama BOI Zone",
+      "Ekala BOI Zone",
+      "Peliyagoda Warehouse",
+      "Wattala Industrial Area",
+    ],
+    "Kalutara District": [
+      "Kalutara Industrial Area",
+      "Panadura",
+      "Horana Industrial Zone",
+      "Beruwala",
+    ],
+    "Kandy District": [
+      "Kandy City",
+      "Peradeniya",
+      "Katugastota",
+      "Pallekele Industrial Zone",
+    ],
+    "Kurunegala District": [
+      "Kurunegala Warehouse",
+      "Kuliyapitiya",
+      "Mawathagama Export Zone",
+      "Pannala Industrial Area",
+    ],
+    "Galle District": [
+      "Galle City",
+      "Galle Port",
+      "Koggala BOI Zone",
+      "Hikkaduwa",
+    ],
+    "Matara District": [
+      "Matara City",
+      "Weligama",
+      "Akuressa",
+      "Dikwella",
+    ],
+    "Hambantota District": [
+      "Hambantota Port",
+      "Mattala Airport",
+      "Tangalle",
+      "Sooriyawewa",
+    ],
+    "Trincomalee District": [
+      "Trincomalee Port",
+      "China Bay",
+      "Kinniya",
+      "Kantale",
+    ],
+    "Jaffna District": [
+      "Jaffna Town",
+      "Kankesanthurai Port",
+      "Chavakachcheri",
+      "Point Pedro",
+    ],
+    "Anuradhapura District": [
+      "Anuradhapura Town",
+      "Medawachchiya",
+      "Kekirawa",
+      "Mihintale",
+    ],
+    "Batticaloa District": [
+      "Batticaloa Town",
+      "Eravur",
+      "Kattankudy",
+      "Valaichchenai",
+    ],
+  };
+
+  const districts = Object.keys(districtLocations);
+
   const [form, setForm] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingId, setIsGeneratingId] = useState(false);
@@ -61,21 +146,15 @@ function CreateOrder({ onNavigate }) {
   // Prevents selecting previous dates for pickup/arrival
   const today = new Date().toISOString().split("T")[0];
 
-  // Country and state data are loaded from country-state-city package
-  const countries = Country.getAllCountries();
-
-  const pickupStates = form.pickupCountry
-    ? State.getStatesOfCountry(form.pickupCountry)
+  // Pickup locations load only after pickup district is selected
+  const availablePickupLocations = form.pickupDistrict
+    ? districtLocations[form.pickupDistrict] || []
     : [];
 
-  const destinationStates = form.destinationCountry
-    ? State.getStatesOfCountry(form.destinationCountry)
+  // Destination locations load only after destination district is selected
+  const availableDestinationLocations = form.destinationDistrict
+    ? districtLocations[form.destinationDistrict] || []
     : [];
-
-  // Converts country ISO code into readable country name before saving to database
-  const getCountryName = (code) => {
-    return Country.getCountryByCode(code)?.name || code;
-  };
 
   // Calls backend API to generate the next Import/Export order ID
   const generateOrderId = async (type) => {
@@ -83,7 +162,7 @@ function CreateOrder({ onNavigate }) {
       setIsGeneratingId(true);
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/operations/orders/next-id?type=${type.toLowerCase()}`
+        `${API_BASE_URL}/api/operations/orders/next-id?type=${type.toLowerCase()}`
       );
 
       const result = await response.json();
@@ -136,6 +215,24 @@ function CreateOrder({ onNavigate }) {
     });
   };
 
+  // Handles pickup district change and resets pickup location
+  const handlePickupDistrictChange = (e) => {
+    setForm({
+      ...form,
+      pickupDistrict: e.target.value,
+      pickupLocation: "",
+    });
+  };
+
+  // Handles destination district change and resets destination location
+  const handleDestinationDistrictChange = (e) => {
+    setForm({
+      ...form,
+      destinationDistrict: e.target.value,
+      destinationLocation: "",
+    });
+  };
+
   // Updates special instruction checkbox values
   const handleInstructionChange = (e) => {
     const { name, checked } = e.target;
@@ -162,7 +259,7 @@ function CreateOrder({ onNavigate }) {
     });
   };
 
-  // Validates form, prepares payload, and sends new order to backend
+  // Validates form, uploads documents, prepares payload, and sends new order to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -174,10 +271,10 @@ function CreateOrder({ onNavigate }) {
       !form.cargoType ||
       !form.cargoWeight ||
       Number(form.cargoWeight) <= 0 ||
-      !form.pickupCountry ||
-      !form.pickupState ||
-      !form.destinationCountry ||
-      !form.destinationState ||
+      !form.pickupDistrict ||
+      !form.pickupLocation ||
+      !form.destinationDistrict ||
+      !form.destinationLocation ||
       !form.pickupDate ||
       !form.arrivalDate ||
       !form.vehicleSize ||
@@ -189,36 +286,53 @@ function CreateOrder({ onNavigate }) {
       return;
     }
 
-    // Converts selected checkbox instructions into an array
-    const selectedInstructions = Object.entries(form.instructions)
-      .filter(([, value]) => value)
-      .map(([key]) => key);
-
-    // Payload format matches backend/database column names
-    const payload = {
-      order_reference: form.orderId,
-      order_type: form.orderType.toLowerCase(),
-      cargo_type: form.cargoType,
-      cargo_weight: Number(form.cargoWeight),
-      pickup_country: getCountryName(form.pickupCountry),
-      pickup_state: form.pickupState,
-      destination_country: getCountryName(form.destinationCountry),
-      destination_state: form.destinationState,
-      pickup_date: form.pickupDate,
-      expected_arrival: form.arrivalDate,
-      vehicle_type: form.vehicleSize,
-      container_no: form.vehicleNo,
-
-      // Combines checkbox instructions and additional notes into one text field
-      special_instructions: [...selectedInstructions, form.notes]
-        .filter(Boolean)
-        .join(", "),
-    };
-
     try {
       setIsSubmitting(true);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/operations/orders`, {
+      // Converts selected checkbox instructions into an array
+      const selectedInstructions = Object.entries(form.instructions)
+        .filter(([, value]) => value)
+        .map(([key]) => key);
+
+      // Upload documents directly from browser to Supabase Storage
+      const commercialInvoiceUrl = await uploadFile(
+        "order-documents",
+        form.documents.commercialInvoice,
+        "commercial-invoices"
+      );
+
+      const packingListUrl = await uploadFile(
+        "order-documents",
+        form.documents.packingList,
+        "packing-lists"
+      );
+
+      // Uses the final Operations database column names.
+      const payload = {
+        order_reference: form.orderId,
+        order_type: form.orderType.toLowerCase(),
+        cargo_type: form.cargoType,
+        cargo_weight: Number(form.cargoWeight),
+
+        pickup_district: form.pickupDistrict,
+        pickup_location: form.pickupLocation,
+        destination_district: form.destinationDistrict,
+        destination_location: form.destinationLocation,
+
+        pickup_date: form.pickupDate,
+        expected_arrival: form.arrivalDate,
+        vehicle_type: form.vehicleSize,
+        container_no: form.vehicleNo,
+
+        commercial_invoice_url: commercialInvoiceUrl,
+        packing_list_url: packingListUrl,
+
+        special_instructions: [...selectedInstructions, form.notes]
+          .filter(Boolean)
+          .join(", "),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/operations/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -309,7 +423,7 @@ function CreateOrder({ onNavigate }) {
               name="cargoType"
               value={form.cargoType}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Cargo Type</option>
               {cargoTypes.map((cargoType) => (
@@ -329,83 +443,85 @@ function CreateOrder({ onNavigate }) {
               min="1"
               step="1"
               placeholder="Enter Cargo Weight"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
-          <Field label="Pickup Country">
+          <Field label="Pickup District">
             <select
-              name="pickupCountry"
-              value={form.pickupCountry}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  pickupCountry: e.target.value,
-                  pickupState: "",
-                })
-              }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              name="pickupDistrict"
+              value={form.pickupDistrict}
+              onChange={handlePickupDistrictChange}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
+
             >
-              <option value="">Select Country</option>
-              {countries.map((country) => (
-                <option key={country.isoCode} value={country.isoCode}>
-                  {country.name}
+              <option value="">Select Pickup District</option>
+              {districts.map((district) => (
+                <option key={district} value={district}>
+                  {district}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Pickup State / District">
+          <Field label="Pickup Location">
             <select
-              name="pickupState"
-              value={form.pickupState}
+              name="pickupLocation"
+              value={form.pickupLocation}
               onChange={handleChange}
-              disabled={!form.pickupCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF] disabled:bg-[#EBF4FF]"
+              disabled={!form.pickupDistrict}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+
             >
-              <option value="">Select State</option>
-              {pickupStates.map((state) => (
-                <option key={state.isoCode} value={state.name}>
-                  {state.name}
+              <option value="">
+                {form.pickupDistrict
+                  ? "Select Pickup Location"
+                  : "Select Pickup District First"}
+              </option>
+
+              {availablePickupLocations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Destination Country">
+          <Field label="Destination District">
             <select
-              name="destinationCountry"
-              value={form.destinationCountry}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  destinationCountry: e.target.value,
-                  destinationState: "",
-                })
-              }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              name="destinationDistrict"
+              value={form.destinationDistrict}
+              onChange={handleDestinationDistrictChange}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
+
             >
-              <option value="">Select Country</option>
-              {countries.map((country) => (
-                <option key={country.isoCode} value={country.isoCode}>
-                  {country.name}
+              <option value="">Select Destination District</option>
+              {districts.map((district) => (
+                <option key={district} value={district}>
+                  {district}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Destination State / District">
+          <Field label="Destination Location">
             <select
-              name="destinationState"
-              value={form.destinationState}
+              name="destinationLocation"
+              value={form.destinationLocation}
               onChange={handleChange}
-              disabled={!form.destinationCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF] disabled:bg-[#EBF4FF]"
+              disabled={!form.destinationDistrict}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+
             >
-              <option value="">Select State</option>
-              {destinationStates.map((state) => (
-                <option key={state.isoCode} value={state.name}>
-                  {state.name}
+              <option value="">
+                {form.destinationDistrict
+                  ? "Select Destination Location"
+                  : "Select Destination District First"}
+              </option>
+
+              {availableDestinationLocations.map((location) => (
+                <option key={location} value={location}>
+                  {location}
                 </option>
               ))}
             </select>
@@ -418,7 +534,7 @@ function CreateOrder({ onNavigate }) {
               value={form.pickupDate}
               onChange={handleChange}
               min={today}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -429,7 +545,7 @@ function CreateOrder({ onNavigate }) {
               value={form.arrivalDate}
               onChange={handleChange}
               min={form.pickupDate || today}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
 
@@ -438,7 +554,7 @@ function CreateOrder({ onNavigate }) {
               name="vehicleSize"
               value={form.vehicleSize}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
               <option value="">Select Vehicle</option>
               <option value="HCV">HCV</option>
@@ -452,7 +568,7 @@ function CreateOrder({ onNavigate }) {
               value={form.vehicleNo}
               onChange={handleChange}
               placeholder="Enter Container No"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             />
           </Field>
         </div>
@@ -527,7 +643,7 @@ function CreateOrder({ onNavigate }) {
             value={form.notes}
             onChange={handleChange}
             placeholder="Enter any other special instructions here..."
-            className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF] h-24"
+            className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] h-24"
           />
         </div>
 

@@ -1,7 +1,9 @@
+import { AlertTriangle, PlusSquare, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PlusSquare, AlertTriangle, UserCheck } from "lucide-react";
 
-const OPS_API = `${import.meta.env.VITE_API_URL}/api/operations`;
+const OPS_API = `${
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+}/api/operations`;
 
 function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, onClose }) {
   const { drivers, vehicles, driverId, vehicleId, loading, error } = state;
@@ -216,6 +218,12 @@ function Orders({ onNavigate }) {
     const supplierName = getAssignedValue(order.supplier_name, status);
     const driverName = getAssignedValue(order.driver_name, status);
 
+    // Database location fields
+    const pickupDistrict = order.pickup_district || "-";
+    const pickupLocation = order.pickup_location || "-";
+    const destinationDistrict = order.destination_district || "-";
+    const destinationLocation = order.destination_location || "-";
+
     // Vehicle/driver validation should be hidden until a vehicle/driver is actually assigned
     const shouldHideValidation =
       status === "Created" ||
@@ -225,7 +233,7 @@ function Orders({ onNavigate }) {
     return {
       id: order.order_reference || `ORDER-${order.order_id}`,
 
-      // Database order ID is important for Tracking page API call
+      // Database order ID is important for Tracking and Bidding page API calls
       dbId: order.order_id,
       orderId: order.order_id,
       orderReference: order.order_reference || `ORDER-${order.order_id}`,
@@ -233,15 +241,18 @@ function Orders({ onNavigate }) {
       type: normalizeType(order.order_type),
       supplier: supplierName,
       driver: driverName,
-      pickup: order.pickup_state || order.pickup_country || "-",
-      destination: order.destination_state || order.destination_country || "-",
+
+      pickupDistrict,
+      pickupLocation,
+      destinationDistrict,
+      destinationLocation,
+
+      pickup: pickupLocation,
+      destination: destinationLocation,
+
       status,
       cargoType: order.cargo_type || "-",
       cargoWeight: order.cargo_weight || "-",
-      pickupCountry: order.pickup_country || "-",
-      pickupState: order.pickup_state || "-",
-      destinationCountry: order.destination_country || "-",
-      destinationState: order.destination_state || "-",
       pickupDate: order.pickup_date || "-",
       expectedArrival: order.expected_arrival || "-",
       vehicleType: order.vehicle_type || "-",
@@ -282,6 +293,7 @@ function Orders({ onNavigate }) {
         "At Port",
         "Completed",
       ],
+
       currentStep: getCurrentStep(status),
     };
   };
@@ -291,7 +303,8 @@ function Orders({ onNavigate }) {
     try {
       setIsLoading(true);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/operations/orders`);
+      const response = await fetch(`${OPS_API}/orders`);
+
       const result = await response.json();
 
       if (!response.ok) {
@@ -310,7 +323,10 @@ function Orders({ onNavigate }) {
   // Applies local archive status without changing the database order status
   const orders = ordersData.map((order) => {
     if (archivedOrderIds.includes(order.id)) {
-      return { ...order, status: "Archived" };
+      return {
+        ...order,
+        status: "Archived",
+      };
     }
 
     return order;
@@ -323,29 +339,41 @@ function Orders({ onNavigate }) {
 
   // Returns badge color class according to order status
   const statusBadge = (status) => {
-    const base = "inline-flex px-3 py-1 rounded-full text-xs font-medium";
+    const base =
+      "inline-flex px-3 py-1 rounded-full text-xs font-medium";
 
     switch (status) {
       case "Created":
         return `${base} bg-purple-100 text-purple-700`;
+
       case "Open for Bids":
         return `${base} bg-indigo-100 text-indigo-700`;
+
       case "Bid Accepted":
         return `${base} bg-blue-100 text-blue-700`;
+
       case "Driver Assigned":
         return `${base} bg-cyan-100 text-cyan-700`;
+
       case "In Transit":
-        return `${base} bg-[#EBF4FF] text-[#052659]`;
+        return `${base} bg-[#EFF6FF] text-[#1E40AF]`;
+
+
       case "At Freezone":
         return `${base} bg-orange-100 text-[#EA580C]`;
+
       case "At Port":
         return `${base} bg-yellow-100 text-yellow-700`;
+
       case "Completed":
         return `${base} bg-green-100 text-[#16A34A]`;
+
       case "Cancelled":
         return `${base} bg-red-100 text-[#DC2626]`;
+
       case "Archived":
         return `${base} bg-gray-200 text-gray-600`;
+
       default:
         return base;
     }
@@ -353,7 +381,8 @@ function Orders({ onNavigate }) {
 
   // Returns badge color class according to issue priority
   const issueBadge = (issue) => {
-    const base = "inline-flex px-3 py-1 rounded-full text-xs font-medium";
+    const base =
+      "inline-flex px-3 py-1 rounded-full text-xs font-medium";
 
     if (!issue) {
       return `${base} bg-slate-100 text-[#1E293B]`;
@@ -362,12 +391,17 @@ function Orders({ onNavigate }) {
     switch (issue.priority) {
       case "critical":
         return `${base} bg-red-100 text-[#DC2626]`;
+
       case "high":
         return `${base} bg-orange-100 text-[#EA580C]`;
+
       case "medium":
-        return `${base} bg-[#EBF4FF] text-[#052659]`;
+        return `${base} bg-[#EFF6FF] text-[#1E40AF]`;
+
+
       case "low":
         return `${base} bg-green-100 text-[#16A34A]`;
+
       default:
         return `${base} bg-slate-100 text-[#1E293B]`;
     }
@@ -396,15 +430,18 @@ function Orders({ onNavigate }) {
     return "bg-red-100 text-[#DC2626]";
   };
 
-  // Saves full selected order details to sessionStorage and navigates to Tracking page.
-  // This fixes Tracking page showing only database ID like "8" and N/A values.
+  // Saves full selected order details to sessionStorage and navigates to Tracking page
   const goToTracking = (order) => {
     sessionStorage.setItem(
       "trackingOrder",
       JSON.stringify({
         id: order.id,
+
         order_reference: order.id,
-        orderReference: order.orderReference || order.id,
+
+        orderReference:
+          order.orderReference ||
+          order.id,
 
         // These IDs are used by Tracking.jsx to call backend tracking API
         dbId: order.dbId,
@@ -412,18 +449,88 @@ function Orders({ onNavigate }) {
         databaseOrderId: order.dbId,
 
         type: order.type,
-        pickup: order.pickup,
-        destination: order.destination,
-        containerNo: order.containerNo,
-        vehicleNo: order.vehicleNo || "N/A",
-        supplier: order.supplier,
-        driver: order.driver,
-        status: order.status,
-        expectedDay: order.expectedArrival,
+
+        pickupDistrict:
+          order.pickupDistrict,
+
+        pickupLocation:
+          order.pickupLocation,
+
+        destinationDistrict:
+          order.destinationDistrict,
+
+        destinationLocation:
+          order.destinationLocation,
+
+        pickup:
+          order.pickupLocation,
+
+        destination:
+          order.destinationLocation,
+
+        containerNo:
+          order.containerNo,
+
+        vehicleNo:
+          order.vehicleNo ||
+          "N/A",
+
+        supplier:
+          order.supplier,
+
+        driver:
+          order.driver,
+
+        status:
+          order.status,
+
+        expectedDay:
+          order.expectedArrival,
       })
     );
 
-    onNavigate && onNavigate("/tracking");
+    onNavigate &&
+      onNavigate("/tracking");
+  };
+
+  // NEW:
+  // Saves selected order and opens Bidding page.
+  // Works for both Created and Open for Bids orders.
+  const goToBidding = (order) => {
+    sessionStorage.setItem(
+      "biddingOrder",
+      JSON.stringify({
+        ...order,
+
+        // Explicitly keep all ID formats Bidding.jsx understands
+        id:
+          order.id,
+
+        orderReference:
+          order.orderReference ||
+          order.id,
+
+        order_reference:
+          order.orderReference ||
+          order.id,
+
+        dbId:
+          order.dbId,
+
+        orderId:
+          order.orderId ||
+          order.dbId,
+
+        order_id:
+          order.dbId,
+
+        databaseOrderId:
+          order.dbId,
+      })
+    );
+
+    onNavigate &&
+      onNavigate("/bidding");
   };
 
   // Opens issue report form only for valid operational stages
@@ -512,26 +619,72 @@ function Orders({ onNavigate }) {
 
     const issueReport = {
       issueId: Date.now(),
-      orderId: issueOrder.id,
-      dbOrderId: issueOrder.dbId,
-      supplier: issueOrder.supplier,
-      driver: issueOrder.driver,
-      route: `${issueOrder.pickup} → ${issueOrder.destination}`,
+
+      orderId:
+        issueOrder.id,
+
+      dbOrderId:
+        issueOrder.dbId,
+
+      supplier:
+        issueOrder.supplier,
+
+      driver:
+        issueOrder.driver,
+
+      route:
+        `${issueOrder.pickupLocation} → ${issueOrder.destinationLocation}`,
+
+      pickupDistrict:
+        issueOrder.pickupDistrict,
+
+      pickupLocation:
+        issueOrder.pickupLocation,
+
+      destinationDistrict:
+        issueOrder.destinationDistrict,
+
+      destinationLocation:
+        issueOrder.destinationLocation,
+
       issueTypes,
+
       priority,
-      details: issueDetails,
-      status: "open",
-      sentTo: "Admin Team",
-      createdAt: new Date().toLocaleString(),
+
+      details:
+        issueDetails,
+
+      status:
+        "open",
+
+      sentTo:
+        "Admin Team",
+
+      createdAt:
+        new Date().toLocaleString(),
     };
 
-    const updatedIssues = [...reportedIssues, issueReport];
+    const updatedIssues = [
+      ...reportedIssues,
+      issueReport,
+    ];
 
     setReportedIssues(updatedIssues);
-    localStorage.setItem("reportedIssues", JSON.stringify(updatedIssues));
-    sessionStorage.setItem("latestIssueReport", JSON.stringify(issueReport));
 
-    alert(`Issue report for ${issueOrder.id} sent to Admin Team.`);
+    localStorage.setItem(
+      "reportedIssues",
+      JSON.stringify(updatedIssues)
+    );
+
+    sessionStorage.setItem(
+      "latestIssueReport",
+      JSON.stringify(issueReport)
+    );
+
+    alert(
+      `Issue report for ${issueOrder.id} sent to Admin Team.`
+    );
+
     setIssueOrder(null);
   };
 
@@ -539,22 +692,41 @@ function Orders({ onNavigate }) {
   const confirmArchiveOrder = () => {
     if (!archiveOrder) return;
 
-    if (archiveOrder.status !== "Completed") {
-      alert("Only completed orders can be archived by Operations.");
+    if (
+      archiveOrder.status !==
+      "Completed"
+    ) {
+      alert(
+        "Only completed orders can be archived by Operations."
+      );
+
       setArchiveOrder(null);
       return;
     }
 
-    const updatedArchived = [...archivedOrderIds, archiveOrder.id];
-    setArchivedOrderIds(updatedArchived);
-    localStorage.setItem("archivedOrderIds", JSON.stringify(updatedArchived));
+    const updatedArchived = [
+      ...archivedOrderIds,
+      archiveOrder.id,
+    ];
 
-    alert(`Order ${archiveOrder.id} archived successfully by Operations.`);
+    setArchivedOrderIds(
+      updatedArchived
+    );
+
+    localStorage.setItem(
+      "archivedOrderIds",
+      JSON.stringify(updatedArchived)
+    );
+
+    alert(
+      `Order ${archiveOrder.id} archived successfully by Operations.`
+    );
+
     setArchiveOrder(null);
     setSelectedOrder(null);
   };
 
-  // Handles dropdown actions: details, bidding, tracking, issue report, and archive
+  // Handles dropdown actions
   const handleAction = (action, order) => {
     setOpenMenu(null);
 
@@ -563,13 +735,37 @@ function Orders({ onNavigate }) {
         setSelectedOrder(order);
         break;
 
+      // Created order → Open Bidding
       case "bidding":
-        if (order.status !== "Created") {
-          alert("Bidding can be opened only for newly created orders.");
+        if (
+          order.status !==
+          "Created"
+        ) {
+          alert(
+            "Bidding can be opened only for newly created orders."
+          );
+
           return;
         }
-        sessionStorage.setItem("biddingOrder", JSON.stringify(order));
-        onNavigate && onNavigate("/bidding");
+
+        goToBidding(order);
+        break;
+
+      // NEW:
+      // Existing Open for Bids order → View Bidding
+      case "view_bidding":
+        if (
+          order.status !==
+          "Open for Bids"
+        ) {
+          alert(
+            "Only orders currently open for bids can be viewed in Bidding."
+          );
+
+          return;
+        }
+
+        goToBidding(order);
         break;
 
       case "tracking":
@@ -581,10 +777,17 @@ function Orders({ onNavigate }) {
         break;
 
       case "archive":
-        if (order.status !== "Completed") {
-          alert("Only completed orders can be archived by Operations.");
+        if (
+          order.status !==
+          "Completed"
+        ) {
+          alert(
+            "Only completed orders can be archived by Operations."
+          );
+
           return;
         }
+
         setArchiveOrder(order);
         break;
 
@@ -596,8 +799,10 @@ function Orders({ onNavigate }) {
   return (
     <div className="min-h-full w-full bg-[#EBF4FF] px-6 py-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
         {/* Status tabs and create order button */}
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+
           <div className="flex flex-wrap gap-3">
             {[
               "All",
@@ -614,7 +819,9 @@ function Orders({ onNavigate }) {
             ].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() =>
+                  setActiveTab(tab)
+                }
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   activeTab === tab
                     ? "bg-[#052659] text-white"
@@ -627,184 +834,312 @@ function Orders({ onNavigate }) {
           </div>
 
           <button
-            onClick={() => onNavigate && onNavigate("/create")}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-sm font-medium text-white hover:bg-[#5483B3]"
+            onClick={() =>
+              onNavigate &&
+              onNavigate("/create")
+            }
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1E40AF] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3A8A]"
+
           >
-            <PlusSquare size={16} />
+            <PlusSquare
+              size={16}
+            />
+
             New Order
           </button>
+
         </div>
 
         {/* Orders table */}
         <div className="mt-6 overflow-hidden rounded-xl">
           <div className="overflow-x-auto">
+
             {isLoading ? (
               <div className="px-4 py-10 text-center text-sm text-slate-500">
                 Loading orders...
               </div>
-            ) : filteredOrders.length === 0 ? (
+            ) : filteredOrders.length ===
+              0 ? (
               <div className="px-4 py-10 text-center text-sm text-slate-500">
                 No orders found.
               </div>
             ) : (
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#EBF4FF] text-[#1E293B]">
+
+                <thead className="bg-[#EFF6FF] text-[#1E293B]">
+
                   <tr>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Order ID
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Type
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Supplier
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Driver
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
-                      Pickup
+                      Pickup District
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
-                      Destination
+                      Pickup Location
                     </th>
+
+                    <th className="whitespace-nowrap px-4 py-4 font-semibold">
+                      Destination District
+                    </th>
+
+                    <th className="whitespace-nowrap px-4 py-4 font-semibold">
+                      Destination Location
+                    </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Status
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Issue
                     </th>
+
                     <th className="whitespace-nowrap px-4 py-4 text-center font-semibold">
                       Action
                     </th>
+
                   </tr>
                 </thead>
 
                 <tbody>
-                  {filteredOrders.map((order, index) => {
-                    const latestIssue = getLatestIssueForOrder(order.id);
 
-                    return (
-                      <tr
-                        key={`${order.id}-${index}`}
-                        className="border-b border-slate-200 bg-white hover:bg-[#EBF4FF]"
-                      >
-                        <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#1E293B]">
-                          {order.id}
-                        </td>
+                  {filteredOrders.map(
+                    (order, index) => {
+                      const latestIssue =
+                        getLatestIssueForOrder(
+                          order.id
+                        );
 
-                        <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
-                          {order.type}
-                        </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
-                          {order.supplier}
-                        </td>
+                      return (
+                        <tr
+                          key={`${order.id}-${index}`}
+                          className="border-b border-slate-200 bg-white hover:bg-[#F8FAFC]"
+                        >
 
-                        <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
-                          {order.driver}
-                        </td>
+                          <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#1E293B]">
+                            {order.id}
+                          </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
-                          {order.pickup}
-                        </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {order.type}
+                          </td>
 
-                        <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
-                          {order.destination}
-                        </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {order.supplier}
+                          </td>
 
-                        <td className="whitespace-nowrap px-4 py-4">
-                          <span className={statusBadge(order.status)}>
-                            {order.status}
-                          </span>
-                        </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {order.driver}
+                          </td>
 
-                        <td className="whitespace-nowrap px-4 py-4">
-                          <span className={issueBadge(latestIssue)}>
-                            {latestIssue
-                              ? `${latestIssue.status} - ${latestIssue.priority}`
-                              : "No Issue"}
-                          </span>
-                        </td>
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {
+                              order.pickupDistrict
+                            }
+                          </td>
 
-                        <td className="relative whitespace-nowrap px-4 py-4 text-center">
-                          {order.status === "Archived" ? (
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium text-slate-600"
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {
+                              order.pickupLocation
+                            }
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {
+                              order.destinationDistrict
+                            }
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                            {
+                              order.destinationLocation
+                            }
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-4">
+                            <span
+                              className={statusBadge(
+                                order.status
+                              )}
                             >
-                              Review
-                            </button>
-                          ) : (
-                            <div className="relative inline-block">
+                              {
+                                order.status
+                              }
+                            </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-4 py-4">
+                            <span
+                              className={issueBadge(
+                                latestIssue
+                              )}
+                            >
+                              {latestIssue
+                                ? `${latestIssue.status} - ${latestIssue.priority}`
+                                : "No Issue"}
+                            </span>
+                          </td>
+
+                          <td className="relative whitespace-nowrap px-4 py-4 text-center">
+
+                            {order.status ===
+                            "Archived" ? (
                               <button
                                 onClick={() =>
-                                  setOpenMenu(openMenu === index ? null : index)
+                                  setSelectedOrder(
+                                    order
+                                  )
                                 }
-                                className="rounded-lg bg-[#052659] px-4 py-2 text-xs font-medium text-white hover:bg-[#5483B3]"
+                                className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium text-slate-600"
+
                               >
-                                Manage ▾
+                                Review
                               </button>
+                            ) : (
+                              <div className="relative inline-block">
 
-                              {openMenu === index && (
-                                <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-200 bg-white text-left text-xs shadow-lg">
-                                  <div
-                                    onClick={() => handleAction("details", order)}
-                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
-                                  >
-                                    View Details
-                                  </div>
+                                <button
+                                  onClick={() =>
+                                    setOpenMenu(
+                                      openMenu ===
+                                        index
+                                        ? null
+                                        : index
+                                    )
+                                  }
+                                  className="rounded-lg bg-[#1E40AF] px-4 py-2 text-xs font-medium text-white hover:bg-[#1E3A8A]"
+                                >
+                                  Manage ▾
+                                </button>
 
-                                  {order.status === "Created" && (
+                                {openMenu ===
+                                  index && (
+                                  <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-200 bg-white text-left text-xs shadow-lg">
+
+
                                     <div
                                       onClick={() =>
-                                        handleAction("bidding", order)
+                                        handleAction(
+                                          "details",
+                                          order
+                                        )
                                       }
                                       className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
                                     >
-                                      Open Bidding
+                                      View Details
                                     </div>
-                                  )}
 
-                                  <div
-                                    onClick={() =>
-                                      handleAction("tracking", order)
-                                    }
-                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
-                                  >
-                                    Track Order
-                                  </div>
+                                    {/* Created order */}
+                                    {order.status ===
+                                      "Created" && (
+                                      <div
+                                        onClick={() =>
+                                          handleAction(
+                                            "bidding",
+                                            order
+                                          )
+                                        }
+                                        className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
+                                      >
+                                        Open Bidding
+                                      </div>
+                                    )}
 
-                                  {canReportIssue(order.status) && (
-                                    <div
-                                      onClick={() => handleAction("issue", order)}
-                                      className="cursor-pointer px-3 py-2 text-[#DC2626] hover:bg-red-50"
-                                    >
-                                      Report Issue
-                                    </div>
-                                  )}
 
-                                  {order.status === "Completed" && (
+                                    {/* NEW: already open order */}
+                                    {order.status ===
+                                      "Open for Bids" && (
+                                      <div
+                                        onClick={() =>
+                                          handleAction(
+                                            "view_bidding",
+                                            order
+                                          )
+                                        }
+                                        className="cursor-pointer px-3 py-2 text-[#1E40AF] hover:bg-[#EFF6FF]"
+                                      >
+                                        View Bidding
+                                      </div>
+                                    )}
+
                                     <div
                                       onClick={() =>
-                                        handleAction("archive", order)
+                                        handleAction(
+                                          "tracking",
+                                          order
+                                        )
                                       }
-                                      className="cursor-pointer px-3 py-2 text-[#16A34A] hover:bg-green-50"
+                                      className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
                                     >
-                                      Archive Order
+                                      Track Order
                                     </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+
+                                    {canReportIssue(
+                                      order.status
+                                    ) && (
+                                      <div
+                                        onClick={() =>
+                                          handleAction(
+                                            "issue",
+                                            order
+                                          )
+                                        }
+                                        className="cursor-pointer px-3 py-2 text-[#DC2626] hover:bg-red-50"
+                                      >
+                                        Report Issue
+                                      </div>
+                                    )}
+
+                                    {order.status ===
+                                      "Completed" && (
+                                      <div
+                                        onClick={() =>
+                                          handleAction(
+                                            "archive",
+                                            order
+                                          )
+                                        }
+                                        className="cursor-pointer px-3 py-2 text-[#16A34A] hover:bg-green-50"
+                                      >
+                                        Archive Order
+                                      </div>
+                                    )}
+
+                                  </div>
+                                )}
+
+                              </div>
+                            )}
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
                 </tbody>
+
               </table>
             )}
+
           </div>
         </div>
 
@@ -819,12 +1154,15 @@ function Orders({ onNavigate }) {
             setSelectedOrder={setSelectedOrder}
             handleAction={handleAction}
             goToTracking={goToTracking}
+            goToBidding={goToBidding}
             openIssueForm={openIssueForm}
             openAssignDriver={openAssignDriver}
             setArchiveOrder={setArchiveOrder}
             canReportIssue={canReportIssue}
+
           />
         )}
+
       </div>
 
       {/* Assign Driver Modal */}
@@ -842,42 +1180,89 @@ function Orders({ onNavigate }) {
       {/* Issue report modal */}
       {issueOrder && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/30 p-4">
+
           <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+
             <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
+
               <div>
+
                 <h2 className="text-xl font-semibold text-[#1E293B]">
                   Report Issue to Admin
                 </h2>
+
                 <p className="mt-1 text-sm text-slate-500">
                   Auto-filled order details. Issue will be saved separately
                   without changing the order status.
                 </p>
+
               </div>
 
               <button
-                onClick={() => setIssueOrder(null)}
+                onClick={() =>
+                  setIssueOrder(
+                    null
+                  )
+                }
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-[#1E293B] hover:bg-slate-50"
               >
                 Close
               </button>
+
             </div>
 
             <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <InfoBox label="Order No" value={issueOrder.id} />
-              <InfoBox label="Supplier" value={issueOrder.supplier} />
-              <InfoBox label="Driver" value={issueOrder.driver} />
+
+              <InfoBox
+                label="Order No"
+                value={
+                  issueOrder.id
+                }
+              />
+
+              <InfoBox
+                label="Supplier"
+                value={
+                  issueOrder.supplier
+                }
+              />
+
+              <InfoBox
+                label="Driver"
+                value={
+                  issueOrder.driver
+                }
+              />
+
               <InfoBox
                 label="Route"
-                value={`${issueOrder.pickup} → ${issueOrder.destination}`}
+                value={`${issueOrder.pickupLocation} → ${issueOrder.destinationLocation}`}
               />
+
+              <InfoBox
+                label="Pickup District"
+                value={
+                  issueOrder.pickupDistrict
+                }
+              />
+
+              <InfoBox
+                label="Destination District"
+                value={
+                  issueOrder.destinationDistrict
+                }
+              />
+
             </div>
 
             <div className="mb-5">
+
               <p className="mb-3 text-sm font-semibold text-[#1E293B]">
                 Issue Type
               </p>
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+
                 {[
                   "Vehicle Issue",
                   "Driver Issue",
@@ -890,112 +1275,193 @@ function Orders({ onNavigate }) {
                     key={type}
                     className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-[#EBF4FF] px-3 py-2 text-sm text-[#1E293B]"
                   >
+
                     <input
                       type="checkbox"
-                      checked={issueTypes.includes(type)}
-                      onChange={() => toggleIssueType(type)}
-                      className="accent-[#052659]"
+                      checked={issueTypes.includes(
+                        type
+                      )}
+                      onChange={() =>
+                        toggleIssueType(
+                          type
+                        )
+                      }
+                      className="accent-[#1E40AF]"
+
                     />
+
                     {type}
+
                   </label>
                 ))}
+
               </div>
+
             </div>
 
             <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+
               <div>
+
                 <label className="mb-2 block text-sm font-semibold text-[#1E293B]">
                   Priority
                 </label>
+
                 <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
+                  value={
+                    priority
+                  }
+                  onChange={(e) =>
+                    setPriority(
+                      e.target.value
+                    )
+                  }
                   className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none"
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
+
+                  <option value="low">
+                    Low
+                  </option>
+
+                  <option value="medium">
+                    Medium
+                  </option>
+
+                  <option value="high">
+                    High
+                  </option>
+
+                  <option value="critical">
+                    Critical
+                  </option>
+
                 </select>
+
               </div>
 
               <div className="md:col-span-2">
+
                 <label className="mb-2 block text-sm font-semibold text-[#1E293B]">
                   Issue Details
                 </label>
+
                 <textarea
-                  value={issueDetails}
-                  onChange={(e) => setIssueDetails(e.target.value)}
+                  value={
+                    issueDetails
+                  }
+                  onChange={(e) =>
+                    setIssueDetails(
+                      e.target.value
+                    )
+                  }
                   rows="4"
                   placeholder="Describe the issue clearly..."
                   className="w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-[#1E293B] outline-none"
                 />
+
               </div>
+
             </div>
 
             <div className="flex justify-end gap-3">
+
               <button
-                onClick={() => setIssueOrder(null)}
+                onClick={() =>
+                  setIssueOrder(
+                    null
+                  )
+                }
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-[#1E293B] hover:bg-slate-50"
               >
                 Cancel
               </button>
 
               <button
-                onClick={sendIssueToAdmin}
-                className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
+                onClick={
+                  sendIssueToAdmin
+                }
+                className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+
               >
                 Send to Admin
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
 
       {/* Archive confirmation modal */}
       {archiveOrder && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4">
+
           <div className="w-full max-w-[390px] rounded-2xl bg-white p-6 shadow-lg">
+
             <div className="mb-4 flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                <AlertTriangle className="text-[#DC2626]" size={22} />
+
+                <AlertTriangle
+                  className="text-[#DC2626]"
+                  size={22}
+                />
+
               </div>
 
               <div>
+
                 <h3 className="text-lg font-semibold text-[#1E293B]">
                   Archive Order?
                 </h3>
+
                 <p className="text-sm text-slate-500">
                   Are you sure Operations should archive {archiveOrder.id}?
                 </p>
+
               </div>
+
             </div>
 
             <div className="mb-5 rounded-lg border border-red-100 bg-red-50 p-3">
+
               <p className="text-xs text-[#DC2626]">
                 Only completed orders can be archived by Operations. Archived
                 orders will be moved to the Archived tab for review.
               </p>
+
             </div>
 
             <div className="flex justify-end gap-3">
+
               <button
-                onClick={() => setArchiveOrder(null)}
+                onClick={() =>
+                  setArchiveOrder(
+                    null
+                  )
+                }
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-[#1E293B] hover:bg-slate-50"
               >
                 Cancel
               </button>
 
               <button
-                onClick={confirmArchiveOrder}
+                onClick={
+                  confirmArchiveOrder
+                }
                 className="rounded-lg bg-[#DC2626] px-4 py-2 text-sm text-white hover:bg-red-700"
               >
                 Yes, Archive Order
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 }
@@ -1010,212 +1476,461 @@ function OrderDetailsPanel({
   setSelectedOrder,
   handleAction,
   goToTracking,
+  goToBidding,
   openIssueForm,
   openAssignDriver,
   setArchiveOrder,
   canReportIssue,
 }) {
-  const latestIssue = getLatestIssueForOrder(selectedOrder.id);
+  const latestIssue =
+    getLatestIssueForOrder(
+      selectedOrder.id
+    );
 
   return (
     <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
       <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-4">
+
         <div>
+
           <h2 className="text-lg font-semibold text-[#1E293B]">
             Order Details - {selectedOrder.id}
           </h2>
+
           <p className="mt-1 text-sm text-slate-500">
-            {selectedOrder.pickup} → {selectedOrder.destination}
+            {selectedOrder.pickupLocation} → {selectedOrder.destinationLocation}
           </p>
+
         </div>
 
         <button
-          onClick={() => setSelectedOrder(null)}
+          onClick={() =>
+            setSelectedOrder(
+              null
+            )
+          }
           className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-[#1E293B] hover:bg-slate-50"
         >
           Close Panel
         </button>
+
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-        <InfoBox label="Order Type" value={selectedOrder.type} />
-        <InfoBox label="Supplier" value={selectedOrder.supplier} />
-        <InfoBox label="Driver" value={selectedOrder.driver} />
-        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
-          <p className="mb-1 text-xs text-slate-500">Current Status</p>
-          <span className={statusBadge(selectedOrder.status)}>
-            {selectedOrder.status}
+
+        <InfoBox
+          label="Order Type"
+          value={
+            selectedOrder.type
+          }
+        />
+
+        <InfoBox
+          label="Supplier"
+          value={
+            selectedOrder.supplier
+          }
+        />
+
+        <InfoBox
+          label="Driver"
+          value={
+            selectedOrder.driver
+          }
+        />
+
+        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+
+          <p className="mb-1 text-xs text-slate-500">
+            Current Status
+          </p>
+
+          <span
+            className={statusBadge(
+              selectedOrder.status
+            )}
+          >
+            {
+              selectedOrder.status
+            }
+
           </span>
+
         </div>
+
       </div>
 
       <SectionTitle title="Issue Summary" />
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
-          <p className="mb-1 text-xs text-slate-500">Issue Status</p>
-          <span className={issueBadge(latestIssue)}>
+
+        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+
+          <p className="mb-1 text-xs text-slate-500">
+            Issue Status
+          </p>
+
+          <span
+            className={issueBadge(
+              latestIssue
+            )}
+          >
+
             {latestIssue
               ? `${latestIssue.status} - ${latestIssue.priority}`
               : "No Issue"}
           </span>
+
         </div>
+
         <InfoBox
           label="Issue Type"
-          value={latestIssue ? latestIssue.issueTypes.join(", ") : "-"}
+          value={
+            latestIssue
+              ? latestIssue.issueTypes.join(", ")
+              : "-"
+          }
         />
+
         <InfoBox
           label="Reported At"
-          value={latestIssue ? latestIssue.createdAt : "-"}
+          value={
+            latestIssue
+              ? latestIssue.createdAt
+              : "-"
+          }
         />
+
       </div>
 
       {latestIssue && (
         <div className="mb-6">
+
           <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-sm text-[#1E293B]">
-            <p className="mb-1 text-xs text-red-500">Issue Details</p>
-            {latestIssue.details}
+
+            <p className="mb-1 text-xs text-red-500">
+              Issue Details
+            </p>
+
+            {
+              latestIssue.details
+            }
+
           </div>
+
         </div>
       )}
 
       <SectionTitle title="Cargo Details" />
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-        <InfoBox label="Cargo Type" value={selectedOrder.cargoType} />
+
+        <InfoBox
+          label="Cargo Type"
+          value={
+            selectedOrder.cargoType
+          }
+        />
+
         <InfoBox
           label="Cargo Weight"
           value={
-            selectedOrder.cargoWeight !== "-"
+            selectedOrder.cargoWeight !==
+            "-"
               ? `${selectedOrder.cargoWeight} kg`
               : "-"
           }
         />
-        <InfoBox label="Vehicle Type" value={selectedOrder.vehicleType} />
-        <InfoBox label="Container No" value={selectedOrder.containerNo} />
+
+        <InfoBox
+          label="Vehicle Type"
+          value={
+            selectedOrder.vehicleType
+          }
+        />
+
+        <InfoBox
+          label="Container No"
+          value={
+            selectedOrder.containerNo
+          }
+        />
+
       </div>
 
       <SectionTitle title="Schedule Details" />
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-        <InfoBox label="Pickup Date" value={selectedOrder.pickupDate} />
+
+        <InfoBox
+          label="Pickup Date"
+          value={
+            selectedOrder.pickupDate
+          }
+        />
+
         <InfoBox
           label="Expected Arrival"
-          value={selectedOrder.expectedArrival}
+          value={
+            selectedOrder.expectedArrival
+          }
         />
-        <InfoBox label="Pickup Country" value={selectedOrder.pickupCountry} />
+
         <InfoBox
-          label="Destination Country"
-          value={selectedOrder.destinationCountry}
+          label="Pickup District"
+          value={
+            selectedOrder.pickupDistrict
+          }
         />
+
+        <InfoBox
+          label="Pickup Location"
+          value={
+            selectedOrder.pickupLocation
+          }
+        />
+
+        <InfoBox
+          label="Destination District"
+          value={
+            selectedOrder.destinationDistrict
+          }
+        />
+
+        <InfoBox
+          label="Destination Location"
+          value={
+            selectedOrder.destinationLocation
+          }
+        />
+
       </div>
 
       <SectionTitle title="Vehicle Details" />
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+
         <StatusInfoBox
           label="Insurance"
-          value={selectedOrder.vehicle?.insurance || "-"}
-          tone={panelBadge(selectedOrder.vehicle?.insurance || "-")}
+          value={
+            selectedOrder.vehicle?.insurance ||
+            "-"
+          }
+          tone={panelBadge(
+            selectedOrder.vehicle?.insurance ||
+              "-"
+          )}
         />
+
         <StatusInfoBox
           label="Port Pass"
-          value={selectedOrder.vehicle?.portPass || "-"}
-          tone={panelBadge(selectedOrder.vehicle?.portPass || "-")}
+          value={
+            selectedOrder.vehicle?.portPass ||
+            "-"
+          }
+          tone={panelBadge(
+            selectedOrder.vehicle?.portPass ||
+              "-"
+          )}
         />
+
         <StatusInfoBox
           label="Condition Status"
-          value={selectedOrder.vehicle?.condition || "-"}
-          tone={panelBadge(selectedOrder.vehicle?.condition || "-")}
+          value={
+            selectedOrder.vehicle?.condition ||
+            "-"
+          }
+          tone={panelBadge(
+            selectedOrder.vehicle?.condition ||
+              "-"
+          )}
         />
+
       </div>
 
       <SectionTitle title="Driver Details" />
+
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+
         <InfoBox
           label="Driver Name"
-          value={selectedOrder.driverDetails?.name || selectedOrder.driver}
+          value={
+            selectedOrder.driverDetails?.name ||
+            selectedOrder.driver
+          }
         />
+
         <StatusInfoBox
           label="License Status"
-          value={selectedOrder.driverDetails?.license || "-"}
-          tone={panelBadge(selectedOrder.driverDetails?.license || "-")}
+          value={
+            selectedOrder.driverDetails?.license ||
+            "-"
+          }
+          tone={panelBadge(
+            selectedOrder.driverDetails?.license ||
+              "-"
+          )}
         />
+
         <StatusInfoBox
           label="Police Report"
-          value={selectedOrder.driverDetails?.policeReport || "-"}
-          tone={panelBadge(selectedOrder.driverDetails?.policeReport || "-")}
+          value={
+            selectedOrder.driverDetails?.policeReport ||
+            "-"
+          }
+          tone={panelBadge(
+            selectedOrder.driverDetails?.policeReport ||
+              "-"
+          )}
         />
+
       </div>
 
       <SectionTitle title="Special Instructions" />
+
       <div className="mb-6">
-        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4 text-sm text-[#1E293B]">
-          {selectedOrder.specialInstructions || "-"}
+
+        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4 text-sm text-[#1E293B]">
+          {
+            selectedOrder.specialInstructions ||
+            "-"
+          }
+
         </div>
+
       </div>
 
       <SectionTitle title="Order Progress" />
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          {selectedOrder.progress.map((step, idx) => {
-            const active = idx <= selectedOrder.currentStep;
-            const last = idx === selectedOrder.progress.length - 1;
 
-            return (
-              <div key={step} className="flex items-center gap-3">
+      <div className="mb-6">
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          {selectedOrder.progress.map(
+            (step, idx) => {
+              const active =
+                idx <=
+                selectedOrder.currentStep;
+
+              const last =
+                idx ===
+                selectedOrder.progress.length -
+                  1;
+
+              return (
                 <div
-                  className={`rounded-full px-4 py-2 text-xs font-medium ${
-                    active
-                      ? "bg-[#052659] text-white"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
+                  key={step}
+                  className="flex items-center gap-3"
+
                 >
-                  {step}
-                </div>
-                {!last && (
+
                   <div
-                    className={`h-0.5 w-8 ${
-                      idx < selectedOrder.currentStep
-                        ? "bg-[#052659]"
-                        : "bg-slate-300"
+                    className={`rounded-full px-4 py-2 text-xs font-medium ${
+                      active
+                        ? "bg-[#1E40AF] text-white"
+                        : "bg-slate-100 text-slate-500"
+
                     }`}
-                  />
-                )}
-              </div>
-            );
-          })}
+                  >
+                    {step}
+                  </div>
+
+                  {!last && (
+                    <div
+                      className={`h-0.5 w-8 ${
+                        idx <
+                        selectedOrder.currentStep
+                          ? "bg-[#1E40AF]"
+                          : "bg-slate-300"
+                      }`}
+                    />
+                  )}
+
+                </div>
+              );
+            }
+          )}
+
         </div>
+
       </div>
 
       <SectionTitle title="Quick Actions" />
+
       <div className="flex flex-wrap gap-3">
-        {selectedOrder.status === "Created" && (
+
+        {/* Created order */}
+        {selectedOrder.status ===
+          "Created" && (
           <button
-            onClick={() => handleAction("bidding", selectedOrder)}
-            className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
+            onClick={() =>
+              handleAction(
+                "bidding",
+                selectedOrder
+              )
+            }
+            className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+
           >
             Open Bidding
           </button>
         )}
 
-        {selectedOrder.status === "Bid Accepted" && (
+        {/* NEW: Open for Bids order */}
+        {selectedOrder.status ===
+          "Open for Bids" && (
           <button
-            onClick={() => openAssignDriver(selectedOrder)}
-            className="flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm text-white hover:bg-[#166534]"
+            onClick={() =>
+              goToBidding(
+                selectedOrder
+              )
+            }
+            className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
           >
-            <UserCheck size={15} /> Assign Driver
+            View Bidding
           </button>
         )}
 
-        {selectedOrder.status !== "Archived" && (
+        {selectedOrder.status ===
+          "Bid Accepted" && (
+          <button
+            onClick={() =>
+              openAssignDriver(
+                selectedOrder
+              )
+            }
+            className="flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm text-white hover:bg-[#166534]"
+          >
+            <UserCheck size={15} />
+            Assign Driver
+          </button>
+        )}
+
+        {selectedOrder.status !==
+          "Archived" && (
           <>
             <button
-              onClick={() => goToTracking(selectedOrder)}
-              className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
+              onClick={() =>
+                goToTracking(
+                  selectedOrder
+                )
+              }
+              className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+
             >
               Track Order
             </button>
 
-            {canReportIssue(selectedOrder.status) && (
+            {canReportIssue(
+              selectedOrder.status
+            ) && (
               <button
-                onClick={() => openIssueForm(selectedOrder)}
+                onClick={() =>
+                  openIssueForm(
+                    selectedOrder
+                  )
+                }
                 className="rounded-lg bg-orange-100 px-4 py-2 text-sm text-[#EA580C] hover:opacity-90"
               >
                 Report Issue
@@ -1224,21 +1939,29 @@ function OrderDetailsPanel({
           </>
         )}
 
-        {selectedOrder.status === "Completed" && (
+        {selectedOrder.status ===
+          "Completed" && (
           <button
-            onClick={() => setArchiveOrder(selectedOrder)}
+            onClick={() =>
+              setArchiveOrder(
+                selectedOrder
+              )
+            }
             className="rounded-lg bg-[#16A34A] px-4 py-2 text-sm text-white hover:opacity-90"
           >
             Archive Order
           </button>
         )}
 
-        {selectedOrder.status === "Archived" && (
+        {selectedOrder.status ===
+          "Archived" && (
           <span className="rounded-lg bg-gray-200 px-4 py-2 text-sm text-gray-600">
             Archived by Operations for review
           </span>
         )}
+
       </div>
+
     </div>
   );
 }
@@ -1247,29 +1970,54 @@ function OrderDetailsPanel({
 function SectionTitle({ title }) {
   return (
     <div className="mb-3">
-      <h3 className="text-base font-semibold text-[#1E293B]">{title}</h3>
+      <h3 className="text-base font-semibold text-[#1E293B]">
+        {title}
+      </h3>
     </div>
   );
 }
 
-// Reusable information box used inside the order detail panel and issue modal
-function InfoBox({ label, value }) {
+// Reusable information box
+function InfoBox({
+  label,
+  value,
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
-      <p className="text-sm font-medium text-[#1E293B]">{value}</p>
+    <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+
+      <p className="mb-1 text-xs text-slate-500">
+        {label}
+      </p>
+
+      <p className="text-sm font-medium text-[#1E293B]">
+        {value}
+      </p>
+
+
     </div>
   );
 }
 
-// Reusable status box for insurance, port pass, vehicle condition, license, and police report
-function StatusInfoBox({ label, value, tone }) {
+// Reusable status box
+function StatusInfoBox({
+  label,
+  value,
+  tone,
+}) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
-      <p className="mb-1 text-xs text-slate-500">{label}</p>
-      <span className={`inline-block rounded-full px-3 py-1 text-xs ${tone}`}>
+    <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+
+      <p className="mb-1 text-xs text-slate-500">
+        {label}
+      </p>
+
+      <span
+        className={`inline-block rounded-full px-3 py-1 text-xs ${tone}`}
+      >
+
         {value}
       </span>
+
     </div>
   );
 }

@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
 import {
-  Search,
-  Truck,
-  CheckCircle,
-  Ship,
-  PackageOpen,
   CalendarDays,
-  RefreshCw,
+  CheckCircle,
   MapPin,
+  PackageOpen,
+  RefreshCw,
+  Search,
+  Ship,
+  Truck,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
 
 // Fixes the default Leaflet marker icon issue in React/Vite projects
 delete L.Icon.Default.prototype._getIconUrl;
@@ -23,7 +23,15 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png",
 });
 
+// Operations page refreshes the driver's GPS position every 5 seconds.
+// This does not create GPS data; it reads the latest rows written by the
+// driver interface into container_tracking.
+const LIVE_GPS_REFRESH_MS = 5000;
+
 function Tracking() {
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000";
   // Search input used when showing all tracking records
   const [search, setSearch] = useState("");
 
@@ -45,6 +53,21 @@ function Tracking() {
     fetchSelectedOrderTracking();
   }, []);
 
+  // Live driver GPS refresh.
+  // When an order is selected for tracking, Operations automatically reads
+  // the latest container_tracking rows every 5 seconds.
+  useEffect(() => {
+    if (!trackingOrder) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      fetchSelectedOrderTracking({ silent: true });
+    }, LIVE_GPS_REFRESH_MS);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Reads selected tracking order safely from sessionStorage
   function getStoredTrackingOrder() {
     try {
@@ -63,7 +86,7 @@ function Tracking() {
       setStageLoading(true);
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/operations/order-progress-stages`
+        `${API_BASE_URL}/api/operations/order-progress-stages`
       );
 
       const result = await response.json();
@@ -89,9 +112,14 @@ function Tracking() {
 
   // Fetches tracking records for the selected order.
   // It supports both database order_id and order_reference.
-  const fetchSelectedOrderTracking = async () => {
+  const fetchSelectedOrderTracking = async (options = {}) => {
+    const silent = options?.silent === true;
+
     try {
-      setTrackingLoading(true);
+      if (!silent) {
+        setTrackingLoading(true);
+      }
+
       setTrackingError("");
 
       const selectedOrderId =
@@ -108,12 +136,12 @@ function Tracking() {
         trackingOrder?.orderId ||
         "";
 
-      let url = `${import.meta.env.VITE_API_URL}/api/operations/tracking`;
+      let url = `${API_BASE_URL}/api/operations/tracking`;
 
       // If database ID exists, use order_id.
       // Example: order_id = 8
       if (selectedOrderId && !String(selectedOrderId).includes("-")) {
-        url = `${import.meta.env.VITE_API_URL}/api/operations/tracking?order_id=${encodeURIComponent(
+        url = `${API_BASE_URL}/api/operations/tracking?order_id=${encodeURIComponent(
           selectedOrderId
         )}`;
       }
@@ -121,7 +149,7 @@ function Tracking() {
       // If only order reference exists, use order_reference.
       // Example: order_reference = IMP-00004
       else if (selectedOrderReference) {
-        url = `${import.meta.env.VITE_API_URL}/api/operations/tracking?order_reference=${encodeURIComponent(
+        url = `${API_BASE_URL}/api/operations/tracking?order_reference=${encodeURIComponent(
           selectedOrderReference
         )}`;
       }
@@ -141,7 +169,9 @@ function Tracking() {
       );
       setTrackingRecords([]);
     } finally {
-      setTrackingLoading(false);
+      if (!silent) {
+        setTrackingLoading(false);
+      }
     }
   };
 
@@ -276,6 +306,15 @@ function Tracking() {
     ]);
   }, [validTrackingRecords]);
 
+  // Latest valid GPS record from the driver.
+  const latestGpsRecord = useMemo(() => {
+    if (validTrackingRecords.length === 0) {
+      return null;
+    }
+
+    return validTrackingRecords[validTrackingRecords.length - 1];
+  }, [validTrackingRecords]);
+
   // Centers map on latest tracking location.
   // If no location exists, defaults to Colombo coordinates.
   const mapCenter = useMemo(() => {
@@ -285,6 +324,30 @@ function Tracking() {
 
     return [6.9271, 79.8612];
   }, [routePositions]);
+
+  // Leaflet MapContainer does not automatically re-center when its center
+  // prop changes after mounting. Changing this key only when the latest GPS
+  // reading changes keeps the existing UI but moves the map to the driver.
+  const liveMapKey = useMemo(() => {
+    if (!latestGpsRecord) {
+      return `${
+        selectedTrackingOrder?.order_id ||
+        selectedTrackingOrder?.orderId ||
+        "tracking"
+      }-no-gps`;
+    }
+
+    return [
+      selectedTrackingOrder?.order_id ||
+        selectedTrackingOrder?.orderId ||
+        latestGpsRecord.order_id ||
+        "tracking",
+      latestGpsRecord.tracking_id || "latest",
+      latestGpsRecord.latitude,
+      latestGpsRecord.longitude,
+      latestGpsRecord.recorded_at || "",
+    ].join("-");
+  }, [latestGpsRecord, selectedTrackingOrder]);
 
   // Returns the latest tracking record based on recorded_at date
   function getLatestTrackingRecord(records) {
@@ -296,9 +359,6 @@ function Tracking() {
   }
 
   // Normalizes selected order data with latest tracking data.
-  // Important fix:
-  // This prefers backend joined order data first, so Tracking page shows IMP-00004
-  // instead of only database ID like 8.
   function normalizeSelectedOrder(order, latestRecord) {
     const orderData = latestRecord?.orders || {};
     const driverData = latestRecord?.drivers || {};
@@ -326,47 +386,64 @@ function Tracking() {
       `${driverData.first_name || ""} ${driverData.last_name || ""}`.trim() ||
       "Not assigned";
 
+    // Current Supabase location schema:
+    // pickup_district = Pickup District
+    // pickup_location = Pickup Location
+    // destination_district = Destination District
+    // destination_location = Destination Location
+    const pickupDistrict =
+      orderData.pickup_district ||
+      order.pickupDistrict ||
+      order.pickup_district ||
+      order.pickup_country ||
+      "N/A";
+
+    const pickupLocation =
+      orderData.pickup_location ||
+      order.pickupLocation ||
+      order.pickup_location ||
+      order.pickup_state ||
+      order.pickup ||
+      "N/A";
+
+    const destinationDistrict =
+      orderData.destination_district ||
+      order.destinationDistrict ||
+      order.destination_district ||
+      order.destination_country ||
+      "N/A";
+
+    const destinationLocation =
+      orderData.destination_location ||
+      order.destinationLocation ||
+      order.destination_location ||
+      order.destination_state ||
+      order.destination ||
+      "N/A";
+
     return {
       orderId: orderReference,
       order_id: databaseOrderId,
 
-      type:
-        orderData.order_type ||
-        order.type ||
-        order.order_type ||
-        "N/A",
+      type: orderData.order_type || order.type || order.order_type || "N/A",
 
-      pickup:
-        orderData.pickup_state ||
-        orderData.pickup_country ||
-        order.pickup ||
-        order.pickup_state ||
-        "N/A",
+      pickupDistrict,
+      pickupLocation,
+      destinationDistrict,
+      destinationLocation,
 
-      destination:
-        orderData.destination_state ||
-        orderData.destination_country ||
-        order.destination ||
-        order.destination_state ||
-        "N/A",
+      // Kept for old UI/session compatibility
+      pickup: pickupLocation,
+      destination: destinationLocation,
 
       containerNo:
-        orderData.container_no ||
-        order.containerNo ||
-        order.container_no ||
-        "N/A",
+        orderData.container_no || order.containerNo || order.container_no || "N/A",
 
       vehicleNo:
-        order.vehicleNo ||
-        order.vehicle_number ||
-        orderData.vehicle_number ||
-        "N/A",
+        order.vehicleNo || order.vehicle_number || orderData.vehicle_number || "N/A",
 
       supplier:
-        order.supplier ||
-        order.supplier_name ||
-        orderData.supplier_name ||
-        "N/A",
+        order.supplier || order.supplier_name || orderData.supplier_name || "N/A",
 
       driver: driverName,
 
@@ -408,13 +485,40 @@ function Tracking() {
       `${driverData.first_name || ""} ${driverData.last_name || ""}`.trim() ||
       "Not assigned";
 
+    const pickupDistrict =
+      orderData.pickup_district ||
+      orderData.pickup_country ||
+      "N/A";
+
+    const pickupLocation =
+      orderData.pickup_location ||
+      orderData.pickup_state ||
+      "N/A";
+
+    const destinationDistrict =
+      orderData.destination_district ||
+      orderData.destination_country ||
+      "N/A";
+
+    const destinationLocation =
+      orderData.destination_location ||
+      orderData.destination_state ||
+      "N/A";
+
     return {
       orderId: orderData.order_reference || record.order_id || "N/A",
       order_id: record.order_id || orderData.order_id || null,
       type: orderData.order_type || "N/A",
-      pickup: orderData.pickup_state || orderData.pickup_country || "N/A",
-      destination:
-        orderData.destination_state || orderData.destination_country || "N/A",
+
+      pickupDistrict,
+      pickupLocation,
+      destinationDistrict,
+      destinationLocation,
+
+      // Kept for old UI/search compatibility
+      pickup: pickupLocation,
+      destination: destinationLocation,
+
       containerNo: orderData.container_no || "N/A",
       vehicleNo: record.vehicle_number || "N/A",
       supplier: orderData.supplier_name || "N/A",
@@ -556,8 +660,13 @@ function Tracking() {
               </h1>
 
               <p className="text-sm text-slate-500 mt-1">
-                {selectedTrackingOrder.pickup} →{" "}
-                {selectedTrackingOrder.destination}
+                {selectedTrackingOrder.pickupLocation} →{" "}
+                {selectedTrackingOrder.destinationLocation}
+              </p>
+
+              <p className="text-xs text-slate-500 mt-2">
+                Pickup District: {selectedTrackingOrder.pickupDistrict} |{" "}
+                Destination District: {selectedTrackingOrder.destinationDistrict}
               </p>
 
               <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
@@ -569,8 +678,9 @@ function Tracking() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={fetchSelectedOrderTracking}
-                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#052659] hover:bg-[#EBF4FF] flex items-center gap-2"
+                onClick={() => fetchSelectedOrderTracking()}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E40AF] hover:bg-[#EFF6FF] flex items-center gap-2"
+
               >
                 <RefreshCw size={15} />
                 Refresh
@@ -604,8 +714,9 @@ function Tracking() {
           />
 
           <button
-            onClick={fetchSelectedOrderTracking}
-            className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#052659] hover:bg-[#EBF4FF] flex items-center gap-2"
+            onClick={() => fetchSelectedOrderTracking()}
+            className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E40AF] hover:bg-[#EFF6FF] flex items-center gap-2"
+
           >
             <RefreshCw size={15} />
             Refresh
@@ -622,59 +733,107 @@ function Tracking() {
 
       {/* Tracking order summary table */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-[#EBF4FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
-            <tr>
-              <th className="py-3 px-4 text-left">Order ID</th>
-              <th className="px-4 text-left">Type</th>
-              <th className="px-4 text-left">Pickup</th>
-              <th className="px-4 text-left">Destination</th>
-              <th className="px-4 text-left">Container No</th>
-              <th className="px-4 text-left">Vehicle No</th>
-              <th className="px-4 text-left">Supplier</th>
-              <th className="px-4 text-left">Driver</th>
-              <th className="px-4 text-left">Status</th>
-            </tr>
-          </thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[#EFF6FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
 
-          <tbody className="divide-y divide-slate-200">
-            {trackingLoading ? (
               <tr>
-                <td colSpan="9" className="text-center py-6 text-slate-500">
-                  Loading tracking data...
-                </td>
+                <th className="py-3 px-4 text-left whitespace-nowrap">
+                  Order ID
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">Type</th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Pickup District
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Pickup Location
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Destination District
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Destination Location
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Container No
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">
+                  Vehicle No
+                </th>
+                <th className="px-4 text-left whitespace-nowrap">Supplier</th>
+                <th className="px-4 text-left whitespace-nowrap">Driver</th>
+                <th className="px-4 text-left whitespace-nowrap">Status</th>
               </tr>
-            ) : displayOrders.length > 0 ? (
-              displayOrders.map((order) => (
-                <tr key={order.orderId} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-[#1E293B]">
-                    {order.orderId}
-                  </td>
+            </thead>
 
-                  <td className="px-4 text-[#1E293B]">{order.type}</td>
-                  <td className="px-4 text-[#1E293B]">{order.pickup}</td>
-                  <td className="px-4 text-[#1E293B]">{order.destination}</td>
-                  <td className="px-4 text-[#1E293B]">{order.containerNo}</td>
-                  <td className="px-4 text-[#1E293B]">{order.vehicleNo}</td>
-                  <td className="px-4 text-[#1E293B]">{order.supplier}</td>
-                  <td className="px-4 text-[#1E293B]">{order.driver}</td>
+            <tbody className="divide-y divide-slate-200">
+              {trackingLoading ? (
+                <tr>
+                  <td colSpan="11" className="text-center py-6 text-slate-500">
+                    Loading tracking data...
 
-                  <td className="px-4 text-[#1E293B]">
-                    <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EBF4FF] text-[#052659]">
-                      {prettifyStatus(order.status)}
-                    </span>
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="9" className="text-center py-6 text-slate-500">
-                  No tracking records found for this order
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : displayOrders.length > 0 ? (
+                displayOrders.map((order) => (
+                  <tr key={order.orderId} className="hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-[#1E293B] whitespace-nowrap">
+                      {order.orderId}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.type}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.pickupDistrict}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.pickupLocation}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.destinationDistrict}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.destinationLocation}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.containerNo}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.vehicleNo}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.supplier}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      {order.driver}
+                    </td>
+
+                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
+                      <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EFF6FF] text-[#1E40AF]">
+                        {prettifyStatus(order.status)}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="11" className="text-center py-6 text-slate-500">
+                    No tracking records found for this order
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Order progress timeline */}
@@ -682,7 +841,7 @@ function Tracking() {
         <div className="flex justify-between mb-6">
           <h3 className="font-semibold text-lg text-[#1E293B]">
             Status{" "}
-            <span className="text-[#16A34A] text-sm">
+            <span className="text-[#1E40AF] text-sm">
               {stageLoading ? "Loading Stages..." : "Order Progress"}
             </span>
           </h3>
@@ -708,7 +867,7 @@ function Tracking() {
                     <div className="absolute top-4 left-1/2 w-full h-1 bg-slate-200 z-0">
                       <div
                         className={`h-1 ${
-                          isLineCompleted ? "bg-[#16A34A]" : "bg-slate-200"
+                          isLineCompleted ? "bg-[#1E40AF]" : "bg-slate-200"
                         } w-full`}
                       />
                     </div>
@@ -717,7 +876,7 @@ function Tracking() {
                   <div
                     className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center text-sm relative z-10 ${
                       isCompleted
-                        ? "bg-[#16A34A] text-white"
+                        ? "bg-[#1E40AF] text-white"
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
@@ -756,9 +915,7 @@ function Tracking() {
           </div>
         ) : routePositions.length > 0 ? (
           <MapContainer
-            key={`${
-              selectedTrackingOrder?.order_id || selectedTrackingOrder?.orderId
-            }-${routePositions.length}`}
+            key={liveMapKey}
             center={mapCenter}
             zoom={8}
             className="h-72 rounded-lg"
@@ -801,7 +958,7 @@ function Tracking() {
           <div className="h-72 flex flex-col items-center justify-center text-slate-500 text-sm">
             <p>No vehicle tracking location found for this order.</p>
             <p className="text-xs mt-1">
-              Add a row in container_tracking table for this order_id.
+              Waiting for GPS updates from the driver interface.
             </p>
           </div>
         )}
