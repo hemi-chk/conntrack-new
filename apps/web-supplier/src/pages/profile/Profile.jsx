@@ -1,5 +1,6 @@
-import React from 'react';
-import { useProfile } from '../../hooks/useProfile';
+import React, { useRef, useState } from 'react';
+import { useProfile, CURRENT_SUPPLIER_ID } from '../../hooks/useProfile';
+import { updateSupplierLogo } from '../../services/profileService';
 import {
   Mail,
   Phone,
@@ -14,11 +15,32 @@ import {
   Banknote,
   Globe,
   LogOut,
-  Info
+  Info,
+  Camera
 } from 'lucide-react';
 
 export const Profile = () => {
-  const { profileData, isLoading, error } = useProfile();
+  const { profileData, isLoading, error, refreshProfile } = useProfile();
+  const fileInputRef = useRef(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState(null);
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    try {
+      setIsUploadingLogo(true);
+      setLogoError(null);
+      await updateSupplierLogo(CURRENT_SUPPLIER_ID, file);
+      await refreshProfile();
+    } catch (err) {
+      setLogoError(err.message || 'Failed to upload logo');
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -69,8 +91,32 @@ export const Profile = () => {
         <div className="flex flex-col gap-6">
           {/* Main Info Card */}
           <div className="flex flex-col gap-6 items-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm sm:flex-row sm:items-start">
-            <div className="flex justify-center items-center w-24 h-24 bg-blue-50 rounded-xl border border-blue-100 text-primary shrink-0">
-              <Building2 size={40} />
+            <div className="overflow-hidden relative flex justify-center items-center w-24 h-24 bg-blue-50 rounded-xl border border-blue-100 text-primary shrink-0 group">
+              {profileData?.supplier_logo ? (
+                <img src={profileData.supplier_logo} alt="Company logo" className="object-cover w-full h-full" />
+              ) : (
+                <Building2 size={40} />
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingLogo}
+                title="Change logo"
+                className="flex absolute inset-0 justify-center items-center opacity-0 transition-opacity bg-black/40 group-hover:opacity-100 disabled:opacity-100"
+              >
+                {isUploadingLogo ? (
+                  <div className="w-5 h-5 rounded-full border-2 border-white animate-spin border-t-transparent"></div>
+                ) : (
+                  <Camera size={20} className="text-white" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoChange}
+                className="hidden"
+              />
             </div>
             <div className="flex flex-col flex-1 gap-2 items-center sm:items-start">
               <div className="flex gap-3 items-center">
@@ -83,6 +129,9 @@ export const Profile = () => {
                   {profileData?.status || 'Unknown'}
                 </span>
               </div>
+              {logoError && (
+                <span className="text-xs font-medium text-red-600">{logoError}</span>
+              )}
               <div className="flex flex-wrap gap-4 justify-center items-center text-sm font-medium text-gray-500 sm:justify-start">
                 <div className="flex items-center gap-1.5">
                   <MapPin size={16} />

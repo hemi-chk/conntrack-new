@@ -1,5 +1,19 @@
 import { supabase } from '@conntrack/database'
 
+const uploadToStorage = async (bucket, folder, file) => {
+  const fileName = `${Date.now()}-${file.originalname}`
+  const filePath = `${folder}/${fileName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file.buffer, { contentType: file.mimetype })
+
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath)
+  return data.publicUrl
+}
+
 // --- Dashboard Stats ---
 
 export const getDashboardStats = async (req, res) => {
@@ -49,6 +63,29 @@ export const getSupplierProfile = async (req, res) => {
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
+  }
+}
+
+// PATCH /api/supplier/:id/logo - Upload/replace supplier logo
+export const updateSupplierLogo = async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!req.file) return res.status(400).json({ error: 'No logo file uploaded' })
+
+    const supplier_logo = await uploadToStorage('supplier-logos', 'logos', req.file)
+
+    const { data, error } = await supabase
+      .from('suppliers')
+      .update({ supplier_logo })
+      .eq('supplier_id', id)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Supplier not found' })
+
+    res.json(data[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 }
 
@@ -123,18 +160,26 @@ export const getVehicles = async (req, res) => {
 
 export const addVehicle = async (req, res) => {
   try {
-    const { 
-      vehicle_number, 
-      type, 
-      availability_status, 
+    const {
+      vehicle_number,
+      type,
+      availability_status,
       insurance_status,
-      insurance_expiry, 
+      insurance_expiry,
       port_pass_status,
       port_pass_expiry,
       condition_status,
       supplier_id
     } = req.body
-    
+
+    const insuranceFile = req.files?.insurance?.[0]
+    const portPassFile = req.files?.port_pass?.[0]
+
+    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+      insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
+      portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
+    ])
+
     const insertData = {
       vehicle_number,
       vehicle_type: type,
@@ -144,7 +189,9 @@ export const addVehicle = async (req, res) => {
       port_pass_status: port_pass_status || 'valid',
       port_pass_expiry,
       condition_status: condition_status || 'good',
-      supplier_id
+      supplier_id,
+      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
+      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
     }
 
     const { data, error } = await supabase
@@ -162,17 +209,25 @@ export const addVehicle = async (req, res) => {
 export const updateVehicle = async (req, res) => {
   try {
     const { id } = req.params
-    const { 
-      vehicle_number, 
-      type, 
-      availability_status, 
+    const {
+      vehicle_number,
+      type,
+      availability_status,
       insurance_status,
-      insurance_expiry, 
+      insurance_expiry,
       port_pass_status,
       port_pass_expiry,
       condition_status,
       supplier_id
     } = req.body
+
+    const insuranceFile = req.files?.insurance?.[0]
+    const portPassFile = req.files?.port_pass?.[0]
+
+    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+      insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
+      portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
+    ])
 
     const updateData = {
       vehicle_number,
@@ -182,7 +237,9 @@ export const updateVehicle = async (req, res) => {
       insurance_expiry,
       port_pass_status,
       port_pass_expiry,
-      condition_status
+      condition_status,
+      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
+      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
     }
 
     let query = supabase
