@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { PlusSquare, AlertTriangle, UserCheck } from "lucide-react";
 
-const OPS_API = "http://localhost:5000/api/operations";
+const OPS_API = `${import.meta.env.VITE_API_URL}/api/operations`;
 
 function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, onClose }) {
   const { drivers, vehicles, driverId, vehicleId, loading, error } = state;
@@ -291,7 +291,7 @@ function Orders({ onNavigate }) {
     try {
       setIsLoading(true);
 
-      const response = await fetch("http://localhost:5000/api/operations/orders");
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/operations/orders`);
       const result = await response.json();
 
       if (!response.ok) {

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 // Backend API base URL used to fetch dashboard data
-const API_BASE_URL = "http://localhost:5000/api/operations";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/operations`;
 
 function Dashboard({ onNavigate }) {
   // Main dashboard data states

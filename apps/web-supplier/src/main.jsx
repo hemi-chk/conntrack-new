@@ -38,7 +38,7 @@ import App from './App.jsx'
   window.fetch = async (url, options = {}) => {
     const activeToken = localStorage.getItem('token')
     const urlStr = url.toString()
-    if (activeToken && (urlStr.includes('http://localhost:5000/api') || urlStr.includes('http://127.0.0.1:5000/api'))) {
+    if (activeToken && (urlStr.includes(`${import.meta.env.VITE_API_URL}/api`) || urlStr.includes('http://localhost:5000/api') || urlStr.includes('http://127.0.0.1:5000/api'))) {
       options.headers = {
         ...options.headers,
         'Authorization': `Bearer ${activeToken}`

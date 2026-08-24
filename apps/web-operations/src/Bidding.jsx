@@ -132,10 +132,10 @@ function Bidding() {
       const orderReference = getOrderReference(order);
 
       const url = orderReference
-        ? `http://localhost:5000/api/operations/bids?order_reference=${encodeURIComponent(
+        ? `${import.meta.env.VITE_API_URL}/api/operations/bids?order_reference=${encodeURIComponent(
             orderReference
           )}`
-        : "http://localhost:5000/api/operations/bids";
+        : `${import.meta.env.VITE_API_URL}/api/operations/bids`;
 
       const response = await fetch(url);
       const result = await response.json();

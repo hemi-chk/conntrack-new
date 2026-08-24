@@ -63,7 +63,7 @@ function Tracking() {
       setStageLoading(true);
 
       const response = await fetch(
-        "http://localhost:5000/api/operations/order-progress-stages"
+        `${import.meta.env.VITE_API_URL}/api/operations/order-progress-stages`
       );
 
       const result = await response.json();
@@ -108,12 +108,12 @@ function Tracking() {
         trackingOrder?.orderId ||
         "";
 
-      let url = "http://localhost:5000/api/operations/tracking";
+      let url = `${import.meta.env.VITE_API_URL}/api/operations/tracking`;
 
       // If database ID exists, use order_id.
       // Example: order_id = 8
       if (selectedOrderId && !String(selectedOrderId).includes("-")) {
-        url = `http://localhost:5000/api/operations/tracking?order_id=${encodeURIComponent(
+        url = `${import.meta.env.VITE_API_URL}/api/operations/tracking?order_id=${encodeURIComponent(
           selectedOrderId
         )}`;
       }
@@ -121,7 +121,7 @@ function Tracking() {
       // If only order reference exists, use order_reference.
       // Example: order_reference = IMP-00004
       else if (selectedOrderReference) {
-        url = `http://localhost:5000/api/operations/tracking?order_reference=${encodeURIComponent(
+        url = `${import.meta.env.VITE_API_URL}/api/operations/tracking?order_reference=${encodeURIComponent(
           selectedOrderReference
         )}`;
       }

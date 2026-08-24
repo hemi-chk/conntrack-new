@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:5000/api/operations";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/operations`;
 
 function Issues() {
   // Main page states for tab filter, search, selected modal issue, loaded issues, and follow-up messages

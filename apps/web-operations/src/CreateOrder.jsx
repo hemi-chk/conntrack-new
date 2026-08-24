@@ -83,7 +83,7 @@ function CreateOrder({ onNavigate }) {
       setIsGeneratingId(true);
 
       const response = await fetch(
-        `http://localhost:5000/api/operations/orders/next-id?type=${type.toLowerCase()}`
+        `${import.meta.env.VITE_API_URL}/api/operations/orders/next-id?type=${type.toLowerCase()}`
       );
 
       const result = await response.json();
@@ -218,7 +218,7 @@ function CreateOrder({ onNavigate }) {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch("http://localhost:5000/api/operations/orders", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/operations/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
