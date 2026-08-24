@@ -248,7 +248,11 @@ export const addStaff = async (req, res) => {
       })
       .select()
 
-    if (error) throw error
+    if (error) {
+      // Roll back the auth user so this email isn't permanently blocked by an orphaned account
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw error
+    }
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -283,6 +287,16 @@ export const grantSupplierAccess = async (req, res) => {
   try {
     const { supplier_id, email, password } = req.body
 
+    const { data: supplier, error: supplierError } = await supabase
+      .from('suppliers')
+      .select('company_name, contact_person, contact_number')
+      .eq('supplier_id', supplier_id)
+      .single()
+    if (supplierError) throw supplierError
+
+    const [first_name, ...rest] = (supplier.contact_person || supplier.company_name || 'Supplier').trim().split(' ')
+    const last_name = rest.join(' ') || supplier.company_name || 'Contact'
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -298,9 +312,19 @@ export const grantSupplierAccess = async (req, res) => {
         status: 'active',
         is_temp_account: false,
         employee_id: String(supplier_id),
+        first_name,
+        last_name,
+        contact_number: supplier.contact_number || 'N/A',
+        position: 'Supplier Contact',
+        national_id: 'N/A',
+        address: 'N/A',
       })
       .select()
-    if (error) throw error
+    if (error) {
+      // Roll back the auth user so this email isn't permanently blocked by an orphaned account
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw error
+    }
 
     res.json(data)
   } catch (error) {
