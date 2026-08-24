@@ -63,7 +63,7 @@ export default function OrderSummary({ order }) {
                   </div>
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Origin</p>
                   <p className="font-semibold text-sm text-slate-800 mt-0.5">
-                    {order.pickup_state}, {order.pickup_country}
+                    {order.pickup_location || order.pickup_district || order.pickup_state || "N/A"}{order.pickup_country ? `, ${order.pickup_country}` : ""}
                   </p>
                 </div>
 
@@ -74,7 +74,7 @@ export default function OrderSummary({ order }) {
                   </div>
                   <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Destination</p>
                   <p className="font-semibold text-sm text-slate-800 mt-0.5">
-                    {order.destination_state}, {order.destination_country}
+                    {order.destination_location || order.destination_district || order.destination_state || "N/A"}{order.destination_country ? `, ${order.destination_country}` : ""}
                   </p>
                 </div>
               </div>

@@ -125,7 +125,7 @@ export default function OrdersPage({ title, type }) {
 
                                         {/* ROUTE */}
                                         <TableCell className="px-4 py-4 text-sm font-medium text-slate-600">
-                                            {order.pickup_state} - {order.destination_state}
+                                            {order.route || `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`}
                                         </TableCell>
 
                                         {/* STATUS */}

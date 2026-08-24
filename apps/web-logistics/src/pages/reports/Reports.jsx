@@ -62,46 +62,65 @@ export default function Reports() {
     const handlePrint = () => window.print();
 
     // Derived Data for Charts
+    const STATUS_ORDER = ['created', 'open_for_bids', 'bid_accepted', 'driver_assigned', 'in_transit', 'completed', 'cancelled'];
+    const STATUS_LABELS = {
+        created: 'Created',
+        open_for_bids: 'Open Bids',
+        bid_accepted: 'Bid Accepted',
+        driver_assigned: 'Driver Assigned',
+        in_transit: 'In Transit',
+        completed: 'Completed',
+        cancelled: 'Cancelled'
+    };
+
     const statusChartData = useMemo(() => {
         const counts = {};
         orders.forEach(order => {
-            const statusKey = order.current_status || 'pending';
+            const statusKey = order.current_status || 'created';
             counts[statusKey] = (counts[statusKey] || 0) + 1;
         });
-        return Object.keys(counts).map(status => ({
-            name: status.replace('_', ' ').toUpperCase(),
-            count: counts[status],
-            statusKey: status
-        }));
+
+        return STATUS_ORDER
+            .filter(statusKey => counts[statusKey] !== undefined)
+            .map(statusKey => ({
+                name: STATUS_LABELS[statusKey] || statusKey.replace(/_/g, ' '),
+                count: counts[statusKey],
+                statusKey: statusKey
+            }));
     }, [orders]);
 
-    const orderTypeChartData = useMemo(() => {
-        let imports = 0;
-        let exports = 0;
-        let other = 0;
+    const cargoChartData = useMemo(() => {
+        const categories = {};
+        const palette = ['#1E40AF', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
+
         orders.forEach(order => {
-            const type = order.order_type?.toLowerCase();
-            if (type === 'import') imports++;
-            else if (type === 'export') exports++;
-            else other++;
+            const cargo = order.cargo_type || 'General Freight';
+            categories[cargo] = (categories[cargo] || 0) + 1;
         });
-        return [
-            { name: 'Imports', value: imports, color: '#1E40AF' },
-            { name: 'Exports', value: exports, color: '#3B82F6' },
-            ...(other > 0 ? [{ name: 'Other', value: other, color: '#64748B' }] : [])
-        ];
+
+        return Object.keys(categories)
+            .map((cargo, idx) => ({
+                name: cargo,
+                value: categories[cargo],
+                color: palette[idx % palette.length]
+            }))
+            .sort((a, b) => b.value - a.value);
     }, [orders]);
 
     const destinationChartData = useMemo(() => {
         const destinations = {};
         orders.forEach(order => {
-            const dest = order.destination_state || 'Unknown';
+            const dest = order.destination_location || order.destination_district || order.destination_state || 'Unspecified Hub';
             destinations[dest] = (destinations[dest] || 0) + 1;
         });
         return Object.keys(destinations)
-            .map(dest => ({ name: dest, shipments: destinations[dest] }))
+            .map(dest => ({ 
+                name: dest.length > 15 ? `${dest.substring(0, 15)}...` : dest, 
+                fullName: dest,
+                shipments: destinations[dest] 
+            }))
             .sort((a, b) => b.shipments - a.shipments)
-            .slice(0, 6);
+            .slice(0, 5);
     }, [orders]);
 
     return (
@@ -286,15 +305,15 @@ export default function Reports() {
                 {/* CHARTS & GRAPHICS SECTION */}
                 <div className="chart-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
-                    {/* Graph 1: Order Status Distribution */}
+                    {/* Graph 1: Fulfillment Pipeline Stage */}
                     <div className="chart-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                     <BarChart3 size={16} className="text-[#1E40AF]" />
-                                    OrderStatus Distribution
+                                    Fulfillment Lifecycle Pipeline
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Breakdown by fulfillment state</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Orders grouped by operational stage</p>
                             </div>
                         </div>
                         <div className="h-52 w-full">
@@ -304,11 +323,12 @@ export default function Reports() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={statusChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" />
+                                        <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" interval={0} angle={-15} textAnchor="end" height={35} />
                                         <YAxis allowDecimals={false} tick={{ fontSize: 9 }} stroke="#64748B" />
                                         <Tooltip 
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
                                             cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }}
+                                            formatter={(val) => [`${val} orders`, 'Volume']}
                                         />
                                         <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                                             {statusChartData.map((entry, index) => (
@@ -324,15 +344,15 @@ export default function Reports() {
                         </div>
                     </div>
 
-                    {/* Graph 2: Import vs Export Ratio */}
+                    {/* Graph 2: Cargo Category Breakdown */}
                     <div className="chart-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                     <PieIcon size={16} className="text-[#1E40AF]" />
-                                    Import vs Export Ratio
+                                    Cargo Classification
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Shipment direction breakdown</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Volume distribution by commodity type</p>
                             </div>
                         </div>
                         <div className="h-52 w-full flex items-center justify-center">
@@ -342,26 +362,27 @@ export default function Reports() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
-                                            data={orderTypeChartData}
+                                            data={cargoChartData}
                                             cx="50%"
-                                            cy="50%"
-                                            innerRadius={40}
-                                            outerRadius={70}
-                                            paddingAngle={4}
+                                            cy="45%"
+                                            innerRadius={38}
+                                            outerRadius={65}
+                                            paddingAngle={3}
                                             dataKey="value"
                                         >
-                                            {orderTypeChartData.map((entry, index) => (
+                                            {cargoChartData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
                                         <Tooltip 
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
+                                            formatter={(val) => [`${val} shipments`, 'Cargo Weight/Count']}
                                         />
                                         <Legend 
                                             verticalAlign="bottom" 
-                                            height={30} 
+                                            height={36} 
                                             iconType="circle"
-                                            wrapperStyle={{ fontSize: '11px', fontWeight: 600 }}
+                                            wrapperStyle={{ fontSize: '10px', fontWeight: 600, paddingTop: '4px' }}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -375,9 +396,9 @@ export default function Reports() {
                             <div>
                                 <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                                     <TrendingUp size={16} className="text-[#1E40AF]" />
-                                    Top Freight Destinations
+                                    Top Delivery Hubs
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Primary delivery state destinations</p>
+                                <p className="text-[11px] text-slate-400 font-medium">Highest volume freight destinations</p>
                             </div>
                         </div>
                         <div className="h-52 w-full">
@@ -385,21 +406,21 @@ export default function Reports() {
                                 <div className="h-full flex items-center justify-center text-slate-400 text-xs"><Loader2 className="animate-spin" /></div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={destinationChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorShipments" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#1E40AF" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#1E40AF" stopOpacity={0.0}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" />
-                                        <YAxis allowDecimals={false} tick={{ fontSize: 9 }} stroke="#64748B" />
+                                    <BarChart 
+                                        layout="vertical"
+                                        data={destinationChartData} 
+                                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 9 }} stroke="#64748B" />
+                                        <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" width={85} />
                                         <Tooltip 
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
+                                            labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
+                                            formatter={(val) => [`${val} deliveries`, 'Volume']}
                                         />
-                                        <Area type="monotone" dataKey="shipments" stroke="#1E40AF" strokeWidth={2} fillOpacity={1} fill="url(#colorShipments)" />
-                                    </AreaChart>
+                                        <Bar dataKey="shipments" fill="#1E40AF" radius={[0, 6, 6, 0]} barSize={16} />
+                                    </BarChart>
                                 </ResponsiveContainer>
                             )}
                         </div>
@@ -463,7 +484,7 @@ export default function Reports() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="text-xs font-medium text-slate-700">
-                                                {order.pickup_state} <span className="text-slate-300 mx-1">-</span> {order.destination_state}
+                                                {order.route || `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`}
                                             </div>
                                             <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider italic">{order.order_type}</div>
                                         </TableCell>

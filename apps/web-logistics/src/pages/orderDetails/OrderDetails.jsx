@@ -62,7 +62,7 @@ export default function OrderDetails() {
       {/* Tracking Meter Component */}
       <TrackingMeter orderId={order.order_id} orderType={order.order_type} />
 
-      {/* Socket.io Live Container Location Map Component */}
+      {/* Container Tracking Location Map Component */}
       <ContainerMap 
         orderId={order.order_id} 
         status={order.current_status}

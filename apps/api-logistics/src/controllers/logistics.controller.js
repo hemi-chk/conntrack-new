@@ -11,7 +11,7 @@ export const getDashboardSummary = async (req, res) => {
             supabase.from('orders').select('*', { count: 'exact', head: true }).eq('current_status', 'completed'),
             supabase.from('orders').select(`
                 order_id, order_reference, order_type, current_status, created_at,
-                pickup_state, destination_state, customers (customer_name)
+                pickup_location, pickup_district, destination_location, destination_district, customers (customer_name)
             `).order('created_at', { ascending: false }).limit(5)
         ]);
 
@@ -24,7 +24,7 @@ export const getDashboardSummary = async (req, res) => {
                 order_type: order.order_type,
                 current_status: order.current_status,
                 customer: order.customers?.customer_name || 'Internal',
-                route: `${order.pickup_state} → ${order.destination_state}`,
+                route: `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`,
                 created_at: order.created_at
             })),
             stats: {
@@ -857,11 +857,16 @@ export const getOrdersByType = async (req, res) => {
     const { type } = req.query;
 
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('orders')
             .select(`*, customers (customer_name)`)
-            .eq('order_type', type)
             .order('created_at', { ascending: false });
+
+        if (type) {
+            query = query.eq('order_type', type);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -871,7 +876,7 @@ export const getOrdersByType = async (req, res) => {
                 customer_name:
                     order.customers?.customer_name || 'N/A',
                 route:
-                    `${order.pickup_state} → ${order.destination_state}`
+                    `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`
             }))
         );
 
@@ -1169,27 +1174,25 @@ export const getFilteredReports = async (req, res) => {
     const { fromDate, toDate } = req.query;
 
     try {
-        const {
-            data: orders,
-            error
-        } = await supabase
+        let query = supabase
             .from('orders')
             .select(`
                 *,
                 customers (customer_name)
-            `)
-            .gte(
-                'created_at',
-                `${fromDate}T00:00:00Z`
-            )
-            .lte(
-                'created_at',
-                `${toDate}T23:59:59Z`
-            )
-            .order(
-                'created_at',
-                { ascending: false }
-            );
+            `);
+
+        if (fromDate) {
+            query = query.gte('created_at', `${fromDate}T00:00:00Z`);
+        }
+
+        if (toDate) {
+            query = query.lte('created_at', `${toDate}T23:59:59Z`);
+        }
+
+        const {
+            data: orders,
+            error
+        } = await query.order('created_at', { ascending: false });
 
         if (error) throw error;
 
