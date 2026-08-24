@@ -12,7 +12,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  useMap,
+} from "react-leaflet";
 
 // Fixes the default Leaflet marker icon issue in React/Vite projects
 delete L.Icon.Default.prototype._getIconUrl;
@@ -27,6 +34,202 @@ L.Icon.Default.mergeOptions({
 // This does not create GPS data; it reads the latest rows written by the
 // driver interface into container_tracking.
 const LIVE_GPS_REFRESH_MS = 5000;
+
+// Known Sri Lankan Operations locations. These are used only when the order
+// does not already contain explicit pickup/destination latitude + longitude.
+const SRI_LANKA_LOCATION_COORDINATES = {
+  "Colombo Port": [6.9459, 79.8428],
+  "Colombo City": [6.9271, 79.8612],
+  "Orugodawatta Yard": [6.9474, 79.8798],
+  "Ratmalana Industrial Area": [6.8213, 79.8862],
+  "Pettah Warehouse": [6.9355, 79.85],
+  "Dematagoda Yard": [6.9404, 79.8783],
+
+  "Katunayake Airport": [7.1808, 79.8841],
+  "Katunayake Export Zone": [7.1674, 79.8761],
+  "Biyagama BOI Zone": [7.084, 80.016],
+  "Ekala BOI Zone": [7.105, 79.919],
+  "Peliyagoda Warehouse": [6.9608, 79.8788],
+  "Wattala Industrial Area": [6.9895, 79.8912],
+
+  "Kalutara Industrial Area": [6.5854, 79.9607],
+  Panadura: [6.7132, 79.9026],
+  "Horana Industrial Zone": [6.7159, 80.0626],
+  Beruwala: [6.4788, 79.9828],
+
+  "Kandy City": [7.2906, 80.6337],
+  Peradeniya: [7.2631, 80.5967],
+  Katugastota: [7.3267, 80.6217],
+  "Pallekele Industrial Zone": [7.2861, 80.7047],
+
+  "Kurunegala Warehouse": [7.4863, 80.3647],
+  Kuliyapitiya: [7.4696, 80.0488],
+  "Mawathagama Export Zone": [7.4044, 80.4432],
+  "Pannala Industrial Area": [7.3285, 80.0255],
+
+  "Galle City": [6.0535, 80.221],
+  "Galle Port": [6.0329, 80.2168],
+  "Koggala BOI Zone": [5.9941, 80.327],
+  Hikkaduwa: [6.1407, 80.1012],
+
+  "Matara City": [5.9549, 80.555],
+  Weligama: [5.973, 80.4297],
+  Akuressa: [6.0967, 80.4808],
+  Dikwella: [5.9667, 80.6833],
+
+  "Hambantota Port": [6.1241, 81.1185],
+  "Mattala Airport": [6.2845, 81.1241],
+  Tangalle: [6.024, 80.7911],
+  Sooriyawewa: [6.3084, 81.0107],
+
+  "Trincomalee Port": [8.5711, 81.2335],
+  "China Bay": [8.5385, 81.1814],
+  Kinniya: [8.4977, 81.1794],
+  Kantale: [8.3653, 80.9669],
+
+  "Jaffna Town": [9.6615, 80.0255],
+  "Kankesanthurai Port": [9.8167, 80.05],
+  Chavakachcheri: [9.6535, 80.1597],
+  "Point Pedro": [9.8167, 80.2333],
+
+  "Anuradhapura Town": [8.3114, 80.4037],
+  Medawachchiya: [8.5396, 80.4894],
+  Kekirawa: [8.0375, 80.598],
+  Mihintale: [8.35, 80.5167],
+
+  "Batticaloa Town": [7.7102, 81.6924],
+  Eravur: [7.7782, 81.6038],
+  Kattankudy: [7.675, 81.73],
+  Valaichchenai: [7.9333, 81.5167],
+};
+
+// The latest driver GPS is shown with one clear truck marker.
+// Old GPS positions are kept as the travelled path instead of rendering
+// dozens of markers on the map.
+const liveDriverIcon = L.divIcon({
+  className: "",
+  html: `
+    <div style="
+      width:38px;
+      height:38px;
+      border-radius:50%;
+      background:#1E40AF;
+      color:white;
+      border:3px solid white;
+      box-shadow:0 4px 12px rgba(15,23,42,.25);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:20px;
+    ">🚚</div>
+  `,
+  iconSize: [38, 38],
+  iconAnchor: [19, 19],
+  popupAnchor: [0, -18],
+});
+
+function toFiniteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function firstFiniteNumber(...values) {
+  for (const value of values) {
+    const number = toFiniteNumber(value);
+    if (number !== null) return number;
+  }
+  return null;
+}
+
+function resolveOrderEndpointCoordinates(orderData, sourceOrder, endpoint, locationName) {
+  const isPickup = endpoint === "pickup";
+
+  const latitude = firstFiniteNumber(
+    isPickup ? orderData?.pickup_latitude : orderData?.destination_latitude,
+    isPickup ? orderData?.origin_latitude : orderData?.dropoff_latitude,
+    isPickup ? sourceOrder?.pickup_latitude : sourceOrder?.destination_latitude,
+    isPickup ? sourceOrder?.origin_latitude : sourceOrder?.dropoff_latitude,
+    isPickup ? sourceOrder?.pickup?.latitude : sourceOrder?.destination?.latitude,
+    isPickup ? sourceOrder?.origin?.latitude : sourceOrder?.drop?.latitude
+  );
+
+  const longitude = firstFiniteNumber(
+    isPickup ? orderData?.pickup_longitude : orderData?.destination_longitude,
+    isPickup ? orderData?.origin_longitude : orderData?.dropoff_longitude,
+    isPickup ? sourceOrder?.pickup_longitude : sourceOrder?.destination_longitude,
+    isPickup ? sourceOrder?.origin_longitude : sourceOrder?.dropoff_longitude,
+    isPickup ? sourceOrder?.pickup?.longitude : sourceOrder?.destination?.longitude,
+    isPickup ? sourceOrder?.origin?.longitude : sourceOrder?.drop?.longitude
+  );
+
+  if (latitude !== null && longitude !== null) {
+    return [latitude, longitude];
+  }
+
+  return SRI_LANKA_LOCATION_COORDINATES[locationName] || null;
+}
+
+function formatGpsLocation(record) {
+  if (!record) return "No tracking location";
+
+  if (record.current_location) {
+    return String(record.current_location);
+  }
+
+  const latitude = toFiniteNumber(record.latitude);
+  const longitude = toFiniteNumber(record.longitude);
+
+  if (latitude !== null && longitude !== null) {
+    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+  }
+
+  return "Live GPS";
+}
+
+// Keeps the existing map UI, but makes the viewport follow the selected
+// order route and the driver's latest GPS location.
+function MapViewportController({
+  plannedRoutePositions,
+  pickupPosition,
+  destinationPosition,
+  latestDriverPosition,
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = [
+      ...(plannedRoutePositions || []),
+      ...(pickupPosition ? [pickupPosition] : []),
+      ...(destinationPosition ? [destinationPosition] : []),
+      ...(latestDriverPosition ? [latestDriverPosition] : []),
+    ].filter(
+      (position) =>
+        Array.isArray(position) &&
+        Number.isFinite(Number(position[0])) &&
+        Number.isFinite(Number(position[1]))
+    );
+
+    if (points.length > 1) {
+      map.fitBounds(points, {
+        padding: [35, 35],
+        maxZoom: 14,
+      });
+      return;
+    }
+
+    if (points.length === 1) {
+      map.setView(points[0], 14);
+    }
+  }, [
+    map,
+    plannedRoutePositions,
+    pickupPosition,
+    destinationPosition,
+    latestDriverPosition,
+  ]);
+
+  return null;
+}
 
 function Tracking() {
   const API_BASE_URL =
@@ -43,6 +246,10 @@ function Tracking() {
   const [trackingRecords, setTrackingRecords] = useState([]);
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState("");
+
+  // Planned pickup -> destination road route from OSRM.
+  const [plannedRoutePositions, setPlannedRoutePositions] = useState([]);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   // Gets the selected order from sessionStorage when user clicks Track from another page
   const trackingOrder = getStoredTrackingOrder();
@@ -136,7 +343,16 @@ function Tracking() {
         trackingOrder?.orderId ||
         "";
 
-      let url = `${API_BASE_URL}/api/operations/tracking`;
+      // Tracking is intentionally restricted to one selected order.
+      // This prevents GPS points from different drivers/orders appearing
+      // together on the same map.
+      if (!selectedOrderId && !selectedOrderReference) {
+        setTrackingRecords([]);
+        return;
+      }
+
+      let url = "";
+
 
       // If database ID exists, use order_id.
       // Example: order_id = 8
@@ -250,15 +466,9 @@ function Tracking() {
     return null;
   }, [trackingOrder, trackingRecords]);
 
-  // If one order is selected, only that order is displayed.
-  // If no order is selected, all tracking records are shown and searchable.
-  const displayOrders = selectedTrackingOrder
-    ? [selectedTrackingOrder]
-    : trackingRecords
-        .map((record) => normalizeTrackingRecordToOrder(record))
-        .filter((order) =>
-          String(order.orderId).toLowerCase().includes(search.toLowerCase())
-        );
+  // Operations tracks one selected order at a time.
+  // Open the Tracking page using the Track action from Orders/Dashboard.
+  const displayOrders = selectedTrackingOrder ? [selectedTrackingOrder] : [];
 
   const activeOrder = displayOrders[0];
 
@@ -285,69 +495,114 @@ function Tracking() {
     return index >= 0 ? index : 0;
   }, [activeOrder, orderedStages]);
 
-  // Keeps only tracking records with latitude and longitude for map rendering
+  // Keeps only GPS points for the selected order.
   const validTrackingRecords = useMemo(() => {
     return trackingRecords
       .filter(
         (record) =>
-          record.latitude !== null &&
-          record.latitude !== undefined &&
-          record.longitude !== null &&
-          record.longitude !== undefined
+          Number.isFinite(Number(record.latitude)) &&
+          Number.isFinite(Number(record.longitude))
       )
       .sort((a, b) => new Date(a.recorded_at) - new Date(b.recorded_at));
   }, [trackingRecords]);
 
-  // Converts tracking records into Leaflet map route positions
-  const routePositions = useMemo(() => {
-    return validTrackingRecords.map((record) => [
-      Number(record.latitude),
-      Number(record.longitude),
-    ]);
-  }, [validTrackingRecords]);
-
-  // Latest valid GPS record from the driver.
+  // Latest live GPS row is the only driver marker shown.
   const latestGpsRecord = useMemo(() => {
-    if (validTrackingRecords.length === 0) {
-      return null;
-    }
-
+    if (validTrackingRecords.length === 0) return null;
     return validTrackingRecords[validTrackingRecords.length - 1];
   }, [validTrackingRecords]);
 
-  // Centers map on latest tracking location.
-  // If no location exists, defaults to Colombo coordinates.
-  const mapCenter = useMemo(() => {
-    if (routePositions.length > 0) {
-      return routePositions[routePositions.length - 1];
-    }
-
-    return [6.9271, 79.8612];
-  }, [routePositions]);
-
-  // Leaflet MapContainer does not automatically re-center when its center
-  // prop changes after mounting. Changing this key only when the latest GPS
-  // reading changes keeps the existing UI but moves the map to the driver.
-  const liveMapKey = useMemo(() => {
-    if (!latestGpsRecord) {
-      return `${
-        selectedTrackingOrder?.order_id ||
-        selectedTrackingOrder?.orderId ||
-        "tracking"
-      }-no-gps`;
-    }
+  const latestDriverPosition = useMemo(() => {
+    if (!latestGpsRecord) return null;
 
     return [
-      selectedTrackingOrder?.order_id ||
-        selectedTrackingOrder?.orderId ||
-        latestGpsRecord.order_id ||
-        "tracking",
-      latestGpsRecord.tracking_id || "latest",
-      latestGpsRecord.latitude,
-      latestGpsRecord.longitude,
-      latestGpsRecord.recorded_at || "",
-    ].join("-");
-  }, [latestGpsRecord, selectedTrackingOrder]);
+      Number(latestGpsRecord.latitude),
+      Number(latestGpsRecord.longitude),
+    ];
+  }, [latestGpsRecord]);
+
+  const pickupPosition = selectedTrackingOrder?.pickupCoordinates || null;
+  const destinationPosition =
+    selectedTrackingOrder?.destinationCoordinates || null;
+
+  // Fetch the real road-following pickup -> destination route from OSRM.
+  // The driver GPS marker is overlaid on this route and refreshes every 5 sec.
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPlannedRoute = async () => {
+      if (!pickupPosition || !destinationPosition) {
+        setPlannedRoutePositions([]);
+        return;
+      }
+
+      const [pickupLat, pickupLng] = pickupPosition;
+      const [destinationLat, destinationLng] = destinationPosition;
+
+      try {
+        setRouteLoading(true);
+
+        const url =
+          `https://router.project-osrm.org/route/v1/driving/` +
+          `${pickupLng},${pickupLat};${destinationLng},${destinationLat}` +
+          `?overview=full&geometries=geojson`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error("OSRM route request failed");
+        }
+
+        const result = await response.json();
+        const coordinates = result?.routes?.[0]?.geometry?.coordinates || [];
+
+        if (cancelled) return;
+
+        if (result?.code === "Ok" && coordinates.length > 0) {
+          setPlannedRoutePositions(
+            coordinates.map(([longitude, latitude]) => [
+              Number(latitude),
+              Number(longitude),
+            ])
+          );
+        } else {
+          setPlannedRoutePositions([pickupPosition, destinationPosition]);
+        }
+      } catch (error) {
+        console.warn(
+          "Operations Tracking: OSRM route fetch failed, using straight-line fallback:",
+          error.message
+        );
+
+        if (!cancelled) {
+          setPlannedRoutePositions([pickupPosition, destinationPosition]);
+        }
+      } finally {
+        if (!cancelled) {
+          setRouteLoading(false);
+        }
+      }
+    };
+
+    fetchPlannedRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    pickupPosition?.[0],
+    pickupPosition?.[1],
+    destinationPosition?.[0],
+    destinationPosition?.[1],
+  ]);
+
+  // Initial map position. The viewport controller below will fit the full route.
+  const mapCenter = useMemo(() => {
+    if (latestDriverPosition) return latestDriverPosition;
+    if (pickupPosition) return pickupPosition;
+    if (destinationPosition) return destinationPosition;
+    return [6.9271, 79.8612];
+  }, [latestDriverPosition, pickupPosition, destinationPosition]);
 
   // Returns the latest tracking record based on recorded_at date
   function getLatestTrackingRecord(records) {
@@ -447,18 +702,19 @@ function Tracking() {
 
       driver: driverName,
 
+      // Operations workflow status must come from the order itself.
+      // Driver GPS statuses such as started/picked/transit must not overwrite
+      // the official Operations order progress shown here.
       status:
-        latestRecord?.status ||
         orderData.current_status ||
-        order.status ||
         order.current_status ||
+        order.status ||
         "created",
 
       statusKey: getStatusKey(
-        latestRecord?.status ||
-          orderData.current_status ||
-          order.status ||
+        orderData.current_status ||
           order.current_status ||
+          order.status ||
           "created"
       ),
 
@@ -469,9 +725,23 @@ function Tracking() {
         "N/A",
 
       currentLocation:
-        latestRecord?.current_location ||
-        order.currentLocation ||
-        "No tracking location",
+        latestRecord
+          ? formatGpsLocation(latestRecord)
+          : order.currentLocation || "No tracking location",
+
+      pickupCoordinates: resolveOrderEndpointCoordinates(
+        orderData,
+        order,
+        "pickup",
+        pickupLocation
+      ),
+
+      destinationCoordinates: resolveOrderEndpointCoordinates(
+        orderData,
+        order,
+        "destination",
+        destinationLocation
+      ),
     };
   }
 
@@ -526,7 +796,21 @@ function Tracking() {
       status: record.status || orderData.current_status || "created",
       statusKey: getStatusKey(record.status || orderData.current_status),
       expectedDay: orderData.expected_arrival || "N/A",
-      currentLocation: record.current_location || "N/A",
+      currentLocation: formatGpsLocation(record),
+
+      pickupCoordinates: resolveOrderEndpointCoordinates(
+        orderData,
+        {},
+        "pickup",
+        pickupLocation
+      ),
+
+      destinationCoordinates: resolveOrderEndpointCoordinates(
+        orderData,
+        {},
+        "destination",
+        destinationLocation
+      ),
     };
   }
 
@@ -552,6 +836,11 @@ function Tracking() {
 
       driver_assigned: "driver_assigned",
       vehicle_assigned: "driver_assigned",
+      assigned: "driver_assigned",
+      started: "driver_assigned",
+      heading_to_pickup: "driver_assigned",
+      picked: "driver_assigned",
+      picked_up: "driver_assigned",
 
       in_transit: "in_transit",
       transit: "in_transit",
@@ -693,7 +982,7 @@ function Tracking() {
                 }}
                 className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E293B] hover:bg-slate-50"
               >
-                Show All Orders
+                Clear Selection
               </button>
             </div>
           </div>
@@ -707,9 +996,10 @@ function Tracking() {
 
           <input
             type="text"
-            placeholder="Search by Order ID..."
+            placeholder="Select an order from Orders page to start tracking"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            disabled
             className="w-full outline-none text-sm text-[#1E293B] placeholder:text-slate-400"
           />
 
@@ -827,7 +1117,9 @@ function Tracking() {
               ) : (
                 <tr>
                   <td colSpan="11" className="text-center py-6 text-slate-500">
-                    No tracking records found for this order
+                    {selectedTrackingOrder
+                      ? "Waiting for driver GPS updates for this order"
+                      : "Select an order from Orders page to track the driver"}
                   </td>
                 </tr>
               )}
@@ -913,52 +1205,114 @@ function Tracking() {
           <div className="h-72 flex items-center justify-center text-slate-500 text-sm">
             Loading vehicle location...
           </div>
-        ) : routePositions.length > 0 ? (
-          <MapContainer
-            key={liveMapKey}
-            center={mapCenter}
-            zoom={8}
-            className="h-72 rounded-lg"
-          >
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+        ) : selectedTrackingOrder ? (
+          <div className="relative">
+            <MapContainer
+              center={mapCenter}
+              zoom={8}
+              className="h-72 rounded-lg"
+            >
+              <TileLayer
+                attribution="&copy; OpenStreetMap contributors"
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
 
-            {validTrackingRecords.map((record, index) => (
-              <Marker
-                key={record.tracking_id || index}
-                position={[Number(record.latitude), Number(record.longitude)]}
-              >
-                <Popup>
-                  <div>
-                    <p className="font-semibold">
-                      {prettifyStatus(record.current_location)}
-                    </p>
-                    <p>Status: {prettifyStatus(record.status)}</p>
-                    <p>Recorded: {formatDateTime(record.recorded_at)}</p>
-                    <p>
-                      Driver:{" "}
-                      {record.drivers
-                        ? `${record.drivers.first_name || ""} ${
-                            record.drivers.last_name || ""
-                          }`
-                        : selectedTrackingOrder?.driver || "Not assigned"}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
+              <MapViewportController
+                plannedRoutePositions={plannedRoutePositions}
+                pickupPosition={pickupPosition}
+                destinationPosition={destinationPosition}
+                latestDriverPosition={latestDriverPosition}
+              />
 
-            {routePositions.length > 1 && (
-              <Polyline positions={routePositions} color="#052659" />
+              {/* Pickup point */}
+              {pickupPosition && (
+                <Marker position={pickupPosition}>
+                  <Popup>
+                    <div>
+                      <p className="font-semibold">Pickup</p>
+                      <p>{selectedTrackingOrder.pickupLocation}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Destination point */}
+              {destinationPosition && (
+                <Marker position={destinationPosition}>
+                  <Popup>
+                    <div>
+                      <p className="font-semibold">Destination</p>
+                      <p>{selectedTrackingOrder.destinationLocation}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+
+              {/* Planned road route from OSRM */}
+              {plannedRoutePositions.length > 1 && (
+                <Polyline
+                  positions={plannedRoutePositions}
+                  pathOptions={{
+                    color: "#93C5FD",
+                    weight: 6,
+                    opacity: 0.9,
+                  }}
+                />
+              )}
+
+              {/* Actual GPS trail already travelled by the driver */}
+              
+
+              {/* One live driver marker = latest container_tracking GPS row */}
+              {latestDriverPosition && (
+                <Marker
+                  position={latestDriverPosition}
+                  icon={liveDriverIcon}
+                >
+                  <Popup>
+                    <div>
+                      <p className="font-semibold">Live Driver Location</p>
+                      <p>
+                        {formatGpsLocation(latestGpsRecord)}
+                      </p>
+                      <p>
+                        Status: {prettifyStatus(latestGpsRecord?.status)}
+                      </p>
+                      <p>
+                        Recorded: {formatDateTime(latestGpsRecord?.recorded_at)}
+                      </p>
+                      <p>
+                        Driver:{" "}
+                        {latestGpsRecord?.drivers
+                          ? `${latestGpsRecord.drivers.first_name || ""} ${
+                              latestGpsRecord.drivers.last_name || ""
+                            }`.trim()
+                          : selectedTrackingOrder.driver || "Not assigned"}
+                      </p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+            </MapContainer>
+
+            {routeLoading && (
+              <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-md bg-white/95 px-3 py-2 text-xs font-medium text-[#1E40AF] shadow">
+                Loading road route...
+              </div>
+
             )}
-          </MapContainer>
+
+            {!latestDriverPosition && (
+              <div className="pointer-events-none absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-md bg-white/95 px-3 py-2 text-xs text-slate-600 shadow">
+                Waiting for live GPS from the assigned driver
+              </div>
+            )}
+          </div>
         ) : (
           <div className="h-72 flex flex-col items-center justify-center text-slate-500 text-sm">
-            <p>No vehicle tracking location found for this order.</p>
+            <p>Select an order to track.</p>
             <p className="text-xs mt-1">
-              Waiting for GPS updates from the driver interface.
+              Open Orders and click Track on the required order.
             </p>
           </div>
         )}

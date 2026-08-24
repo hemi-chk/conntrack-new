@@ -187,7 +187,11 @@ function Orders({ onNavigate }) {
       return value;
     }
 
-    if (status === "Created" || status === "Open for Bids") {
+    if (
+      status === "Created" ||
+      status === "Open for Bids" ||
+      status === "Bid Accepted"
+    ) {
       return "Not assigned";
     }
 

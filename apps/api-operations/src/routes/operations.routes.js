@@ -238,28 +238,326 @@ router.get('/orders/next-id', async (req, res) => {
   }
 })
 
-// GET ORDERS - REAL ORDERS TABLE DATA
+// GET ORDERS - REAL ORDERS TABLE DATA + LATEST SUPPLIER / DRIVER ASSIGNMENT
 router.get('/orders', async (req, res) => {
   try {
-    const { data, error } =
-      await supabase
-        .from('orders')
-        .select('*')
-        .order(
-          'created_at',
-          {
-            ascending: false,
-          }
-        )
+    // 1. Load the real orders first.
+    const {
+      data: orders,
+      error: ordersError,
+    } = await supabase
+      .from('orders')
+      .select('*')
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      )
 
-    if (error) {
+    if (ordersError) {
       return res.status(500).json({
-        error: error.message,
+        error: ordersError.message,
       })
     }
 
+    const safeOrders =
+      Array.isArray(orders)
+        ? orders
+        : []
+
+    if (safeOrders.length === 0) {
+      return res.json([])
+    }
+
+    const orderIds =
+      safeOrders
+        .map(
+          (order) =>
+            order.order_id
+        )
+        .filter(
+          (orderId) =>
+            orderId !== null &&
+            orderId !== undefined
+        )
+
+    // 2. Load assignment rows separately.
+    // Doing this separately is more reliable than depending on nested
+    // Supabase relationship names and also lets us select the latest
+    // assignment if an order has more than one historical assignment.
+    const {
+      data: assignments,
+      error: assignmentsError,
+    } = await supabase
+      .from('order_assignments')
+      .select(`
+        assignment_id,
+        order_id,
+        supplier_id,
+        driver_id,
+        vehicle_id,
+        assigned_at,
+        status
+      `)
+      .in(
+        'order_id',
+        orderIds
+      )
+      .order(
+        'assigned_at',
+        {
+          ascending: false,
+        }
+      )
+
+    if (assignmentsError) {
+      return res.status(500).json({
+        error:
+          assignmentsError.message,
+      })
+    }
+
+    const safeAssignments =
+      Array.isArray(assignments)
+        ? assignments
+        : []
+
+    // 3. Build lists of the supplier and driver IDs used by the assignments.
+    const supplierIds = [
+      ...new Set(
+        safeAssignments
+          .map(
+            (assignment) =>
+              assignment.supplier_id
+          )
+          .filter(
+            (supplierId) =>
+              supplierId !== null &&
+              supplierId !== undefined
+          )
+      ),
+    ]
+
+    const driverIds = [
+      ...new Set(
+        safeAssignments
+          .map(
+            (assignment) =>
+              assignment.driver_id
+          )
+          .filter(
+            (driverId) =>
+              driverId !== null &&
+              driverId !== undefined
+          )
+      ),
+    ]
+
+    // 4. Fetch the real supplier names.
+    let suppliers = []
+
+    if (supplierIds.length > 0) {
+      const {
+        data: supplierRows,
+        error: suppliersError,
+      } = await supabase
+        .from('suppliers')
+        .select(`
+          supplier_id,
+          company_name
+        `)
+        .in(
+          'supplier_id',
+          supplierIds
+        )
+
+      if (suppliersError) {
+        return res.status(500).json({
+          error:
+            suppliersError.message,
+        })
+      }
+
+      suppliers =
+        Array.isArray(
+          supplierRows
+        )
+          ? supplierRows
+          : []
+    }
+
+    // 5. Fetch the real driver names.
+    let drivers = []
+
+    if (driverIds.length > 0) {
+      const {
+        data: driverRows,
+        error: driversError,
+      } = await supabase
+        .from('drivers')
+        .select(`
+          driver_id,
+          first_name,
+          last_name
+        `)
+        .in(
+          'driver_id',
+          driverIds
+        )
+
+      if (driversError) {
+        return res.status(500).json({
+          error:
+            driversError.message,
+        })
+      }
+
+      drivers =
+        Array.isArray(
+          driverRows
+        )
+          ? driverRows
+          : []
+    }
+
+    const supplierById =
+      new Map(
+        suppliers.map(
+          (supplier) => [
+            String(
+              supplier.supplier_id
+            ),
+            supplier,
+          ]
+        )
+      )
+
+    const driverById =
+      new Map(
+        drivers.map(
+          (driver) => [
+            String(
+              driver.driver_id
+            ),
+            driver,
+          ]
+        )
+      )
+
+    // Because assignments were sorted newest first, the first assignment
+    // stored for an order is its latest/current assignment.
+    const latestAssignmentByOrderId =
+      new Map()
+
+    safeAssignments.forEach(
+      (assignment) => {
+        const key =
+          String(
+            assignment.order_id
+          )
+
+        if (
+          !latestAssignmentByOrderId.has(
+            key
+          )
+        ) {
+          latestAssignmentByOrderId.set(
+            key,
+            assignment
+          )
+        }
+      }
+    )
+
+    // 6. Enrich every order with flat fields that the existing
+    // Operations Orders.jsx already understands:
+    // supplier_name and driver_name.
+    const enrichedOrders =
+      safeOrders.map(
+        (order) => {
+          const assignment =
+            latestAssignmentByOrderId.get(
+              String(
+                order.order_id
+              )
+            ) || null
+
+          const supplier =
+            assignment?.supplier_id !==
+              null &&
+            assignment?.supplier_id !==
+              undefined
+              ? supplierById.get(
+                  String(
+                    assignment.supplier_id
+                  )
+                )
+              : null
+
+          const driver =
+            assignment?.driver_id !==
+              null &&
+            assignment?.driver_id !==
+              undefined
+              ? driverById.get(
+                  String(
+                    assignment.driver_id
+                  )
+                )
+              : null
+
+          const driverName =
+            [
+              driver?.first_name,
+              driver?.last_name,
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .trim()
+
+          return {
+            ...order,
+
+            supplier_name:
+              supplier?.company_name ||
+              order.supplier_name ||
+              null,
+
+            driver_name:
+              driverName ||
+              order.driver_name ||
+              null,
+
+            assignment_id:
+              assignment?.assignment_id ||
+              null,
+
+            assignment_status:
+              assignment?.status ||
+              null,
+
+            assigned_supplier_id:
+              assignment?.supplier_id ||
+              null,
+
+            assigned_driver_id:
+              assignment?.driver_id ||
+              null,
+
+            assigned_vehicle_id:
+              assignment?.vehicle_id ||
+              null,
+
+            assigned_at:
+              assignment?.assigned_at ||
+              null,
+          }
+        }
+      )
+
     res.json(
-      data || []
+      enrichedOrders
     )
   } catch (error) {
     res.status(500).json({
