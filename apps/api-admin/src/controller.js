@@ -1,6 +1,34 @@
 import { supabase } from '@conntrack/api-core'
 
 // =============================================
+// FILE UPLOAD
+// WHY: Storage uploads must happen server-side so the service-role
+// key never reaches the browser
+// =============================================
+export const uploadFile = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+    const { bucket, folder = '' } = req.body
+    if (!bucket) return res.status(400).json({ error: 'bucket is required' })
+
+    const fileExt = req.file.originalname.split('.').pop()
+    const fileName = `${folder ? folder + '/' : ''}${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName)
+    res.json({ url: data.publicUrl })
+  } catch (error) {
+    console.error('Upload Error:', error)
+    res.status(500).json({ error: error.message })
+  }
+}
+
+// =============================================
 // DASHBOARD STATS
 // WHY: Admin dashboard needs real counts
 // =============================================

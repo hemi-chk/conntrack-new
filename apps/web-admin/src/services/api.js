@@ -1,15 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Service-role client for storage uploads
-const supabase = createClient(
-  'https://kfbhwmvaokazndizglkj.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmYmh3bXZhb2them5kaXpnbGtqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTU4MTE2NywiZXhwIjoyMDkxMTU3MTY3fQ.QHgit2FrAs11Pb2yVJOgC0hflu1EvEE_AyjZTCDlbG4'
-)
-
 // Anon-key client used only to refresh expired sessions
 const authClient = createClient(
-  'https://kfbhwmvaokazndizglkj.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtmYmh3bXZhb2them5kaXpnbGtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1ODExNjcsImV4cCI6MjA5MTE1NzE2N30.gsqwtU29K75k0g_ZzeC3X00iijw3QFWcRIMesaLBlvA'
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 )
 
 const clearSessionAndReload = () => {
@@ -21,7 +15,7 @@ const clearSessionAndReload = () => {
 }
 
 // Makes it easy to change base URL later (dev to production)
-const BASE_URL = 'http://127.0.0.1:5000/api'
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api`
 
 const getHeaders = () => {
   const token = localStorage.getItem('token')
@@ -107,23 +101,24 @@ const deleteData = async (endpoint) => {
   }
 }
 
-// WHY: Upload a file to Supabase Storage and return the public URL
+// WHY: Upload a file via the backend (server holds the service-role key, never the browser)
 export const uploadFile = async (bucket, file, folder = '') => {
   try {
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${folder ? folder + '/' : ''}${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+    const form = new FormData()
+    form.append('file', file)
+    form.append('bucket', bucket)
+    form.append('folder', folder)
 
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, file, { upsert: true })
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${BASE_URL}/admin/upload`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: form
+    })
 
-    if (error) throw new Error(error.message)
-
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(fileName)
-
-    return urlData.publicUrl
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Upload failed')
+    return data.url
   } catch (error) {
     console.error('Upload Error:', error)
     throw error
