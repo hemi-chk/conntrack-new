@@ -105,7 +105,7 @@ export default function Staff({ darkMode }) {
   const filtered = staff.filter(s => {
     const name = `${s.first_name} ${s.last_name}`.toLowerCase()
     const matchSearch = name.includes(searchTerm.toLowerCase()) ||
-      s.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.employee_id || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchRole = roleFilter === 'all' || s.role === roleFilter
     return matchSearch && matchRole
