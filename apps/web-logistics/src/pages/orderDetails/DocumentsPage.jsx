@@ -140,7 +140,7 @@ export default function DocumentsPage() {
 
         <Loader2
           size={40}
-          className="animate-spin text-[#1E40AF]"
+          className="animate-spin text-[#052659]"
         />
 
       </div>
@@ -302,7 +302,7 @@ export default function DocumentsPage() {
 
   return (
 
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#EBF4FF]">
 
       {/* ===================================== */}
       {/* TOP NAVBAR */}
@@ -328,7 +328,7 @@ export default function DocumentsPage() {
           {/* ORDER INFO */}
           <div className="flex items-center gap-3">
 
-            <div className="bg-[#1E40AF] text-white p-2 rounded-xl">
+            <div className="bg-[#052659] text-white p-2 rounded-xl">
 
               <Package size={18} />
 
@@ -381,7 +381,7 @@ export default function DocumentsPage() {
             <Button
               size="sm"
               variant="outline"
-              className="ml-auto border-blue-200 text-[#1E40AF] hover:bg-blue-50"
+              className="ml-auto border-blue-200 text-[#052659] hover:bg-blue-50"
               onClick={() =>
                 navigate(
                   `/tracking/${order.order_id}`
@@ -502,7 +502,7 @@ export default function DocumentsPage() {
 
                   <div className="
                     w-7 h-7 rounded-full
-                    bg-[#1E40AF]
+                    bg-[#052659]
                     text-white
                     text-xs
                     font-bold

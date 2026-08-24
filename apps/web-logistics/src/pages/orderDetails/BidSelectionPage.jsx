@@ -56,7 +56,7 @@ export default function BidSelectionPage() {
   const isAssigned = ["bid_accepted", "driver_assigned", "in_transit", "at_port", "completed"].includes(order.current_status);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#EBF4FF]">
 
       {/* TOP NAV BAR */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 shadow-sm sticky top-0 z-10">
@@ -66,7 +66,7 @@ export default function BidSelectionPage() {
         </Button>
         <div className="h-5 w-px bg-slate-200" />
         <div className="flex items-center gap-3">
-          <div className="bg-[#1E40AF] p-1.5 rounded-lg text-white">
+          <div className="bg-[#052659] p-1.5 rounded-lg text-white">
             <Package size={18} />
           </div>
           <div>
@@ -83,7 +83,7 @@ export default function BidSelectionPage() {
           <Button
             size="sm"
             variant="outline"
-            className="ml-auto border-blue-200 text-[#1E40AF] hover:bg-blue-50"
+            className="ml-auto border-blue-200 text-[#052659] hover:bg-blue-50"
             onClick={() => navigate(`/tracking/${order.order_id}`)}
           >
             <Map size={14} className="mr-1" /> Live Track

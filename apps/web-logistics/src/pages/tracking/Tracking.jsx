@@ -81,7 +81,7 @@ const TrackingPage = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="bg-blue-100 p-2 rounded-lg">
-                        <Navigation className="text-[#1E40AF]" size={24} />
+                        <Navigation className="text-[#052659]" size={24} />
                     </div>
                     <div>
                         <h1 className="text-xl font-bold text-slate-800 tracking-tight">Shipment Tracker</h1>
@@ -102,7 +102,7 @@ const TrackingPage = () => {
                     <Button 
                         onClick={() => handleSearch()} 
                         disabled={loading} 
-                        className="h-10 bg-[#1E40AF] hover:bg-blue-800 font-bold px-6"
+                        className="h-10 bg-[#052659] hover:bg-blue-800 font-bold px-6"
                     >
                         {loading ? <Loader2 className="animate-spin" size={16} /> : "Track"}
                     </Button>
@@ -134,7 +134,7 @@ const TrackingPage = () => {
                             <div className="bg-slate-50 p-8 border-b border-slate-100">
                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                     <div className="space-y-1">
-                                        <div className="flex items-center gap-2 text-[#1E40AF]">
+                                        <div className="flex items-center gap-2 text-[#052659]">
                                             <ShieldCheck size={16} />
                                             <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Shipment Status</span>
                                         </div>
@@ -142,7 +142,7 @@ const TrackingPage = () => {
                                             {data.order_details?.order_reference}
                                         </CardTitle>
                                     </div>
-                                    <Badge className="bg-[#1E40AF] text-white px-4 py-1.5 rounded-lg text-xs font-bold">
+                                    <Badge className="bg-[#052659] text-white px-4 py-1.5 rounded-lg text-xs font-bold">
                                         {data.order_details?.order_type?.toUpperCase()}
                                     </Badge>
                                 </div>
@@ -171,7 +171,7 @@ const TrackingPage = () => {
                                             return (
                                                 <div key={step} className="flex flex-col items-center group">
                                                     <div className={`w-11 h-11 rounded-full border-4 flex items-center justify-center transition-all duration-500 shadow-xl
-                                                        ${isDone ? 'bg-[#1E40AF] border-blue-100 text-white' : 'bg-white border-slate-100 text-slate-300'}
+                                                        ${isDone ? 'bg-[#052659] border-blue-100 text-white' : 'bg-white border-slate-100 text-slate-300'}
                                                         ${isActive ? 'ring-4 ring-blue-400/20 scale-125 z-20' : ''}
                                                     `}>
                                                         {isDone ? <CheckCircle2 size={20} /> : <span className="font-bold text-sm">{i + 1}</span>}
@@ -189,8 +189,8 @@ const TrackingPage = () => {
 
                                 {/* LIVE FEED CARDS */}
                                 <div className="grid md:grid-cols-2 gap-6 pt-6">
-                                    <div className="bg-[#F8FAFC] border border-slate-100 p-6 rounded-xl space-y-3">
-                                        <div className="flex items-center gap-2 text-[#1E40AF]">
+                                    <div className="bg-[#EBF4FF] border border-slate-100 p-6 rounded-xl space-y-3">
+                                        <div className="flex items-center gap-2 text-[#052659]">
                                             <MapPin size={18} />
                                             <span className="text-xs font-bold uppercase tracking-widest">Current Location</span>
                                         </div>
@@ -199,7 +199,7 @@ const TrackingPage = () => {
                                         </p>
                                     </div>
 
-                                    <div className="bg-[#F8FAFC] border border-slate-100 p-6 rounded-xl space-y-3">
+                                    <div className="bg-[#EBF4FF] border border-slate-100 p-6 rounded-xl space-y-3">
                                         <div className="flex items-center gap-2 text-slate-500">
                                             <Clock size={18} />
                                             <span className="text-xs font-bold uppercase tracking-widest">Last Sync</span>

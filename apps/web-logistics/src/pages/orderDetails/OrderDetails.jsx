@@ -50,7 +50,7 @@ export default function OrderDetails() {
 
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#EBF4FF] p-6 space-y-6 max-w-7xl mx-auto">
       
       {/* Reusable Order Summary Component */}
       <OrderSummary order={order} />
@@ -62,7 +62,7 @@ export default function OrderDetails() {
         <Card className="hover:shadow-md transition-shadow cursor-pointer border-blue-100 bg-white" onClick={() => navigate(`/orders/${order.order_id}/bids`)}>
           <CardContent className="p-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 text-[#1E40AF] rounded-xl">
+              <div className="p-3 bg-blue-50 text-[#052659] rounded-xl">
                 <FiCheckCircle size={24} />
               </div>
               <div>

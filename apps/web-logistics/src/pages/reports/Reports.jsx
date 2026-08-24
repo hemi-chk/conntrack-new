@@ -53,7 +53,7 @@ export default function Reports() {
                     .print-table { border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
                     body { background: white !important; }
                     .stat-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
-                    .efficiency-card { background: #f8fafc !important; color: #0f172a !important; border: 1px solid #e2e8f0 !important; }
+                    .efficiency-card { background: #EBF4FF !important; color: #0f172a !important; border: 1px solid #e2e8f0 !important; }
                     .efficiency-card p, .efficiency-card h2 { color: #0f172a !important; }
                 }
             `}} />
@@ -81,7 +81,7 @@ export default function Reports() {
                 <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center gap-3">
                         <div className="bg-blue-100 p-2 rounded-lg">
-                            <FileBarChart className="text-[#1E40AF]" size={24} />
+                            <FileBarChart className="text-[#052659]" size={24} />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-slate-800">Logistics Reports</h1>
@@ -145,7 +145,7 @@ export default function Reports() {
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-64 text-center">
                                         <div className="flex flex-col items-center gap-2">
-                                            <Loader2 className="animate-spin text-[#1E40AF]" size={32} />
+                                            <Loader2 className="animate-spin text-[#052659]" size={32} />
                                             <p className="text-slate-400 text-sm italic">Generating report data...</p>
                                         </div>
                                     </TableCell>

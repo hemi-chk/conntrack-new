@@ -99,7 +99,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 space-y-4">
-        <Loader2 className="animate-spin text-[#1E40AF]" size={32} />
+        <Loader2 className="animate-spin text-[#052659]" size={32} />
         <p className="text-slate-500 text-sm font-medium">
           Loading shortlisted bids...
         </p>
@@ -114,7 +114,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
       <div className="bg-slate-50 px-6 py-5 border-b border-slate-200 flex justify-between items-center">
         <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
           Final Carrier Selection
-          <Badge className="bg-blue-100 text-[#1E40AF] border-none">
+          <Badge className="bg-blue-100 text-[#052659] border-none">
             {bids.length} Candidates
           </Badge>
         </h2>
@@ -140,7 +140,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
               onClick={() => !finalized && setSelectedId(bid.id)}
               className={`flex justify-between items-center border-2 p-5 rounded-2xl cursor-pointer transition
                 ${selectedId === bid.id
-                  ? "border-[#1E40AF] bg-blue-50/30"
+                  ? "border-[#052659] bg-blue-50/30"
                   : "border-slate-100 hover:border-slate-200"}
                 ${finalized && selectedId !== bid.id ? "hidden" : ""}
               `}
@@ -149,7 +149,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
               <div className="flex items-center gap-4">
                 <div
                   className={`p-3 rounded-xl ${selectedId === bid.id
-                    ? "bg-[#1E40AF] text-white"
+                    ? "bg-[#052659] text-white"
                     : "bg-slate-100 text-slate-500"
                     }`}
                 >
@@ -170,7 +170,7 @@ export default function BidsSection({ orderId, onSelectWinner }) {
 
               {/* RIGHT */}
               <div className="text-right">
-                <p className="text-xl font-black text-[#1E40AF]">
+                <p className="text-xl font-black text-[#052659]">
                   LKR{" "}
                   {bid.amount
                     ? Number(bid.amount).toLocaleString()
@@ -185,14 +185,14 @@ export default function BidsSection({ orderId, onSelectWinner }) {
         {selectedId && !finalized && (
           <div className="mt-6 flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
             <p className="text-sm text-slate-600 flex items-center gap-2">
-              <AlertCircle size={18} className="text-[#1E40AF]" />
+              <AlertCircle size={18} className="text-[#052659]" />
               Confirm and assign this carrier?
             </p>
 
             <Button
               onClick={handleConfirmWinner}
               disabled={isFinalizing}
-              className="bg-[#1E40AF] hover:bg-[#1E3A8A] text-white font-bold px-6"
+              className="bg-[#052659] hover:bg-[#5483B3] text-white font-bold px-6"
             >
               {isFinalizing ? "Processing..." : "Finalize Selection"}
             </Button>

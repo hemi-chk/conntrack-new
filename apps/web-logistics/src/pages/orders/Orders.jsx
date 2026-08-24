@@ -138,7 +138,7 @@ export default function OrdersPage({ title, type }) {
                                         {/* ORDER */}
                                         <TableCell>
                                             <div>
-                                                <p className="font-bold text-[#1E40AF]">
+                                                <p className="font-bold text-[#052659]">
                                                     {order.order_reference}
                                                 </p>
                                                 <p className="text-xs text-slate-400">

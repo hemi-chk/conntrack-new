@@ -199,7 +199,7 @@ function Dashboard({ onNavigate }) {
   };
 
   return (
-    <div className="h-full overflow-auto bg-[#EFF6FF] p-6">
+    <div className="h-full overflow-auto bg-[#EBF4FF] p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Dashboard title and create order action */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -213,7 +213,7 @@ function Dashboard({ onNavigate }) {
 
           <button
             onClick={() => onNavigate("/create")}
-            className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#1E40AF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E3A8A]"
+            className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#052659] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#5483B3]"
           >
             <Plus size={16} />
             Create New Order
@@ -285,7 +285,7 @@ function Dashboard({ onNavigate }) {
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-[#EFF6FF] text-[#1E293B]">
+                <thead className="bg-[#EBF4FF] text-[#1E293B]">
                   <tr>
                     <th className="px-5 py-3 text-left font-semibold">
                       Order ID
@@ -325,7 +325,7 @@ function Dashboard({ onNavigate }) {
                         </td>
 
                         <td className="px-5 py-4">
-                          <span className="rounded-lg bg-[#EFF6FF] px-3 py-1 text-xs font-semibold text-[#1E40AF]">
+                          <span className="rounded-lg bg-[#EBF4FF] px-3 py-1 text-xs font-semibold text-[#052659]">
                             {order.type}
                           </span>
                         </td>
@@ -352,7 +352,7 @@ function Dashboard({ onNavigate }) {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleViewOrder(order)}
-                              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-[#1E40AF] hover:bg-[#EFF6FF]"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-[#052659] hover:bg-[#EBF4FF]"
                             >
                               <Eye size={14} />
                               View
@@ -360,7 +360,7 @@ function Dashboard({ onNavigate }) {
 
                             <button
                               onClick={() => handleTrackOrder(order)}
-                              className="inline-flex items-center gap-1 rounded-lg bg-[#1E40AF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1E3A8A]"
+                              className="inline-flex items-center gap-1 rounded-lg bg-[#052659] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#5483B3]"
                             >
                               Track
                               <ArrowRight size={14} />
@@ -416,7 +416,7 @@ function Dashboard({ onNavigate }) {
 
                         <button
                           onClick={() => handleViewOrder(order)}
-                          className="text-xs font-semibold text-[#1E40AF]"
+                          className="text-xs font-semibold text-[#052659]"
                         >
                           View
                         </button>
@@ -438,7 +438,7 @@ function Dashboard({ onNavigate }) {
                   Latest Tracking Updates
                 </h3>
 
-                <Clock size={18} className="text-[#1E40AF]" />
+                <Clock size={18} className="text-[#052659]" />
               </div>
 
               <div className="space-y-3">
@@ -481,7 +481,7 @@ function DashboardMiniCard(props) {
   const Icon = props.icon;
 
   const colorClasses = {
-    blue: "bg-[#EFF6FF] text-[#1E40AF]",
+    blue: "bg-[#EBF4FF] text-[#052659]",
     orange: "bg-orange-50 text-[#EA580C]",
     green: "bg-green-50 text-[#16A34A]",
     red: "bg-red-50 text-[#DC2626]",
@@ -540,7 +540,7 @@ function statusColor(status) {
   }
 
   if (normalized === "open_for_bids" || normalized === "bidding_open") {
-    return "bg-blue-100 text-[#1E40AF]";
+    return "bg-blue-100 text-[#052659]";
   }
 
   if (

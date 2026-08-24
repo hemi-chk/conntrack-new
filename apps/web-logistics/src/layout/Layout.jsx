@@ -9,17 +9,17 @@ function Layout() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+    <div className="min-h-screen bg-[#EBF4FF]">
       <Sidebar
         isOpen={sidebarOpen}
         currentPath={location.pathname}
         onNavigate={(path) => navigate(path)}
       />
-      <main className={`
-        pt-20 transition-all duration-300
-        ${sidebarOpen ? 'ml-64' : 'ml-0'}
-      `}>
+      <Navbar
+        isOpen={sidebarOpen}
+        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+      />
+      <main className={`pt-16 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
         <div className="p-6">
           <Outlet />
         </div>

@@ -65,7 +65,7 @@ export default function Dashboard() {
     if (loading) {
         return (
             <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
-                <Loader2 className="h-10 w-10 animate-spin text-[#1E40AF]" />
+                <Loader2 className="h-10 w-10 animate-spin text-[#052659]" />
                 <p className="text-sm font-medium text-slate-500 animate-pulse">Syncing fleet data...</p>
             </div>
         );
@@ -89,10 +89,10 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Logistics Overview</h1>
-                    <p className="text-sm text-slate-500 font-medium">Welcome back, <span className="text-[#1E40AF]">Binuwara</span></p>
+                    <p className="text-sm text-slate-500 font-medium">Welcome back, <span className="text-[#052659]">Binuwara</span></p>
                 </div>
                 <div className="flex items-center gap-3 text-sm font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-lg shadow-sm">
-                    <Calendar size={16} className="text-[#1E40AF]" />
+                    <Calendar size={16} className="text-[#052659]" />
                     {today}
                     <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
                 </div>
@@ -115,8 +115,8 @@ export default function Dashboard() {
             <Card className="border-slate-200 shadow-sm overflow-hidden">
                 <CardHeader className="bg-white border-b border-slate-100">
                     <div className="flex items-center gap-2">
-                        <div className="p-2 bg-[#EFF6FF] rounded-lg">
-                            <Activity className="h-5 w-5 text-[#1E40AF]" />
+                        <div className="p-2 bg-[#EBF4FF] rounded-lg">
+                            <Activity className="h-5 w-5 text-[#052659]" />
                         </div>
                         <div>
                             <CardTitle className="text-lg text-slate-800">Recent Activity</CardTitle>
@@ -143,7 +143,7 @@ export default function Dashboard() {
                                         <TableCell className="font-medium text-slate-500 text-xs">
                                             #{order.order_id}
                                         </TableCell>
-                                        <TableCell className="font-bold text-[#1E40AF]">
+                                        <TableCell className="font-bold text-[#052659]">
                                             {order.order_reference || "N/A"}
                                         </TableCell>
                                         <TableCell>
@@ -175,7 +175,7 @@ export default function Dashboard() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="transition-all hover:bg-blue-50 text-[#1E40AF] gap-2 border-blue-200"
+                                                className="transition-all hover:bg-blue-50 text-[#052659] gap-2 border-blue-200"
                                                 onClick={() => navigate(`/orders/${order.order_id}`)}
                                             >
                                                 <Package size={14} /> View

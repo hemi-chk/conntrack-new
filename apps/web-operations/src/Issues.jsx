@@ -463,7 +463,7 @@ function Issues() {
   const getStatusBadge = (status) => {
     if (status === "Sent to Admin") {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-[#1E40AF]">
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-[#052659]">
           <Send size={12} />
           Sent to Admin
         </span>
@@ -496,7 +496,7 @@ function Issues() {
   };
 
   return (
-    <div className="min-h-full w-full bg-[#EFF6FF] px-6 py-6">
+    <div className="min-h-full w-full bg-[#EBF4FF] px-6 py-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         {/* Tab filters and search bar */}
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -507,8 +507,8 @@ function Issues() {
                 onClick={() => setTab(item)}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   tab === item
-                    ? "bg-[#1E40AF] text-white"
-                    : "bg-slate-100 text-[#1E293B] hover:bg-[#EFF6FF]"
+                    ? "bg-[#052659] text-white"
+                    : "bg-slate-100 text-[#1E293B] hover:bg-[#EBF4FF]"
                 }`}
               >
                 {item}
@@ -532,7 +532,7 @@ function Issues() {
         <div className="mt-6 overflow-hidden rounded-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-[#EFF6FF] text-[#1E293B]">
+              <thead className="bg-[#EBF4FF] text-[#1E293B]">
                 <tr>
                   <th className="whitespace-nowrap px-4 py-4 font-semibold">
                     Order ID
@@ -584,7 +584,7 @@ function Issues() {
                   filteredIssues.map((issue) => (
                     <tr
                       key={issue.issueDbId || issue.issueId}
-                      className="border-b border-slate-200 bg-white hover:bg-[#F8FAFC]"
+                      className="border-b border-slate-200 bg-white hover:bg-[#EBF4FF]"
                     >
                       <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#1E293B]">
                         {issue.orderId}
@@ -623,7 +623,7 @@ function Issues() {
                       <td className="whitespace-nowrap px-4 py-4 text-center">
                         <button
                           onClick={() => openIssueModal(issue)}
-                          className="inline-flex items-center gap-2 rounded-lg bg-[#1E40AF] px-4 py-2 text-xs font-medium text-white hover:bg-[#1E3A8A]"
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-xs font-medium text-white hover:bg-[#5483B3]"
                         >
                           <Eye size={14} />
                           View
@@ -692,7 +692,7 @@ function Issues() {
                     />
                   </div>
 
-                  <div className="mt-4 rounded-lg bg-[#F8FAFC] p-4">
+                  <div className="mt-4 rounded-lg bg-[#EBF4FF] p-4">
                     <p className="text-sm leading-6 text-slate-600">
                       {selectedIssue.description}
                     </p>
@@ -709,7 +709,7 @@ function Issues() {
                     <div className="flex items-start gap-3">
                       <ShieldCheck
                         size={20}
-                        className="mt-0.5 text-[#1E40AF]"
+                        className="mt-0.5 text-[#052659]"
                       />
                       <div>
                         <p className="text-sm font-semibold text-[#1E293B]">
@@ -736,7 +736,7 @@ function Issues() {
                       </p>
                     </div>
 
-                    <span className="rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#1E40AF]">
+                    <span className="rounded-full bg-[#EBF4FF] px-3 py-1 text-xs font-medium text-[#052659]">
                       Operations Note
                     </span>
                   </div>
@@ -748,18 +748,18 @@ function Issues() {
                     }
                     rows="4"
                     placeholder={getFollowUpPlaceholder(selectedIssue.status)}
-                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-[#1E293B] outline-none focus:border-[#1E40AF]"
+                    className="w-full resize-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-[#1E293B] outline-none focus:border-[#052659]"
                   />
 
                   <div className="mt-3 flex flex-wrap justify-end gap-3">
-                    <button className="inline-flex items-center gap-2 rounded-lg border border-[#1E40AF] px-4 py-2 text-sm font-medium text-[#1E40AF] hover:bg-[#EFF6FF]">
+                    <button className="inline-flex items-center gap-2 rounded-lg border border-[#052659] px-4 py-2 text-sm font-medium text-[#052659] hover:bg-[#EBF4FF]">
                       <Truck size={16} />
                       View Tracking
                     </button>
 
                     <button
                       onClick={() => handleIssueAction(selectedIssue)}
-                      className="inline-flex items-center gap-2 rounded-lg bg-[#1E40AF] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3A8A]"
+                      className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-sm font-medium text-white hover:bg-[#5483B3]"
                     >
                       <Send size={16} />
                       {getActionButtonText(selectedIssue.status)}
@@ -809,7 +809,7 @@ function Issues() {
                   ))}
                 </div>
 
-                <div className="mt-6 rounded-lg bg-[#F8FAFC] p-4">
+                <div className="mt-6 rounded-lg bg-[#EBF4FF] p-4">
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <CalendarDays size={15} />
                     Reported on {selectedIssue.reported}
@@ -832,7 +832,7 @@ function Issues() {
 // Small reusable card for showing issue/order details in modal
 function DetailCard({ label, value }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-[#EFF6FF] p-4">
+    <div className="rounded-xl border border-slate-200 bg-[#EBF4FF] p-4">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-semibold text-[#1E293B]">{value}</p>
     </div>
@@ -853,7 +853,7 @@ function InfoItem({ label, value }) {
 function TimelineItem({ icon, title, description, time }) {
   return (
     <div className="flex gap-3">
-      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-[#1E40AF]">
+      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF4FF] text-[#052659]">
         {icon}
       </div>
 

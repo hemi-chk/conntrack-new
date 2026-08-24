@@ -21,7 +21,7 @@ function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, 
         </div>
         {loading && (
           <div className="flex items-center justify-center py-10 text-sm text-slate-500">
-            <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#1E40AF] border-t-transparent" />
+            <div className="mr-3 h-5 w-5 animate-spin rounded-full border-2 border-[#052659] border-t-transparent" />
             Loading drivers and vehicles…
           </div>
         )}
@@ -36,7 +36,7 @@ function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, 
                 <p className="text-sm text-slate-400">No drivers found for this supplier.</p>
               ) : (
                 <select value={driverId} onChange={e => setDriverId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#1E40AF]">
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#052659]">
                   <option value="">Select a driver…</option>
                   {drivers.map(d => (
                     <option key={d.driver_id} value={d.driver_id}>
@@ -52,7 +52,7 @@ function AssignDriverModal({ order, state, setDriverId, setVehicleId, onSubmit, 
                 <p className="text-sm text-slate-400">No vehicles found for this supplier.</p>
               ) : (
                 <select value={vehicleId} onChange={e => setVehicleId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#1E40AF]">
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-[#1E293B] outline-none focus:border-[#052659]">
                   <option value="">Select a vehicle…</option>
                   {vehicles.map(v => (
                     <option key={v.vehicle_id} value={v.vehicle_id}>
@@ -335,7 +335,7 @@ function Orders({ onNavigate }) {
       case "Driver Assigned":
         return `${base} bg-cyan-100 text-cyan-700`;
       case "In Transit":
-        return `${base} bg-[#EFF6FF] text-[#1E40AF]`;
+        return `${base} bg-[#EBF4FF] text-[#052659]`;
       case "At Freezone":
         return `${base} bg-orange-100 text-[#EA580C]`;
       case "At Port":
@@ -365,7 +365,7 @@ function Orders({ onNavigate }) {
       case "high":
         return `${base} bg-orange-100 text-[#EA580C]`;
       case "medium":
-        return `${base} bg-[#EFF6FF] text-[#1E40AF]`;
+        return `${base} bg-[#EBF4FF] text-[#052659]`;
       case "low":
         return `${base} bg-green-100 text-[#16A34A]`;
       default:
@@ -594,7 +594,7 @@ function Orders({ onNavigate }) {
   };
 
   return (
-    <div className="min-h-full w-full bg-[#EFF6FF] px-6 py-6">
+    <div className="min-h-full w-full bg-[#EBF4FF] px-6 py-6">
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         {/* Status tabs and create order button */}
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
@@ -617,8 +617,8 @@ function Orders({ onNavigate }) {
                 onClick={() => setActiveTab(tab)}
                 className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
                   activeTab === tab
-                    ? "bg-[#1E40AF] text-white"
-                    : "bg-slate-100 text-[#1E293B] hover:bg-[#EFF6FF]"
+                    ? "bg-[#052659] text-white"
+                    : "bg-slate-100 text-[#1E293B] hover:bg-[#EBF4FF]"
                 }`}
               >
                 {tab}
@@ -628,7 +628,7 @@ function Orders({ onNavigate }) {
 
           <button
             onClick={() => onNavigate && onNavigate("/create")}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1E40AF] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3A8A]"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-sm font-medium text-white hover:bg-[#5483B3]"
           >
             <PlusSquare size={16} />
             New Order
@@ -648,7 +648,7 @@ function Orders({ onNavigate }) {
               </div>
             ) : (
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#EFF6FF] text-[#1E293B]">
+                <thead className="bg-[#EBF4FF] text-[#1E293B]">
                   <tr>
                     <th className="whitespace-nowrap px-4 py-4 font-semibold">
                       Order ID
@@ -687,7 +687,7 @@ function Orders({ onNavigate }) {
                     return (
                       <tr
                         key={`${order.id}-${index}`}
-                        className="border-b border-slate-200 bg-white hover:bg-[#F8FAFC]"
+                        className="border-b border-slate-200 bg-white hover:bg-[#EBF4FF]"
                       >
                         <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#1E293B]">
                           {order.id}
@@ -741,7 +741,7 @@ function Orders({ onNavigate }) {
                                 onClick={() =>
                                   setOpenMenu(openMenu === index ? null : index)
                                 }
-                                className="rounded-lg bg-[#1E40AF] px-4 py-2 text-xs font-medium text-white hover:bg-[#1E3A8A]"
+                                className="rounded-lg bg-[#052659] px-4 py-2 text-xs font-medium text-white hover:bg-[#5483B3]"
                               >
                                 Manage ▾
                               </button>
@@ -750,7 +750,7 @@ function Orders({ onNavigate }) {
                                 <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-200 bg-white text-left text-xs shadow-lg">
                                   <div
                                     onClick={() => handleAction("details", order)}
-                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
+                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
                                   >
                                     View Details
                                   </div>
@@ -760,7 +760,7 @@ function Orders({ onNavigate }) {
                                       onClick={() =>
                                         handleAction("bidding", order)
                                       }
-                                      className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
+                                      className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
                                     >
                                       Open Bidding
                                     </div>
@@ -770,7 +770,7 @@ function Orders({ onNavigate }) {
                                     onClick={() =>
                                       handleAction("tracking", order)
                                     }
-                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
+                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
                                   >
                                     Track Order
                                   </div>
@@ -888,13 +888,13 @@ function Orders({ onNavigate }) {
                 ].map((type) => (
                   <label
                     key={type}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-[#EFF6FF] px-3 py-2 text-sm text-[#1E293B]"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-[#EBF4FF] px-3 py-2 text-sm text-[#1E293B]"
                   >
                     <input
                       type="checkbox"
                       checked={issueTypes.includes(type)}
                       onChange={() => toggleIssueType(type)}
-                      className="accent-[#1E40AF]"
+                      className="accent-[#052659]"
                     />
                     {type}
                   </label>
@@ -943,7 +943,7 @@ function Orders({ onNavigate }) {
 
               <button
                 onClick={sendIssueToAdmin}
-                className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+                className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
               >
                 Send to Admin
               </button>
@@ -1041,7 +1041,7 @@ function OrderDetailsPanel({
         <InfoBox label="Order Type" value={selectedOrder.type} />
         <InfoBox label="Supplier" value={selectedOrder.supplier} />
         <InfoBox label="Driver" value={selectedOrder.driver} />
-        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
           <p className="mb-1 text-xs text-slate-500">Current Status</p>
           <span className={statusBadge(selectedOrder.status)}>
             {selectedOrder.status}
@@ -1051,7 +1051,7 @@ function OrderDetailsPanel({
 
       <SectionTitle title="Issue Summary" />
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
           <p className="mb-1 text-xs text-slate-500">Issue Status</p>
           <span className={issueBadge(latestIssue)}>
             {latestIssue
@@ -1146,7 +1146,7 @@ function OrderDetailsPanel({
 
       <SectionTitle title="Special Instructions" />
       <div className="mb-6">
-        <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4 text-sm text-[#1E293B]">
+        <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4 text-sm text-[#1E293B]">
           {selectedOrder.specialInstructions || "-"}
         </div>
       </div>
@@ -1163,7 +1163,7 @@ function OrderDetailsPanel({
                 <div
                   className={`rounded-full px-4 py-2 text-xs font-medium ${
                     active
-                      ? "bg-[#1E40AF] text-white"
+                      ? "bg-[#052659] text-white"
                       : "bg-slate-100 text-slate-500"
                   }`}
                 >
@@ -1173,7 +1173,7 @@ function OrderDetailsPanel({
                   <div
                     className={`h-0.5 w-8 ${
                       idx < selectedOrder.currentStep
-                        ? "bg-[#1E40AF]"
+                        ? "bg-[#052659]"
                         : "bg-slate-300"
                     }`}
                   />
@@ -1189,7 +1189,7 @@ function OrderDetailsPanel({
         {selectedOrder.status === "Created" && (
           <button
             onClick={() => handleAction("bidding", selectedOrder)}
-            className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+            className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
           >
             Open Bidding
           </button>
@@ -1208,7 +1208,7 @@ function OrderDetailsPanel({
           <>
             <button
               onClick={() => goToTracking(selectedOrder)}
-              className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+              className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white hover:bg-[#5483B3]"
             >
               Track Order
             </button>
@@ -1255,7 +1255,7 @@ function SectionTitle({ title }) {
 // Reusable information box used inside the order detail panel and issue modal
 function InfoBox({ label, value }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+    <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
       <p className="mb-1 text-xs text-slate-500">{label}</p>
       <p className="text-sm font-medium text-[#1E293B]">{value}</p>
     </div>
@@ -1265,7 +1265,7 @@ function InfoBox({ label, value }) {
 // Reusable status box for insurance, port pass, vehicle condition, license, and police report
 function StatusInfoBox({ label, value, tone }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-[#EFF6FF] p-4">
+    <div className="rounded-lg border border-slate-200 bg-[#EBF4FF] p-4">
       <p className="mb-1 text-xs text-slate-500">{label}</p>
       <span className={`inline-block rounded-full px-3 py-1 text-xs ${tone}`}>
         {value}

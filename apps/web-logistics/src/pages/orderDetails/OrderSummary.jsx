@@ -14,7 +14,7 @@ export default function OrderSummary({ order }) {
       {/* Header Summary */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div className="flex items-center gap-4">
-          <div className="bg-[#1E40AF] p-2.5 rounded-xl text-white shadow-lg">
+          <div className="bg-[#052659] p-2.5 rounded-xl text-white shadow-lg">
             <Package size={24} />
           </div>
           <div>
@@ -36,7 +36,7 @@ export default function OrderSummary({ order }) {
           {isAssigned && (
             <Button
               variant="outline"
-              className="border-blue-200 text-[#1E40AF] hover:bg-blue-50 shadow-sm"
+              className="border-blue-200 text-[#052659] hover:bg-blue-50 shadow-sm"
               onClick={() => navigate(`/tracking/${order.order_id}`)}
             >
               <Map size={18} className="mr-2" />
@@ -50,7 +50,7 @@ export default function OrderSummary({ order }) {
       <Card className="border border-slate-200 shadow-sm rounded-xl overflow-hidden">
         <div className="bg-slate-50 px-6 py-3 border-b border-slate-100">
           <h3 className="font-bold text-[#334155] flex items-center gap-2 text-xs uppercase tracking-widest">
-            <Info size={14} className="text-[#1E40AF]" />
+            <Info size={14} className="text-[#052659]" />
             Logistics Summary
           </h3>
         </div>
@@ -106,7 +106,7 @@ export default function OrderSummary({ order }) {
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-500">Container No</span>
-              <span className="font-mono text-[#1E40AF] font-bold">
+              <span className="font-mono text-[#052659] font-bold">
                 {order.container_no || "N/A"}
               </span>
             </div>

@@ -620,7 +620,7 @@ function Bidding() {
 
   // Creates supplier avatar using first letter of supplier name
   const getSupplierIcon = (supplier) => (
-    <div className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#1E40AF] text-sm font-bold">
+    <div className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#052659] text-sm font-bold">
       {supplier?.charAt(0) || "S"}
     </div>
   );
@@ -746,7 +746,7 @@ function Bidding() {
   const freshWinningBid = getFreshWinningBid();
 
   return (
-    <div className="bg-[#EFF6FF] p-5 min-h-full">
+    <div className="bg-[#EBF4FF] p-5 min-h-full">
       <div className="max-w-[1500px] mx-auto space-y-4">
         {/* Top bidding status cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-[760px]">
@@ -773,7 +773,7 @@ function Bidding() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#1E40AF] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-[#052659] flex items-center justify-center shrink-0">
                 <PackageCheck className="text-white" size={20} />
               </div>
 
@@ -790,7 +790,7 @@ function Bidding() {
 
             <button
               onClick={() => setShowOrderDetails(!showOrderDetails)}
-              className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#1E40AF] hover:bg-[#EFF6FF] transition"
+              className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#052659] hover:bg-[#EBF4FF] transition"
               title={
                 showOrderDetails ? "Hide order details" : "Show order details"
               }
@@ -869,7 +869,7 @@ function Bidding() {
               onClick={openTimerPopup}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 activeTab === "Open"
-                  ? "bg-[#1E40AF] text-white"
+                  ? "bg-[#052659] text-white"
                   : "bg-white text-[#1E293B] border border-slate-200"
               }`}
             >
@@ -883,7 +883,7 @@ function Bidding() {
               onClick={closeBidding}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 activeTab === "Closed"
-                  ? "bg-[#1E40AF] text-white"
+                  ? "bg-[#052659] text-white"
                   : "bg-white text-[#1E293B] border border-slate-200"
               }`}
             >
@@ -894,7 +894,7 @@ function Bidding() {
           <div className="flex items-center gap-2">
             <button
               onClick={extendTimerPopup}
-              className="bg-white border border-slate-200 text-[#1E40AF] px-3 py-2 rounded-lg text-sm font-medium"
+              className="bg-white border border-slate-200 text-[#052659] px-3 py-2 rounded-lg text-sm font-medium"
             >
               Extend Timer
             </button>
@@ -905,7 +905,7 @@ function Bidding() {
               className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                 sentToLogistics
                   ? "bg-green-100 text-[#16A34A]"
-                  : "bg-[#1E40AF] text-white hover:bg-[#1E3A8A]"
+                  : "bg-[#052659] text-white hover:bg-[#5483B3]"
               }`}
             >
               <Send size={16} />
@@ -928,7 +928,7 @@ function Bidding() {
           />
 
           <SummaryCard
-            icon={<Clock3 className="text-[#1E40AF]" size={22} />}
+            icon={<Clock3 className="text-[#052659]" size={22} />}
             title="Fastest ETA"
             value={
               fastestEtaBids.length > 0 ? formatEta(fastestEtaBids[0].eta) : "-"
@@ -990,7 +990,7 @@ function Bidding() {
               </div>
             ) : (
               <table className="w-full text-sm border-separate border-spacing-0">
-                <thead className="bg-[#EFF6FF] text-[#1E293B]">
+                <thead className="bg-[#EBF4FF] text-[#1E293B]">
                   <tr>
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Supplier
@@ -1040,14 +1040,14 @@ function Bidding() {
                           isWinner
                             ? "bg-green-50"
                             : isShortlisted || isLowest
-                            ? "bg-[#EFF6FF]"
+                            ? "bg-[#EBF4FF]"
                             : "bg-white"
                         }
                       >
                         <td className="px-3 py-3 border-b border-slate-100">
                           <div className="flex items-center gap-2">
                             {isShortlisted && (
-                              <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-[#EFF6FF] text-[#1E40AF] border border-[#1E40AF]">
+                              <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-[#EBF4FF] text-[#052659] border border-[#052659]">
                                 SHORTLIST
                               </div>
                             )}
@@ -1131,7 +1131,7 @@ function Bidding() {
                         </td>
 
                         <td className="px-3 py-3 border-b border-slate-100">
-                          <span className="px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#1E40AF] text-xs font-semibold">
+                          <span className="px-2.5 py-1 rounded-full bg-[#EBF4FF] text-[#052659] text-xs font-semibold">
                             {score.totalScore}/100
                           </span>
                         </td>
@@ -1140,7 +1140,7 @@ function Bidding() {
                           <span
                             className={`px-2.5 py-1 rounded-full text-xs ${
                               getBidStatus(bid) === "Shortlisted"
-                                ? "bg-[#EFF6FF] text-[#1E40AF]"
+                                ? "bg-[#EBF4FF] text-[#052659]"
                                 : getBidStatus(bid) === "Winner Selected"
                                 ? "bg-green-100 text-[#16A34A]"
                                 : "bg-slate-100 text-slate-600"
@@ -1158,7 +1158,7 @@ function Bidding() {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => setSelectedBidForDetails(bid)}
-                              className="border border-slate-200 text-[#1E40AF] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EFF6FF]"
+                              className="border border-slate-200 text-[#052659] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EBF4FF]"
                             >
                               View Details
                             </button>
@@ -1178,8 +1178,8 @@ function Bidding() {
                                 onClick={() => toggleShortlist(bid.id)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
                                   isShortlisted
-                                    ? "bg-[#EFF6FF] text-[#1E40AF] border border-[#1E40AF]"
-                                    : "border border-[#1E40AF] text-[#1E40AF] hover:bg-[#EFF6FF]"
+                                    ? "bg-[#EBF4FF] text-[#052659] border border-[#052659]"
+                                    : "border border-[#052659] text-[#052659] hover:bg-[#EBF4FF]"
                                 }`}
                               >
                                 {isShortlisted ? "Remove" : "Shortlist"}
@@ -1187,7 +1187,7 @@ function Bidding() {
                             ) : isShortlisted ? (
                               <button
                                 onClick={() => openWinnerPopupManually(bid)}
-                                className="border border-[#1E40AF] text-[#1E40AF] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EFF6FF]"
+                                className="border border-[#052659] text-[#052659] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EBF4FF]"
                               >
                                 Mark Winner
                               </button>
@@ -1324,7 +1324,7 @@ function Bidding() {
 
               <button
                 onClick={confirmTimer}
-                className="px-4 py-2 rounded-md bg-[#1E40AF] text-white text-sm"
+                className="px-4 py-2 rounded-md bg-[#052659] text-white text-sm"
               >
                 {timerMode === "open" ? "Start Bidding" : "Add Time"}
               </button>
@@ -1693,14 +1693,14 @@ function MessageBox({
       ? "bg-[#DC2626] hover:bg-red-700 text-white"
       : color === "orange"
       ? "bg-[#EA580C] hover:bg-orange-700 text-white"
-      : "bg-[#1E40AF] hover:bg-[#1E3A8A] text-white";
+      : "bg-[#052659] hover:bg-[#5483B3] text-white";
 
   const outlineStyle =
     color === "red"
       ? "border border-slate-200 text-[#DC2626] hover:bg-red-50"
       : color === "orange"
       ? "border border-slate-200 text-[#EA580C] hover:bg-orange-50"
-      : "border border-slate-200 text-[#1E40AF] hover:bg-[#EFF6FF]";
+      : "border border-slate-200 text-[#052659] hover:bg-[#EBF4FF]";
 
   return (
     <div className="border border-slate-200 rounded-xl p-4 mb-4">
@@ -1841,11 +1841,11 @@ function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
           />
         </div>
 
-        <div className="bg-[#EFF6FF] border border-blue-100 rounded-xl p-4 flex justify-between items-center">
+        <div className="bg-[#EBF4FF] border border-blue-100 rounded-xl p-4 flex justify-between items-center">
           <div>
             <p className="text-sm text-slate-500">Total Score</p>
 
-            <h2 className="text-2xl font-bold text-[#1E40AF] mt-1">
+            <h2 className="text-2xl font-bold text-[#052659] mt-1">
               {score.totalScore} / 100
             </h2>
           </div>
@@ -1862,7 +1862,7 @@ function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
         <div className="flex justify-end mt-5">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-[#1E40AF] text-white text-sm font-semibold hover:bg-[#1E3A8A]"
+            className="px-4 py-2 rounded-lg bg-[#052659] text-white text-sm font-semibold hover:bg-[#5483B3]"
           >
             Close
           </button>
@@ -1899,8 +1899,8 @@ function MiniStatusCard({ title, value, type = "neutral" }) {
     },
     primary: {
       box: "bg-blue-50 border-blue-100",
-      icon: "bg-[#EFF6FF] text-[#1E40AF]",
-      value: "text-[#1E40AF]",
+      icon: "bg-[#EBF4FF] text-[#052659]",
+      value: "text-[#052659]",
     },
     neutral: {
       box: "bg-white border-slate-200",

@@ -175,10 +175,10 @@ export default function DocumentsSection({
 
           <div className="flex items-center gap-3">
 
-            <div className="bg-[#EFF6FF] p-2 rounded-xl">
+            <div className="bg-[#EBF4FF] p-2 rounded-xl">
               <FileText
                 size={16}
-                className="text-[#1E40AF]"
+                className="text-[#052659]"
               />
             </div>
 
@@ -270,7 +270,7 @@ export default function DocumentsSection({
             transition-all duration-200
             ${disabled
               ? "bg-slate-100 border-slate-200 cursor-not-allowed opacity-70"
-              : "border-slate-300 hover:border-[#1E40AF] hover:bg-blue-50/40 cursor-pointer"
+              : "border-slate-300 hover:border-[#052659] hover:bg-blue-50/40 cursor-pointer"
             }
           `}
         >
@@ -288,7 +288,7 @@ export default function DocumentsSection({
             p-4 rounded-full mb-3
             ${disabled
               ? "bg-slate-200 text-slate-400"
-              : "bg-white text-[#1E40AF] shadow-sm border"
+              : "bg-white text-[#052659] shadow-sm border"
             }
           `}>
 
@@ -422,7 +422,7 @@ export default function DocumentsSection({
 
                 <div className="flex items-center gap-3 overflow-hidden">
 
-                  <div className="bg-[#1E40AF] text-white p-2 rounded-lg shrink-0">
+                  <div className="bg-[#052659] text-white p-2 rounded-lg shrink-0">
 
                     <FileCheck size={14} />
 
@@ -478,7 +478,7 @@ export default function DocumentsSection({
               disabled={uploading}
               className="
                 w-full h-11
-                bg-[#1E40AF]
+                bg-[#052659]
                 hover:bg-blue-800
                 text-white
                 rounded-xl

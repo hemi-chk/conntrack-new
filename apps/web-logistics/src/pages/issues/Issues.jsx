@@ -205,7 +205,7 @@ const Issues = () => {
                                 <Button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="h-12 px-10 bg-[#1E40AF] hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95 flex items-center gap-2"
+                                    className="h-12 px-10 bg-[#052659] hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     {isSubmitting ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />

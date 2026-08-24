@@ -534,7 +534,7 @@ function Tracking() {
     }
 
     if (safeStatus.includes("boi") || safeStatus.includes("freezone")) {
-      return <PackageOpen size={18} className="text-[#1E40AF] mt-1" />;
+      return <PackageOpen size={18} className="text-[#052659] mt-1" />;
     }
 
     if (safeStatus.includes("delivered") || safeStatus.includes("completed")) {
@@ -545,7 +545,7 @@ function Tracking() {
   };
 
   return (
-    <div className="bg-[#EFF6FF] p-6 h-full overflow-auto space-y-6">
+    <div className="bg-[#EBF4FF] p-6 h-full overflow-auto space-y-6">
       {/* Header shown when user tracks one selected order */}
       {selectedTrackingOrder && (
         <div className="bg-white rounded-xl shadow p-6">
@@ -570,7 +570,7 @@ function Tracking() {
             <div className="flex items-center gap-2">
               <button
                 onClick={fetchSelectedOrderTracking}
-                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E40AF] hover:bg-[#EFF6FF] flex items-center gap-2"
+                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#052659] hover:bg-[#EBF4FF] flex items-center gap-2"
               >
                 <RefreshCw size={15} />
                 Refresh
@@ -605,7 +605,7 @@ function Tracking() {
 
           <button
             onClick={fetchSelectedOrderTracking}
-            className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E40AF] hover:bg-[#EFF6FF] flex items-center gap-2"
+            className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#052659] hover:bg-[#EBF4FF] flex items-center gap-2"
           >
             <RefreshCw size={15} />
             Refresh
@@ -623,7 +623,7 @@ function Tracking() {
       {/* Tracking order summary table */}
       <div className="bg-white rounded-xl shadow overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-[#EFF6FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
+          <thead className="bg-[#EBF4FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
             <tr>
               <th className="py-3 px-4 text-left">Order ID</th>
               <th className="px-4 text-left">Type</th>
@@ -660,7 +660,7 @@ function Tracking() {
                   <td className="px-4 text-[#1E293B]">{order.driver}</td>
 
                   <td className="px-4 text-[#1E293B]">
-                    <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EFF6FF] text-[#1E40AF]">
+                    <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EBF4FF] text-[#052659]">
                       {prettifyStatus(order.status)}
                     </span>
                   </td>
@@ -794,7 +794,7 @@ function Tracking() {
             ))}
 
             {routePositions.length > 1 && (
-              <Polyline positions={routePositions} color="#1E40AF" />
+              <Polyline positions={routePositions} color="#052659" />
             )}
           </MapContainer>
         ) : (
