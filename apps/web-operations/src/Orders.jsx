@@ -91,7 +91,16 @@ function Orders({ onNavigate }) {
   const [archivedOrderIds, setArchivedOrderIds] = useState([]);
   const [reportedIssues, setReportedIssues] = useState([]);
   const [assignDriverOrder, setAssignDriverOrder] = useState(null);
-  const [assignDriverState, setAssignDriverState] = useState({ drivers: [], vehicles: [], driverId: '', vehicleId: '', loading: false, error: '' });
+  const [assignDriverState, setAssignDriverState] = useState({
+    drivers: [],
+    vehicles: [],
+    driverId: "",
+    vehicleId: "",
+    loading: false,
+    error: "",
+  });
+  const [backendIssues, setBackendIssues] = useState([]);
+
   const [isLoading, setIsLoading] = useState(false);
 
   // Issue reporting form states
@@ -99,9 +108,10 @@ function Orders({ onNavigate }) {
   const [priority, setPriority] = useState("medium");
   const [issueDetails, setIssueDetails] = useState("");
 
-  // Loads orders from backend and restores locally saved archived orders/issues
+  // Loads orders from backend and restores legacy local archive markers/issues
   useEffect(() => {
     fetchOrders();
+    fetchBackendIssues();
 
     const savedArchived =
       JSON.parse(localStorage.getItem("archivedOrderIds")) || [];
@@ -203,17 +213,208 @@ function Orders({ onNavigate }) {
     return !["Created", "Open for Bids"].includes(status);
   };
 
-  // Gets the latest locally reported issue for a specific order
-  const getLatestIssueForOrder = (orderId) => {
-    const relatedIssues = reportedIssues.filter(
-      (issue) => issue.orderId === orderId
-    );
+  // Converts database issue status into readable review status
+  const normalizeIssueReviewStatus = (status) => {
+    const cleanStatus = String(status || "").trim().toLowerCase();
+
+    if (
+      cleanStatus === "open" ||
+      cleanStatus === "sent_to_admin" ||
+      cleanStatus === "sent to admin"
+    ) {
+      return "Sent to Admin";
+    }
+
+    if (
+      cleanStatus === "escalated" ||
+      cleanStatus === "admin_reviewing" ||
+      cleanStatus === "admin reviewing" ||
+      cleanStatus === "reviewing"
+    ) {
+      return "Admin Reviewing";
+    }
+
+    if (cleanStatus === "resolved") {
+      return "Resolved";
+    }
+
+    return status || "Sent to Admin";
+  };
+
+  // Converts database issue type like vehicle_issue into Vehicle Issue
+  const normalizeIssueType = (value) => {
+    if (!value) return "Issue";
+
+    return String(value)
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  // Formats backend issue date for the Order Details issue summary
+  const formatIssueDate = (value) => {
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString();
+  };
+
+  // Converts one backend issue record into the same shape already used by Orders.jsx
+  const mapBackendIssue = (issue) => {
+    const order = issue.orders || {};
+
+    return {
+      issueId: issue.issue_id,
+      dbIssueId: issue.issue_id,
+
+      orderId:
+        order.order_reference ||
+        issue.order_reference ||
+        "-",
+
+      dbOrderId:
+        order.order_id ||
+        issue.order_id ||
+        null,
+
+      issueTypes: [
+        normalizeIssueType(
+          issue.issue_type ||
+          "Issue"
+        ),
+      ],
+
+      priority: String(
+        issue.priority ||
+        "medium"
+      ).toLowerCase(),
+
+      details:
+        issue.description ||
+        issue.issue_details ||
+        "No issue details provided.",
+
+      status:
+        normalizeIssueReviewStatus(
+          issue.status
+        ),
+
+      createdAt:
+        formatIssueDate(
+          issue.created_at ||
+          issue.reported_at
+        ),
+
+      rawCreatedAt:
+        issue.created_at ||
+        issue.reported_at ||
+        null,
+
+      source:
+        "backend",
+    };
+  };
+
+  // Loads the same real issue records used by Issues.jsx
+  const fetchBackendIssues = async () => {
+    try {
+      const response = await fetch(
+        `${OPS_API}/issues`
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+          "Failed to fetch issues"
+        );
+      }
+
+      const mappedIssues = Array.isArray(result)
+        ? result.map(mapBackendIssue)
+        : [];
+
+      setBackendIssues(mappedIssues);
+    } catch (error) {
+      console.error(
+        "Orders issue fetch error:",
+        error
+      );
+
+      setBackendIssues([]);
+    }
+  };
+
+  // Gets the latest issue for one order from backend + local reports
+  const getLatestIssueForOrder = (orderOrId) => {
+    const orderReference =
+      typeof orderOrId === "object"
+        ? orderOrId?.id
+        : orderOrId;
+
+    const databaseOrderId =
+      typeof orderOrId === "object"
+        ? orderOrId?.dbId
+        : ordersData.find(
+            (order) =>
+              order.id === orderReference
+          )?.dbId;
+
+    const combinedIssues = [
+      ...backendIssues,
+      ...reportedIssues,
+    ];
+
+    const relatedIssues =
+      combinedIssues.filter((issue) => {
+        const matchesReference =
+          orderReference &&
+          String(issue.orderId) ===
+            String(orderReference);
+
+        const matchesDatabaseId =
+          databaseOrderId !== null &&
+          databaseOrderId !== undefined &&
+          issue.dbOrderId !== null &&
+          issue.dbOrderId !== undefined &&
+          String(issue.dbOrderId) ===
+            String(databaseOrderId);
+
+        return (
+          matchesReference ||
+          matchesDatabaseId
+        );
+      });
 
     if (relatedIssues.length === 0) {
       return null;
     }
 
-    return relatedIssues[relatedIssues.length - 1];
+    return [...relatedIssues].sort(
+      (a, b) => {
+        const aTime = new Date(
+          a.rawCreatedAt ||
+          a.createdAt ||
+          0
+        ).getTime();
+
+        const bTime = new Date(
+          b.rawCreatedAt ||
+          b.createdAt ||
+          0
+        ).getTime();
+
+        return (
+          (Number.isNaN(bTime) ? 0 : bTime) -
+          (Number.isNaN(aTime) ? 0 : aTime)
+        );
+      }
+    )[0];
   };
 
   // Converts one database order record into the format required by the frontend UI
@@ -607,8 +808,9 @@ function Orders({ onNavigate }) {
     );
   };
 
-  // Saves issue report locally and sends latest issue data through sessionStorage for admin/issue flow
-  const sendIssueToAdmin = () => {
+  // Saves the issue in the real backend/database and sends it to Admin.
+  // Orders.jsx and Issues.jsx will now read the same persistent issue record.
+  const sendIssueToAdmin = async () => {
     if (!issueOrder) return;
 
     if (issueTypes.length === 0) {
@@ -621,79 +823,77 @@ function Orders({ onNavigate }) {
       return;
     }
 
-    const issueReport = {
-      issueId: Date.now(),
+    try {
+      const response = await fetch(
+        `${OPS_API}/issues`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            order_id:
+              issueOrder.dbId,
 
-      orderId:
-        issueOrder.id,
+            issue_type:
+              issueTypes.join(", "),
 
-      dbOrderId:
-        issueOrder.dbId,
+            priority,
 
-      supplier:
-        issueOrder.supplier,
+            description:
+              issueDetails.trim(),
 
-      driver:
-        issueOrder.driver,
+            // reported_by is intentionally omitted here because the database
+            // column is UUID-based. The Issues UI will display "Operations Team"
+            // as its fallback reporter label.
 
-      route:
-        `${issueOrder.pickupLocation} → ${issueOrder.destinationLocation}`,
+            // Backend uses these names only to resolve the real IDs when possible.
+            supplier_name:
+              issueOrder.supplier,
 
-      pickupDistrict:
-        issueOrder.pickupDistrict,
+            driver_name:
+              issueOrder.driver,
+          }),
+        }
+      );
 
-      pickupLocation:
-        issueOrder.pickupLocation,
+      const result =
+        await response.json();
 
-      destinationDistrict:
-        issueOrder.destinationDistrict,
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+          result.message ||
+          "Failed to send issue to Admin."
+        );
+      }
 
-      destinationLocation:
-        issueOrder.destinationLocation,
+      // Refresh backend issues immediately so the Issue badge updates
+      // without requiring a full browser refresh.
+      await fetchBackendIssues();
 
-      issueTypes,
+      alert(
+        `Issue report for ${issueOrder.id} sent to Admin Team successfully.`
+      );
 
-      priority,
+      setIssueOrder(null);
+      setIssueTypes([]);
+      setPriority("medium");
+      setIssueDetails("");
+    } catch (error) {
+      console.error(
+        "Send issue error:",
+        error
+      );
 
-      details:
-        issueDetails,
-
-      status:
-        "open",
-
-      sentTo:
-        "Admin Team",
-
-      createdAt:
-        new Date().toLocaleString(),
-    };
-
-    const updatedIssues = [
-      ...reportedIssues,
-      issueReport,
-    ];
-
-    setReportedIssues(updatedIssues);
-
-    localStorage.setItem(
-      "reportedIssues",
-      JSON.stringify(updatedIssues)
-    );
-
-    sessionStorage.setItem(
-      "latestIssueReport",
-      JSON.stringify(issueReport)
-    );
-
-    alert(
-      `Issue report for ${issueOrder.id} sent to Admin Team.`
-    );
-
-    setIssueOrder(null);
+      alert(
+        error.message
+      );
+    }
   };
 
-  // Archives only completed orders and saves archived order ID locally
-  const confirmArchiveOrder = () => {
+  // Archives only completed orders and persists the archive in the database
+  const confirmArchiveOrder = async () => {
     if (!archiveOrder) return;
 
     if (
@@ -708,26 +908,67 @@ function Orders({ onNavigate }) {
       return;
     }
 
-    const updatedArchived = [
-      ...archivedOrderIds,
-      archiveOrder.id,
-    ];
+    try {
+      const response = await fetch(
+        `${OPS_API}/orders/${archiveOrder.dbId}/archive`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    setArchivedOrderIds(
-      updatedArchived
-    );
+      const result =
+        await response.json();
 
-    localStorage.setItem(
-      "archivedOrderIds",
-      JSON.stringify(updatedArchived)
-    );
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+          result.message ||
+          "Failed to archive order."
+        );
+      }
 
-    alert(
-      `Order ${archiveOrder.id} archived successfully by Operations.`
-    );
+      // Remove any old local-only archive marker for this order.
+      // The database is now the authoritative source.
+      const cleanedArchivedIds =
+        archivedOrderIds.filter(
+          (orderId) =>
+            orderId !== archiveOrder.id
+        );
 
-    setArchiveOrder(null);
-    setSelectedOrder(null);
+      setArchivedOrderIds(
+        cleanedArchivedIds
+      );
+
+      localStorage.setItem(
+        "archivedOrderIds",
+        JSON.stringify(
+          cleanedArchivedIds
+        )
+      );
+
+      // Reload orders so the Archived tab immediately reflects DB state.
+      await fetchOrders();
+
+      alert(
+        `Order ${archiveOrder.id} archived successfully by Operations.`
+      );
+
+      setArchiveOrder(null);
+      setSelectedOrder(null);
+      setOpenMenu(null);
+    } catch (error) {
+      console.error(
+        "Archive order error:",
+        error
+      );
+
+      alert(
+        error.message
+      );
+    }
   };
 
   // Handles dropdown actions
@@ -927,7 +1168,7 @@ function Orders({ onNavigate }) {
                     (order, index) => {
                       const latestIssue =
                         getLatestIssueForOrder(
-                          order.id
+                          order
                         );
 
 
@@ -1488,7 +1729,7 @@ function OrderDetailsPanel({
 }) {
   const latestIssue =
     getLatestIssueForOrder(
-      selectedOrder.id
+      selectedOrder
     );
 
   return (

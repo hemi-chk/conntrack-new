@@ -239,6 +239,108 @@ router.get('/orders/next-id', async (req, res) => {
 })
 
 // GET ORDERS - REAL ORDERS TABLE DATA + LATEST SUPPLIER / DRIVER ASSIGNMENT
+
+// ARCHIVE COMPLETED ORDER - OPERATIONS
+// Persists archive status in the database so it remains archived
+// across refreshes, browsers, devices and hosted deployments.
+router.patch('/orders/:orderId/archive', async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId)
+
+    if (!orderId || Number.isNaN(orderId)) {
+      return res.status(400).json({
+        error: 'A valid order ID is required',
+      })
+    }
+
+    const {
+      data: order,
+      error: orderError,
+    } =
+      await supabase
+        .from('orders')
+        .select(`
+          order_id,
+          order_reference,
+          current_status
+        `)
+        .eq(
+          'order_id',
+          orderId
+        )
+        .single()
+
+    if (orderError || !order) {
+      return res.status(404).json({
+        error: 'Order not found',
+      })
+    }
+
+    const currentStatus =
+      String(
+        order.current_status ||
+        ''
+      ).toLowerCase()
+
+    // Idempotent response if the order is already archived.
+    if (currentStatus === 'archived') {
+      return res.status(200).json({
+        success: true,
+        message:
+          `Order ${order.order_reference} is already archived`,
+        order,
+      })
+    }
+
+    // Operations can archive only after the official process is completed.
+    if (currentStatus !== 'completed') {
+      return res.status(400).json({
+        error:
+          'Only completed orders can be archived by Operations.',
+      })
+    }
+
+    const {
+      data: archivedOrder,
+      error: archiveError,
+    } =
+      await supabase
+        .from('orders')
+        .update({
+          current_status: 'archived',
+          updated_at: new Date().toISOString(),
+        })
+        .eq(
+          'order_id',
+          orderId
+        )
+        .select()
+        .single()
+
+    if (archiveError) {
+      return res.status(500).json({
+        error: archiveError.message,
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      message:
+        `Order ${order.order_reference} archived successfully`,
+      order: archivedOrder,
+    })
+  } catch (error) {
+    console.log(
+      'ARCHIVE OPERATIONS ORDER ERROR:',
+      error.message
+    )
+
+    res.status(500).json({
+      error: error.message,
+    })
+  }
+})
+
 router.get('/orders', async (req, res) => {
   try {
     // 1. Load the real orders first.
@@ -1157,7 +1259,11 @@ router.get('/issues', async (req, res) => {
             pickup_district,
             pickup_location,
             destination_district,
-            destination_location
+            destination_location,
+            supplier_name,
+            driver_name,
+            container_no,
+            expected_arrival
           ),
           suppliers (
             supplier_id,
@@ -1187,6 +1293,447 @@ router.get('/issues', async (req, res) => {
       data || []
     )
   } catch (error) {
+    res.status(500).json({
+      error:
+        error.message,
+    })
+  }
+})
+
+
+// CREATE ISSUE - OPERATIONS SENDS ISSUE TO ADMIN
+// Saves the report in the real issues table so Orders, Issues and Admin
+// all read the same persistent record.
+router.post('/issues', async (req, res) => {
+  try {
+    const {
+      order_id,
+      supplier_id,
+      driver_id,
+      supplier_name,
+      driver_name,
+      issue_type,
+      priority,
+      description,
+      reported_by,
+    } = req.body
+
+    const cleanOrderId =
+      Number(
+        order_id
+      )
+
+    if (
+      !order_id ||
+      Number.isNaN(
+        cleanOrderId
+      )
+    ) {
+      return res.status(400).json({
+        error:
+          'A valid order_id is required',
+      })
+    }
+
+    if (
+      !issue_type ||
+      !String(
+        issue_type
+      ).trim()
+    ) {
+      return res.status(400).json({
+        error:
+          'Issue type is required',
+      })
+    }
+
+    if (
+      !description ||
+      !String(
+        description
+      ).trim()
+    ) {
+      return res.status(400).json({
+        error:
+          'Issue description is required',
+      })
+    }
+
+    const {
+      data:
+        order,
+      error:
+        orderError,
+    } =
+      await supabase
+        .from('orders')
+        .select(`
+          order_id,
+          order_reference,
+          current_status,
+          supplier_name,
+          driver_name
+        `)
+        .eq(
+          'order_id',
+          cleanOrderId
+        )
+        .single()
+
+    if (
+      orderError ||
+      !order
+    ) {
+      return res.status(404).json({
+        error:
+          'Order not found',
+      })
+    }
+
+    // Operations cannot report an issue before the operational flow starts.
+    const blockedStatuses = [
+      'created',
+      'open_for_bids',
+    ]
+
+    if (
+      blockedStatuses.includes(
+        String(
+          order.current_status ||
+            ''
+        ).toLowerCase()
+      )
+    ) {
+      return res.status(400).json({
+        error:
+          'Issues can be reported only after bidding is completed and operations have started.',
+      })
+    }
+
+    let cleanSupplierId =
+      supplier_id
+        ? Number(
+            supplier_id
+          )
+        : null
+
+    if (
+      Number.isNaN(
+        cleanSupplierId
+      )
+    ) {
+      cleanSupplierId =
+        null
+    }
+
+    let cleanDriverId =
+      driver_id
+        ? Number(
+            driver_id
+          )
+        : null
+
+    if (
+      Number.isNaN(
+        cleanDriverId
+      )
+    ) {
+      cleanDriverId =
+        null
+    }
+
+    // IMPORTANT:
+    // For operational stages such as Driver Assigned / In Transit / At Freezone /
+    // At Port / Completed, the authoritative supplier + driver relationship is
+    // order_assignments. Read the latest assignment first instead of relying on
+    // display names stored on the orders row.
+    const {
+      data:
+        latestAssignment,
+      error:
+        assignmentLookupError,
+    } =
+      await supabase
+        .from('order_assignments')
+        .select(`
+          assignment_id,
+          supplier_id,
+          driver_id,
+          assigned_at,
+          status
+        `)
+        .eq(
+          'order_id',
+          cleanOrderId
+        )
+        .order(
+          'assigned_at',
+          {
+            ascending: false,
+            nullsFirst: false,
+          }
+        )
+        .order(
+          'assignment_id',
+          {
+            ascending: false,
+          }
+        )
+        .limit(1)
+        .maybeSingle()
+
+    if (
+      assignmentLookupError
+    ) {
+      console.log(
+        'ISSUE ASSIGNMENT LOOKUP:',
+        assignmentLookupError.message
+      )
+    }
+
+    if (
+      !cleanSupplierId &&
+      latestAssignment?.supplier_id
+    ) {
+      cleanSupplierId =
+        Number(
+          latestAssignment.supplier_id
+        )
+    }
+
+    if (
+      !cleanDriverId &&
+      latestAssignment?.driver_id
+    ) {
+      cleanDriverId =
+        Number(
+          latestAssignment.driver_id
+        )
+    }
+
+    // If an old/demo order has no usable order_assignment IDs, fall back to
+    // resolving the supplier from the display name stored against the order.
+    const finalSupplierName =
+      String(
+        supplier_name ||
+          order.supplier_name ||
+          ''
+      ).trim()
+
+    if (
+      !cleanSupplierId &&
+      finalSupplierName &&
+      finalSupplierName !==
+        'Not assigned' &&
+      finalSupplierName !==
+        '-'
+    ) {
+      const {
+        data:
+          supplier,
+        error:
+          supplierLookupError,
+      } =
+        await supabase
+          .from('suppliers')
+          .select(
+            'supplier_id, company_name'
+          )
+          .eq(
+            'company_name',
+            finalSupplierName
+          )
+          .maybeSingle()
+
+      if (
+        supplierLookupError
+      ) {
+        console.log(
+          'ISSUE SUPPLIER LOOKUP:',
+          supplierLookupError.message
+        )
+      }
+
+      if (
+        supplier?.supplier_id
+      ) {
+        cleanSupplierId =
+          Number(
+            supplier.supplier_id
+          )
+      }
+    }
+
+    // Resolve driver ID by matching the stored full driver name.
+    const finalDriverName =
+      String(
+        driver_name ||
+          order.driver_name ||
+          ''
+      )
+        .trim()
+        .replace(
+          /\s+/g,
+          ' '
+        )
+
+    if (
+      !cleanDriverId &&
+      finalDriverName &&
+      finalDriverName !==
+        'Not assigned' &&
+      finalDriverName !==
+        '-'
+    ) {
+      const {
+        data:
+          drivers,
+        error:
+          driverLookupError,
+      } =
+        await supabase
+          .from('drivers')
+          .select(
+            'driver_id, first_name, last_name'
+          )
+
+      if (
+        driverLookupError
+      ) {
+        console.log(
+          'ISSUE DRIVER LOOKUP:',
+          driverLookupError.message
+        )
+      } else {
+        const matchedDriver =
+          (drivers || []).find(
+            (
+              driver
+            ) => {
+              const fullName =
+                `${driver.first_name || ''} ${driver.last_name || ''}`
+                  .trim()
+                  .replace(
+                    /\s+/g,
+                    ' '
+                  )
+
+              return (
+                fullName.toLowerCase() ===
+                finalDriverName.toLowerCase()
+              )
+            }
+          )
+
+        if (
+          matchedDriver?.driver_id
+        ) {
+          cleanDriverId =
+            Number(
+              matchedDriver.driver_id
+            )
+        }
+      }
+    }
+
+    const cleanPriority =
+      String(
+        priority ||
+          'medium'
+      ).toLowerCase()
+
+    const allowedPriorities = [
+      'low',
+      'medium',
+      'high',
+      'critical',
+    ]
+
+    const finalPriority =
+      allowedPriorities.includes(
+        cleanPriority
+      )
+        ? cleanPriority
+        : 'medium'
+
+    const {
+      data:
+        createdIssue,
+      error:
+        createIssueError,
+    } =
+      await supabase
+        .from('issues')
+        .insert([
+          {
+            order_id:
+              cleanOrderId,
+
+            supplier_id:
+              cleanSupplierId,
+
+            driver_id:
+              cleanDriverId,
+
+            // issues.reported_by is a UUID column.
+            // Keep it null unless the request contains a real UUID.
+            reported_by:
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                String(reported_by || '')
+              )
+                ? reported_by
+                : null,
+
+            issue_type:
+              String(
+                issue_type
+              ).trim(),
+
+            priority:
+              finalPriority,
+
+            description:
+              String(
+                description
+              ).trim(),
+
+            status:
+              'open',
+
+            created_at:
+              new Date().toISOString(),
+
+            updated_at:
+              new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single()
+
+    if (
+      createIssueError
+    ) {
+      return res.status(500).json({
+        error:
+          createIssueError.message,
+      })
+    }
+
+    res.status(201).json({
+      success: true,
+
+      message:
+        `Issue for ${order.order_reference} sent to Admin successfully`,
+
+      issue:
+        createdIssue,
+    })
+  } catch (error) {
+    console.log(
+      'CREATE OPERATIONS ISSUE ERROR:',
+      error.message
+    )
+
     res.status(500).json({
       error:
         error.message,

@@ -1,23 +1,25 @@
-import { useMemo, useState, useEffect } from "react";
 import {
-  Search,
-  ShieldCheck,
-  Clock3,
   AlertTriangle,
-  CheckCircle2,
-  Eye,
-  Send,
   Building2,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  History,
+  Search,
+  Send,
+  ShieldCheck,
   Truck,
   UserRound,
-  CalendarDays,
-  History,
   X,
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/operations`;
+const API_BASE_URL = `${
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+}/api/operations`;
 
-function Issues() {
+function Issues({ onNavigate }) {
   // Main page states for tab filter, search, selected modal issue, loaded issues, and follow-up messages
   const [tab, setTab] = useState("All");
   const [search, setSearch] = useState("");
@@ -104,6 +106,17 @@ function Issues() {
 
       rawOrderStatus,
 
+      // Order identifiers and fields needed by the Tracking page
+      dbOrderId:
+        order.order_id ||
+        issue.order_id ||
+        null,
+
+      orderReference:
+        order.order_reference ||
+        issue.order_reference ||
+        null,
+
       orderId:
         order.order_reference ||
         issue.order_reference ||
@@ -117,19 +130,65 @@ function Issues() {
       supplier:
         supplier.company_name ||
         issue.supplier_name ||
+        order.supplier_name ||
         issue.supplier ||
         "Not assigned",
 
       driver:
         driverFullName ||
         issue.driver_name ||
+        order.driver_name ||
         issue.driver ||
         "Not assigned",
 
+      pickupDistrict:
+        order.pickup_district ||
+        issue.pickup_district ||
+        "-",
+
+      pickupLocation:
+        order.pickup_location ||
+        issue.pickup_location ||
+        order.pickup_state ||
+        issue.pickup_state ||
+        "-",
+
+      destinationDistrict:
+        order.destination_district ||
+        issue.destination_district ||
+        "-",
+
+      destinationLocation:
+        order.destination_location ||
+        issue.destination_location ||
+        order.destination_state ||
+        issue.destination_state ||
+        "-",
+
+      containerNo:
+        order.container_no ||
+        issue.container_no ||
+        "-",
+
+      expectedArrival:
+        order.expected_arrival ||
+        issue.expected_arrival ||
+        "-",
+
       route:
         issue.route ||
-        `${order.pickup_state || issue.pickup_state || "-"} → ${
-          order.destination_state || issue.destination_state || "-"
+        `${
+          order.pickup_location ||
+          issue.pickup_location ||
+          order.pickup_state ||
+          issue.pickup_state ||
+          "-"
+        } → ${
+          order.destination_location ||
+          issue.destination_location ||
+          order.destination_state ||
+          issue.destination_state ||
+          "-"
         }`,
 
       orderStage: formatStatus(rawOrderStatus),
@@ -291,6 +350,89 @@ function Issues() {
     }
 
     alert(`Message sent to Admin for ${issue.orderId}.`);
+  };
+
+  // Opens the selected issue's order directly in the Operations Tracking page
+  const goToTracking = (issue) => {
+    if (!issue) return;
+
+    if (!issue.dbOrderId && !issue.orderReference) {
+      alert(
+        "This issue is not linked to a valid order, so Tracking cannot be opened."
+      );
+      return;
+    }
+
+    sessionStorage.setItem(
+      "trackingOrder",
+      JSON.stringify({
+        id:
+          issue.orderReference ||
+          issue.orderId,
+
+        order_reference:
+          issue.orderReference ||
+          issue.orderId,
+
+        orderReference:
+          issue.orderReference ||
+          issue.orderId,
+
+        dbId:
+          issue.dbOrderId,
+
+        order_id:
+          issue.dbOrderId,
+
+        databaseOrderId:
+          issue.dbOrderId,
+
+        type:
+          issue.orderType,
+
+        pickupDistrict:
+          issue.pickupDistrict,
+
+        pickupLocation:
+          issue.pickupLocation,
+
+        destinationDistrict:
+          issue.destinationDistrict,
+
+        destinationLocation:
+          issue.destinationLocation,
+
+        pickup:
+          issue.pickupLocation,
+
+        destination:
+          issue.destinationLocation,
+
+        containerNo:
+          issue.containerNo,
+
+        supplier:
+          issue.supplier,
+
+        driver:
+          issue.driver,
+
+        status:
+          issue.orderStage,
+
+        expectedDay:
+          issue.expectedArrival,
+      })
+    );
+
+    closeIssueModal();
+
+    if (onNavigate) {
+      onNavigate("/tracking");
+      return;
+    }
+
+    window.location.href = "/tracking";
   };
 
   // Opens issue detail modal and resets previous follow-up text
@@ -752,7 +894,10 @@ function Issues() {
                   />
 
                   <div className="mt-3 flex flex-wrap justify-end gap-3">
-                    <button className="inline-flex items-center gap-2 rounded-lg border border-[#052659] px-4 py-2 text-sm font-medium text-[#052659] hover:bg-[#EBF4FF]">
+                    <button
+                      onClick={() => goToTracking(selectedIssue)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#1E40AF] px-4 py-2 text-sm font-medium text-[#1E40AF] hover:bg-[#EFF6FF]"
+                    >
                       <Truck size={16} />
                       View Tracking
                     </button>
