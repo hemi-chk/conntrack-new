@@ -100,10 +100,10 @@ export default function OrdersPage({ title, type }) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="pl-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Order</TableHead>
-                                    <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Route</TableHead>
-                                    <TableHead className="px-4 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Status</TableHead>
-                                    <TableHead className="pr-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 text-right">Actions</TableHead>
+                                    <TableHead className="pl-6 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-700">Order</TableHead>
+                                    <TableHead className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-700">Route</TableHead>
+                                    <TableHead className="px-4 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-700">Status</TableHead>
+                                    <TableHead className="pr-6 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-700 text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
 
@@ -114,17 +114,17 @@ export default function OrdersPage({ title, type }) {
                                         {/* ORDER */}
                                         <TableCell className="pl-6 py-4">
                                             <div>
-                                                <p className="font-semibold text-[#1E40AF]">
+                                                <p className="font-bold text-[#1E40AF]">
                                                     {order.order_reference}
                                                 </p>
-                                                <p className="text-xs text-slate-400">
+                                                <p className="text-xs text-slate-600 font-medium">
                                                     #{order.order_id}
                                                 </p>
                                             </div>
                                         </TableCell>
 
                                         {/* ROUTE */}
-                                        <TableCell className="px-4 py-4 text-sm font-medium text-slate-600">
+                                        <TableCell className="px-4 py-4 text-sm font-semibold text-slate-800">
                                             {order.route || `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`}
                                         </TableCell>
 

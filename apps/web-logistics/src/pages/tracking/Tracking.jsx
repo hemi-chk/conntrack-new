@@ -91,13 +91,13 @@ const TrackingPage = () => {
 
                 <div className="flex items-center gap-2 max-w-md w-full">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
                         <Input
                             placeholder="Enter Order ID..."
                             value={orderId}
                             onChange={(e) => setOrderId(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            className="pl-10 h-10 bg-slate-50 border-slate-200 focus-visible:ring-blue-500"
+                            className="pl-10 h-10 bg-slate-50 border-slate-300 focus-visible:ring-blue-500 text-slate-900 font-semibold placeholder:text-slate-500"
                         />
                     </div>
                     <Button 
@@ -119,7 +119,7 @@ const TrackingPage = () => {
                         </div>
                         <div>
                             <h3 className="text-xl font-bold text-slate-900">Shipment Not Found</h3>
-                            <p className="text-slate-500 mt-1">Please verify the Order ID or contact the operations team.</p>
+                            <p className="text-slate-700 font-semibold mt-1">Please verify the Order ID or contact the operations team.</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -137,7 +137,7 @@ const TrackingPage = () => {
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2 text-[#1E40AF]">
                                             <ShieldCheck size={16} />
-                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Shipment Status</span>
+                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-700">Shipment Status</span>
                                         </div>
                                         <CardTitle className="text-2xl font-bold text-slate-900 tracking-tight">
                                             {data.order_details?.order_reference}
@@ -153,7 +153,7 @@ const TrackingPage = () => {
                                 {/* CUSTOM STEPPER */}
                                 <div className="relative">
                                     {/* Connecting Line Backdrop */}
-                                    <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-100 rounded-full" />
+                                    <div className="absolute top-5 left-[10%] right-[10%] h-1 bg-slate-200 rounded-full" />
                                     
                                     {/* Active Connecting Line */}
                                     <div 
@@ -172,13 +172,13 @@ const TrackingPage = () => {
                                             return (
                                                 <div key={step} className="flex flex-col items-center group">
                                                     <div className={`w-11 h-11 rounded-full border-4 flex items-center justify-center transition-all duration-500 shadow-xl
-                                                        ${isDone ? 'bg-[#1E40AF] border-blue-100 text-white' : 'bg-white border-slate-100 text-slate-300'}
+                                                        ${isDone ? 'bg-[#1E40AF] border-blue-100 text-white' : 'bg-white border-slate-200 text-slate-400'}
                                                         ${isActive ? 'ring-4 ring-blue-400/20 scale-125 z-20' : ''}
                                                     `}>
-                                                        {isDone ? <CheckCircle2 size={20} /> : <span className="font-bold text-sm">{i + 1}</span>}
+                                                        {isDone ? <CheckCircle2 size={20} /> : <span className="font-bold text-sm text-slate-500">{i + 1}</span>}
                                                     </div>
                                                     <p className={`text-[10px] md:text-xs mt-4 font-bold uppercase tracking-tight text-center max-w-[80px]
-                                                        ${isDone ? 'text-slate-900' : 'text-slate-300'}
+                                                        ${isDone ? 'text-slate-900' : 'text-slate-600'}
                                                     `}>
                                                         {labels[step] || step}
                                                     </p>
@@ -190,26 +190,26 @@ const TrackingPage = () => {
 
                                 {/* LIVE FEED CARDS */}
                                 <div className="grid md:grid-cols-2 gap-6 pt-6">
-                                    <div className="bg-[#F8FAFC] border border-slate-100 p-6 rounded-xl space-y-3">
+                                    <div className="bg-[#F8FAFC] border border-slate-200 p-6 rounded-xl space-y-3">
                                         <div className="flex items-center gap-2 text-[#1E40AF]">
                                             <MapPin size={18} />
-                                            <span className="text-xs font-bold uppercase tracking-widest">Current Location</span>
+                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-800">Current Location</span>
                                         </div>
                                         <p className="text-xl font-bold text-slate-900 tracking-tight">
                                             {data.tracking_details.location}
                                         </p>
                                     </div>
 
-                                    <div className="bg-[#F8FAFC] border border-slate-100 p-6 rounded-xl space-y-3">
-                                        <div className="flex items-center gap-2 text-slate-500">
+                                    <div className="bg-[#F8FAFC] border border-slate-200 p-6 rounded-xl space-y-3">
+                                        <div className="flex items-center gap-2 text-slate-700">
                                             <Clock size={18} />
-                                            <span className="text-xs font-bold uppercase tracking-widest">Last Sync</span>
+                                            <span className="text-xs font-bold uppercase tracking-widest text-slate-800">Last Sync</span>
                                         </div>
                                         <div>
-                                            <p className="text-lg font-bold text-slate-800 tracking-tight">
+                                            <p className="text-lg font-bold text-slate-900 tracking-tight">
                                                 {new Date(data.tracking_details.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             </p>
-                                            <p className="text-xs text-slate-400 font-medium">
+                                            <p className="text-xs text-slate-600 font-semibold">
                                                 {new Date(data.tracking_details.timestamp).toLocaleDateString()}
                                             </p>
                                         </div>
@@ -229,18 +229,18 @@ const TrackingPage = () => {
                         ].map((asset, idx) => (
                             <Card key={idx} className="border-slate-200 shadow-sm rounded-xl hover:shadow-md transition-all duration-300">
                                 <CardHeader className="pb-2">
-                                    <div className="flex items-center gap-2 text-slate-400">
-                                        <asset.icon size={14} />
-                                        <span className="text-[10px] font-bold uppercase tracking-[0.15em]">{asset.title}</span>
+                                    <div className="flex items-center gap-2 text-slate-600 font-bold">
+                                        <asset.icon size={14} className="text-slate-600" />
+                                        <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-700">{asset.title}</span>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="space-y-1">
-                                    <p className="text-lg font-bold text-slate-800 leading-tight">{asset.content || 'N/A'}</p>
-                                    <p className="text-xs font-medium text-slate-500">{asset.sub}</p>
+                                    <p className="text-lg font-bold text-slate-900 leading-tight">{asset.content || 'N/A'}</p>
+                                    <p className="text-xs font-semibold text-slate-600">{asset.sub}</p>
                                     {asset.title === 'Supplier Partner' && (
                                         <div className="flex items-center gap-1 text-amber-500 mt-2">
                                             <Star size={12} fill="currentColor" />
-                                            <span className="text-xs font-bold">{data.supplier_details?.rating || 0}</span>
+                                            <span className="text-xs font-bold text-slate-800">{data.supplier_details?.rating || 0}</span>
                                         </div>
                                     )}
                                 </CardContent>

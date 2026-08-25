@@ -114,10 +114,10 @@ export default function Reports() {
             destinations[dest] = (destinations[dest] || 0) + 1;
         });
         return Object.keys(destinations)
-            .map(dest => ({ 
-                name: dest.length > 15 ? `${dest.substring(0, 15)}...` : dest, 
+            .map(dest => ({
+                name: dest.length > 15 ? `${dest.substring(0, 15)}...` : dest,
                 fullName: dest,
-                shipments: destinations[dest] 
+                shipments: destinations[dest]
             }))
             .sort((a, b) => b.shipments - a.shipments)
             .slice(0, 5);
@@ -261,25 +261,25 @@ export default function Reports() {
                             <FileBarChart className="text-[#1E40AF]" size={26} />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-800">Logistics Analytics & Reports</h1>
-                            <p className="text-xs text-slate-500 font-medium">Visual trend charts, operational metrics, and printable table manifest</p>
+                            <h1 className="text-xl font-bold text-slate-900">Logistics Analytics & Reports</h1>
+
                         </div>
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-slate-100 rounded-lg px-2 border border-slate-200">
+                        <div className="flex items-center bg-slate-100 rounded-lg px-2 border border-slate-300">
                             <Input
                                 type="date"
                                 value={fromDate}
                                 onChange={(e) => setFromDate(e.target.value)}
-                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
+                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32 font-semibold text-slate-800"
                             />
-                            <span className="text-slate-400 text-xs">to</span>
+                            <span className="text-slate-600 text-xs font-bold">to</span>
                             <Input
                                 type="date"
                                 value={toDate}
                                 onChange={(e) => setToDate(e.target.value)}
-                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
+                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32 font-semibold text-slate-800"
                             />
                         </div>
                         <Button onClick={handlePrint} className="bg-[#1E40AF] hover:bg-blue-800 text-white gap-2 font-bold shadow-md shadow-blue-200">
@@ -304,37 +304,37 @@ export default function Reports() {
 
                 {/* CHARTS & GRAPHICS SECTION */}
                 <div className="chart-grid grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
+
                     {/* Graph 1: Fulfillment Pipeline Stage */}
                     <div className="chart-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                     <BarChart3 size={16} className="text-[#1E40AF]" />
                                     Fulfillment Lifecycle Pipeline
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Orders grouped by operational stage</p>
+                                <p className="text-[11px] text-slate-600 font-semibold">Orders grouped by operational stage</p>
                             </div>
                         </div>
                         <div className="h-52 w-full">
                             {loading ? (
-                                <div className="h-full flex items-center justify-center text-slate-400 text-xs"><Loader2 className="animate-spin" /></div>
+                                <div className="h-full flex items-center justify-center text-slate-500 text-xs font-bold"><Loader2 className="animate-spin" /></div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={statusChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" interval={0} angle={-15} textAnchor="end" height={35} />
-                                        <YAxis allowDecimals={false} tick={{ fontSize: 9 }} stroke="#64748B" />
-                                        <Tooltip 
+                                        <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#475569" interval={0} angle={-15} textAnchor="end" height={35} />
+                                        <YAxis allowDecimals={false} tick={{ fontSize: 9, fontWeight: 700 }} stroke="#475569" />
+                                        <Tooltip
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
                                             cursor={{ fill: 'rgba(226, 232, 240, 0.4)' }}
                                             formatter={(val) => [`${val} orders`, 'Volume']}
                                         />
                                         <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                                             {statusChartData.map((entry, index) => (
-                                                <Cell 
-                                                    key={`cell-${index}`} 
-                                                    fill={STATUS_COLORS[entry.statusKey] || '#1E40AF'} 
+                                                <Cell
+                                                    key={`cell-${index}`}
+                                                    fill={STATUS_COLORS[entry.statusKey] || '#1E40AF'}
                                                 />
                                             ))}
                                         </Bar>
@@ -348,16 +348,16 @@ export default function Reports() {
                     <div className="chart-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                     <PieIcon size={16} className="text-[#1E40AF]" />
                                     Cargo Classification
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Volume distribution by commodity type</p>
+                                <p className="text-[11px] text-slate-600 font-semibold">Volume distribution by commodity type</p>
                             </div>
                         </div>
                         <div className="h-52 w-full flex items-center justify-center">
                             {loading ? (
-                                <div className="h-full flex items-center justify-center text-slate-400 text-xs"><Loader2 className="animate-spin" /></div>
+                                <div className="h-full flex items-center justify-center text-slate-500 text-xs font-bold"><Loader2 className="animate-spin" /></div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -374,15 +374,15 @@ export default function Reports() {
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Tooltip 
+                                        <Tooltip
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
                                             formatter={(val) => [`${val} shipments`, 'Cargo Weight/Count']}
                                         />
-                                        <Legend 
-                                            verticalAlign="bottom" 
-                                            height={36} 
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            height={36}
                                             iconType="circle"
-                                            wrapperStyle={{ fontSize: '10px', fontWeight: 600, paddingTop: '4px' }}
+                                            wrapperStyle={{ fontSize: '10px', fontWeight: 700, paddingTop: '4px' }}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -394,27 +394,27 @@ export default function Reports() {
                     <div className="chart-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div className="flex items-center justify-between mb-4">
                             <div>
-                                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                     <TrendingUp size={16} className="text-[#1E40AF]" />
                                     Top Delivery Hubs
                                 </h3>
-                                <p className="text-[11px] text-slate-400 font-medium">Highest volume freight destinations</p>
+                                <p className="text-[11px] text-slate-600 font-semibold">Highest volume freight destinations</p>
                             </div>
                         </div>
                         <div className="h-52 w-full">
                             {loading ? (
-                                <div className="h-full flex items-center justify-center text-slate-400 text-xs"><Loader2 className="animate-spin" /></div>
+                                <div className="h-full flex items-center justify-center text-slate-500 text-xs font-bold"><Loader2 className="animate-spin" /></div>
                             ) : (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart 
+                                    <BarChart
                                         layout="vertical"
-                                        data={destinationChartData} 
+                                        data={destinationChartData}
                                         margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 9 }} stroke="#64748B" />
-                                        <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#64748B" width={85} />
-                                        <Tooltip 
+                                        <XAxis type="number" allowDecimals={false} tick={{ fontSize: 9, fontWeight: 700 }} stroke="#475569" />
+                                        <YAxis dataKey="name" type="category" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#475569" width={85} />
+                                        <Tooltip
                                             contentStyle={{ backgroundColor: '#1E293B', color: '#FFF', borderRadius: '8px', fontSize: '12px' }}
                                             labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
                                             formatter={(val) => [`${val} deliveries`, 'Volume']}
@@ -430,9 +430,9 @@ export default function Reports() {
 
                 {/* Data Table */}
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden print-table">
-                    <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Detailed Logistics Manifest Table</h3>
-                        <span className="text-[11px] font-mono text-slate-400">Total Records: {orders.length}</span>
+                    <div className="px-5 py-3.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Detailed Logistics Manifest Table</h3>
+                        <span className="text-[11px] font-mono text-slate-600 font-bold">Total Records: {orders.length}</span>
                     </div>
                     <Table>
                         <colgroup>
@@ -442,13 +442,13 @@ export default function Reports() {
                             <col className="col-date" />
                             <col className="col-status" />
                         </colgroup>
-                        <TableHeader className="bg-slate-50/80">
+                        <TableHeader className="bg-slate-100">
                             <TableRow>
-                                <TableHead className="px-4 py-3 font-bold text-slate-700">Order ID</TableHead>
-                                <TableHead className="font-bold text-slate-700">Customer & Reference</TableHead>
-                                <TableHead className="font-bold text-slate-700">Route Details</TableHead>
-                                <TableHead className="font-bold text-slate-700">Date</TableHead>
-                                <TableHead className="text-right font-bold text-slate-700">Status</TableHead>
+                                <TableHead className="px-4 py-3 font-bold text-slate-800">Order ID</TableHead>
+                                <TableHead className="font-bold text-slate-800">Customer & Reference</TableHead>
+                                <TableHead className="font-bold text-slate-800">Route Details</TableHead>
+                                <TableHead className="font-bold text-slate-800">Date</TableHead>
+                                <TableHead className="text-right font-bold text-slate-800">Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -457,38 +457,38 @@ export default function Reports() {
                                     <TableCell colSpan={5} className="h-48 text-center">
                                         <div className="flex flex-col items-center gap-2">
                                             <Loader2 className="animate-spin text-[#1E40AF]" size={32} />
-                                            <p className="text-slate-400 text-sm italic">Generating report data...</p>
+                                            <p className="text-slate-600 text-sm font-semibold italic">Generating report data...</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
                             ) : orders.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center text-slate-500 italic">
+                                    <TableCell colSpan={5} className="h-32 text-center text-slate-700 font-semibold italic">
                                         No logistics data found for this period.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 orders.map((order) => (
-                                    <TableRow key={order.order_id} className="hover:bg-slate-50/50 transition-colors">
-                                        <TableCell className="px-4 font-mono text-xs text-slate-500 uppercase print-nowrap">
+                                    <TableRow key={order.order_id} className="hover:bg-slate-50/80 transition-colors">
+                                        <TableCell className="px-4 font-mono text-xs text-slate-700 font-bold uppercase print-nowrap">
                                             #{String(order.order_id).padStart(5, '0')}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-slate-100 p-1 rounded">
-                                                    <User size={12} className="text-slate-500" />
+                                                    <User size={12} className="text-slate-600" />
                                                 </div>
-                                                <span className="text-sm font-semibold text-slate-800">{order.customer_name}</span>
+                                                <span className="text-sm font-bold text-slate-900">{order.customer_name}</span>
                                             </div>
-                                            <div className="text-[10px] font-mono text-blue-600 mt-0.5">{order.order_reference}</div>
+                                            <div className="text-[10px] font-mono text-blue-700 font-bold mt-0.5">{order.order_reference}</div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="text-xs font-medium text-slate-700">
+                                            <div className="text-xs font-semibold text-slate-800">
                                                 {order.route || `${order.pickup_location || order.pickup_district || 'N/A'} → ${order.destination_location || order.destination_district || 'N/A'}`}
                                             </div>
-                                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider italic">{order.order_type}</div>
+                                            <div className="text-[10px] text-slate-600 font-bold uppercase tracking-wider italic">{order.order_type}</div>
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-600 print-nowrap">
+                                        <TableCell className="text-xs text-slate-700 font-semibold print-nowrap">
                                             {new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                         </TableCell>
                                         <TableCell className="text-right">

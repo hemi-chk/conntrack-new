@@ -35,7 +35,7 @@ const Issues = () => {
         order_id: '',
         supplier_id: '',
         driver_id: '',
-        issue_type: 'Operational Delay',
+        issue_type: 'Traffic/Route Delay',
         priority: 'medium',
         description: '',
     });
@@ -82,7 +82,7 @@ const Issues = () => {
                     order_id: '',
                     supplier_id: '',
                     driver_id: '',
-                    issue_type: 'Operational Delay',
+                    issue_type: 'Traffic/Route Delay',
                     priority: 'medium',
                     description: '',
                 });
@@ -166,9 +166,9 @@ const Issues = () => {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Logistics Issue Incident Center</h1>
-                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-600 rounded-full">Admin Escalation</span>
+                            <span className="px-2.5 py-0.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-full">Admin Escalation</span>
                         </div>
-                        <p className="text-sm text-slate-500 font-medium">Log logistics incidents directly to Admin & view past reported issues database</p>
+                        <p className="text-sm text-slate-700 font-medium">Log logistics incidents directly to Admin and review past reported issues</p>
                     </div>
                 </div>
 
@@ -178,7 +178,7 @@ const Issues = () => {
                         className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                             activeTab === 'list'
                                 ? 'bg-[#1E40AF] text-white shadow-md shadow-blue-200'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                     >
                         <FileText size={16} />
@@ -189,7 +189,7 @@ const Issues = () => {
                         className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                             activeTab === 'report'
                                 ? 'bg-[#1E40AF] text-white shadow-md shadow-blue-200'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                     >
                         <Plus size={16} />
@@ -204,23 +204,23 @@ const Issues = () => {
                     {/* Controls & Filter Bar */}
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
                             <input
                                 type="text"
                                 placeholder="Search by ref, order #, category..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-900 placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
                             />
                         </div>
 
                         <div className="flex items-center gap-3 w-full md:w-auto">
                             <div className="flex items-center gap-2">
-                                <Filter size={14} className="text-slate-400" />
+                                <Filter size={14} className="text-slate-600" />
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none"
+                                    className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
                                 >
                                     <option value="all">All Statuses</option>
                                     <option value="open">Open</option>
@@ -232,7 +232,7 @@ const Issues = () => {
                             <select
                                 value={priorityFilter}
                                 onChange={(e) => setPriorityFilter(e.target.value)}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none"
+                                className="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none"
                             >
                                 <option value="all">All Priorities</option>
                                 <option value="critical">Critical</option>
@@ -243,7 +243,7 @@ const Issues = () => {
 
                             <button
                                 onClick={fetchIssues}
-                                className="p-2 text-slate-500 hover:text-slate-800 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-all"
+                                className="p-2 text-slate-700 hover:text-slate-900 bg-slate-50 border border-slate-300 rounded-xl hover:bg-slate-100 transition-all"
                                 title="Refresh"
                             >
                                 <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
@@ -254,21 +254,21 @@ const Issues = () => {
                     {/* Table View */}
                     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         {isLoading ? (
-                            <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-3">
+                            <div className="p-12 flex flex-col items-center justify-center text-slate-600 gap-3">
                                 <Loader2 className="w-8 h-8 animate-spin text-[#1E40AF]" />
                                 <p className="text-xs font-bold uppercase tracking-wider">Loading Issues Table Database...</p>
                             </div>
                         ) : filteredIssues.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400 space-y-3">
-                                <AlertTriangle className="w-10 h-10 mx-auto text-slate-300" />
-                                <p className="text-sm font-bold text-slate-700">No issues found</p>
-                                <p className="text-xs text-slate-400">No reported incidents match your search or filter options.</p>
+                            <div className="p-12 text-center text-slate-600 space-y-3">
+                                <AlertTriangle className="w-10 h-10 mx-auto text-slate-400" />
+                                <p className="text-sm font-bold text-slate-800">No issues found</p>
+                                <p className="text-xs text-slate-600">No reported incidents match your search or filter options.</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-400">
+                                        <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-black uppercase tracking-widest text-slate-700">
                                             <th className="py-3.5 px-4">Issue Ref</th>
                                             <th className="py-3.5 px-4">Order ID</th>
                                             <th className="py-3.5 px-4">Category</th>
@@ -279,33 +279,33 @@ const Issues = () => {
                                             <th className="py-3.5 px-4 text-right">Reported Date</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                    <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
                                         {filteredIssues.map((issue) => (
-                                            <tr key={issue.issue_id} className="hover:bg-slate-50/60 transition-colors">
+                                            <tr key={issue.issue_id} className="hover:bg-slate-50/80 transition-colors">
                                                 <td className="py-4 px-4 font-bold text-blue-900 font-mono">
                                                     {issue.issue_reference || `#ISS-${issue.issue_id}`}
                                                 </td>
                                                 <td className="py-4 px-4 font-semibold text-slate-900">
                                                     {issue.orders?.order_reference || (issue.order_id ? `#ORD-${issue.order_id}` : 'N/A')}
                                                 </td>
-                                                <td className="py-4 px-4 font-bold text-slate-800">
+                                                <td className="py-4 px-4 font-bold text-slate-900">
                                                     {issue.issue_type || 'General Issue'}
                                                 </td>
                                                 <td className="py-4 px-4 space-y-1">
                                                     {issue.suppliers?.company_name && (
-                                                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600">
-                                                            <Building2 size={12} className="text-slate-400" />
+                                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                                                            <Building2 size={12} className="text-slate-500" />
                                                             {issue.suppliers.company_name}
                                                         </div>
                                                     )}
                                                     {issue.drivers && (
-                                                        <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-600">
-                                                            <Truck size={12} className="text-slate-400" />
+                                                        <div className="flex items-center gap-1 text-[11px] font-bold text-slate-700">
+                                                            <Truck size={12} className="text-slate-500" />
                                                             {issue.drivers.first_name} {issue.drivers.last_name}
                                                         </div>
                                                     )}
                                                     {!issue.suppliers?.company_name && !issue.drivers && (
-                                                        <span className="text-slate-400 font-mono text-[11px]">Supplier: #{issue.supplier_id || '-'} / Driver: #{issue.driver_id || '-'}</span>
+                                                        <span className="text-slate-600 font-mono text-[11px] font-semibold">Supplier: #{issue.supplier_id || '-'} / Driver: #{issue.driver_id || '-'}</span>
                                                     )}
                                                 </td>
                                                 <td className="py-4 px-4">
@@ -314,10 +314,10 @@ const Issues = () => {
                                                 <td className="py-4 px-4">
                                                     {getStatusBadge(issue.status)}
                                                 </td>
-                                                <td className="py-4 px-4 max-w-xs truncate text-slate-600" title={issue.description}>
+                                                <td className="py-4 px-4 max-w-xs truncate text-slate-800 font-medium" title={issue.description}>
                                                     {issue.description}
                                                 </td>
-                                                <td className="py-4 px-4 text-right text-slate-400 font-mono text-[11px]">
+                                                <td className="py-4 px-4 text-right text-slate-600 font-mono text-[11px] font-semibold">
                                                     {issue.created_at ? new Date(issue.created_at).toLocaleDateString('en-US', {
                                                         month: 'short',
                                                         day: 'numeric',
@@ -343,8 +343,8 @@ const Issues = () => {
                         <div className="p-8">
                             <div className="mb-6">
                                 <h2 className="text-lg font-bold text-slate-900">Log Logistics Incident to Admin</h2>
-                                <p className="text-xs font-semibold text-slate-500">
-                                    Submissions are stored directly in public.issues table and auto-trigger reference code generation for Admin review.
+                                <p className="text-xs font-bold text-slate-600">
+                                    Submissions are logged directly into the system database for priority Admin review and resolution.
                                 </p>
                             </div>
 
@@ -352,8 +352,8 @@ const Issues = () => {
                                 {statusMessage.text && (
                                     <div className={`p-4 rounded-xl flex items-center gap-3 ${
                                         statusMessage.type === 'success'
-                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                                            : 'bg-red-50 text-red-800 border border-red-300'
                                     }`}>
                                         {statusMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                                         <span className="text-xs font-bold">{statusMessage.text}</span>
@@ -363,37 +363,35 @@ const Issues = () => {
                                 {/* Section 1: Core Details */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                            Reference Order ID <span className="text-red-500">*</span>
+                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">
+                                            Reference Order ID <span className="text-red-600">*</span>
                                         </label>
                                         <input
                                             type="number"
                                             name="order_id"
                                             value={formData.order_id}
                                             placeholder="Numeric Order ID (e.g. 1, 2)"
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-700"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-900 placeholder:text-slate-500"
                                             onChange={handleChange}
                                             required
                                         />
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                            Issue Category <span className="text-red-500">*</span>
+                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">
+                                            Issue Category <span className="text-red-600">*</span>
                                         </label>
                                         <select
                                             name="issue_type"
                                             value={formData.issue_type}
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-700"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-900"
                                             onChange={handleChange}
                                             required
                                         >
-                                            <option value="Mechanical Breakdown">Mechanical Breakdown</option>
-                                            <option value="Traffic/Route Delay">Traffic/Route Delay</option>
+                                            <option value="Traffic/Route Delay">Traffic / Route Delay</option>
                                             <option value="Documentation Issue">Documentation Issue</option>
                                             <option value="Cargo Damage">Cargo Damage</option>
-                                            <option value="Operational Delay">Operational Delay</option>
-                                            <option value="Other">Other Operational Issue</option>
+                                            <option value="Other">Other Issue</option>
                                         </select>
                                     </div>
                                 </div>
@@ -401,24 +399,24 @@ const Issues = () => {
                                 {/* Section 2: Stakeholders */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Supplier ID (Optional)</label>
+                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">Supplier ID (Optional)</label>
                                         <input
                                             type="number"
                                             name="supplier_id"
                                             value={formData.supplier_id}
                                             placeholder="e.g. 5"
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-700"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-900 placeholder:text-slate-500"
                                             onChange={handleChange}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Driver ID (Optional)</label>
+                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">Driver ID (Optional)</label>
                                         <input
                                             type="number"
                                             name="driver_id"
                                             value={formData.driver_id}
                                             placeholder="e.g. 12"
-                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-700"
+                                            className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-900 placeholder:text-slate-500"
                                             onChange={handleChange}
                                         />
                                     </div>
@@ -426,7 +424,7 @@ const Issues = () => {
 
                                 {/* Section 3: Priority Selection */}
                                 <div className="space-y-3">
-                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Severity Level</label>
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">Severity Level</label>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         {['low', 'medium', 'high', 'critical'].map((p) => (
                                             <label key={p} className="relative flex items-center cursor-pointer">
@@ -442,7 +440,7 @@ const Issues = () => {
                                                     w-full py-3 text-center text-xs font-black uppercase tracking-tighter rounded-xl border-2 transition-all
                                                     ${formData.priority === p
                                                         ? 'bg-[#1E40AF] border-[#1E40AF] text-white shadow-md shadow-blue-200 scale-[1.02]'
-                                                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}
+                                                        : 'bg-white border-slate-300 text-slate-700 hover:border-slate-400'}
                                                 `}>
                                                     {p}
                                                 </div>
@@ -453,14 +451,14 @@ const Issues = () => {
 
                                 {/* Section 4: Description */}
                                 <div className="space-y-2">
-                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">
-                                        Incident Breakdown <span className="text-red-500">*</span>
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-700 ml-1">
+                                        Incident Breakdown <span className="text-red-600">*</span>
                                     </label>
                                     <textarea
                                         name="description"
                                         value={formData.description}
                                         rows="4"
-                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-medium text-xs text-slate-700 resize-none leading-relaxed"
+                                        className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-semibold text-xs text-slate-900 placeholder:text-slate-500 resize-none leading-relaxed"
                                         placeholder="Detailed description of the operational incident to report to Admin..."
                                         onChange={handleChange}
                                         required
@@ -468,11 +466,11 @@ const Issues = () => {
                                 </div>
 
                                 {/* Form Actions */}
-                                <div className="flex items-center justify-end gap-4 pt-6 border-t border-slate-100">
+                                <div className="flex items-center justify-end gap-4 pt-6 border-t border-slate-200">
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('list')}
-                                        className="px-5 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-wider"
+                                        className="px-5 py-2.5 text-xs font-bold text-slate-700 hover:text-slate-900 transition-colors uppercase tracking-wider"
                                         disabled={isSubmitting}
                                     >
                                         Cancel

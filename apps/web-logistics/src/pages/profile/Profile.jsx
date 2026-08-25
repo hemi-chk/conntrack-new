@@ -48,13 +48,13 @@ const Profile = () => {
                             <h2 className="text-3xl font-bold text-slate-900">{handlerData.companyName}</h2>
                             <ShieldCheck size={24} className="text-emerald-500" />
                         </div>
-                        <div className="flex flex-wrap items-center gap-6 text-slate-500 font-medium text-sm">
+                        <div className="flex flex-wrap items-center gap-6 text-slate-700 font-semibold text-sm">
                             <div className="flex items-center gap-2">
-                                <MapPin size={18} />
+                                <MapPin size={18} className="text-slate-500" />
                                 <span>{handlerData.address}</span>
                             </div>
                             <div className="flex items-center gap-2 text-nowrap">
-                                <Calendar size={18} />
+                                <Calendar size={18} className="text-slate-500" />
                                 <span>Joined {handlerData.joinedDate}</span>
                             </div>
                         </div>
@@ -69,7 +69,7 @@ const Profile = () => {
                     <CardContent className="p-8 space-y-8">
                         <div className="flex items-center gap-3 border-b pb-4">
                             <FileText className="text-[#1E40AF]" size={24} />
-                            <h3 className="text-xl font-bold text-slate-800">Operational Details</h3>
+                            <h3 className="text-xl font-bold text-slate-900">Operational Details</h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-y-8">
@@ -89,7 +89,7 @@ const Profile = () => {
                     <CardContent className="p-8 space-y-8">
                         <div className="flex items-center gap-3 border-b pb-4">
                             <User className="text-[#1E40AF]" size={24} />
-                            <h3 className="text-xl font-bold text-slate-800">Primary Contact</h3>
+                            <h3 className="text-xl font-bold text-slate-900">Primary Contact</h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-y-8">
@@ -121,11 +121,11 @@ const Profile = () => {
 // Helper component for uniform fields
 const InfoField = ({ label, value, isEmail, icon }) => (
     <div className="space-y-1">
-        <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        <p className="text-[11px] font-black text-slate-700 uppercase tracking-widest">{label}</p>
         <div className="flex items-center gap-2">
-            {isEmail && <Mail size={14} className="text-slate-500" />}
-            {icon && <span className="text-slate-500">{icon}</span>}
-            <p className="text-sm font-bold text-slate-700">{value}</p>
+            {isEmail && <Mail size={14} className="text-slate-600" />}
+            {icon && <span className="text-slate-600">{icon}</span>}
+            <p className="text-sm font-bold text-slate-900">{value}</p>
         </div>
     </div>
 );
