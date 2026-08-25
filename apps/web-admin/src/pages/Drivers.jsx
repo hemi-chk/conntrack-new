@@ -109,7 +109,7 @@ function Drivers() {
       formData.license_back ? tryUpload('driver-documents', formData.license_back, 'licenses') : null,
     ])
 
-    await adminAPI.addDriver({
+    const result = await adminAPI.addDriver({
       first_name: formData.first_name,
       last_name: formData.last_name,
       date_of_birth: formData.date_of_birth,
@@ -135,6 +135,10 @@ function Drivers() {
     setDrivers(updated)
     setShowForm(false)
     setPreviews({ profile_photo: null, police_report_file: null, license_front: null, license_back: null })
+
+    if (result?.tempPassword) {
+      alert(`Driver created. Temporary password: ${result.tempPassword}\n\nShare this with the driver — they should change it after their first login.`)
+    }
 
   } catch (error) {
     alert(`Failed to add driver: ${error.message}`)

@@ -82,7 +82,7 @@ router.get('/order-progress-stages', async (req, res) => {
       .order('sequence_order', { ascending: true })
 
     if (order_type) {
-      query = query.or(`order_type.eq.${order_type},order_type.eq.all`)
+      query = query.in('order_type', [order_type, 'all'])
     }
 
     const { data, error } = await query

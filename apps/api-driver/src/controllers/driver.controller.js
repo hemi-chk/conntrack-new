@@ -1,10 +1,11 @@
 const supabase = require('../config/supabase'); // Assuming you have a supabase config
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 // 1. Get all orders assigned to a specific driver
 exports.getAssignedOrders = async (req, res) => {
     try {
-        const { driverId } = req.params;
+        const driverId = req.driver.driver_id;
 
         const { data, error } = await supabase
             .from('order_assignments')
@@ -43,7 +44,8 @@ exports.getAssignedOrders = async (req, res) => {
 // 2. Update live GPS tracking for a container
 exports.updateTracking = async (req, res) => {
     try {
-        const { orderId, driverId, latitude, longitude, status, description } = req.body;
+        const { orderId, latitude, longitude, status, description } = req.body;
+        const driverId = req.driver.driver_id;
 
         const { data, error } = await supabase
             .from('container_tracking')
@@ -78,7 +80,7 @@ exports.updateTracking = async (req, res) => {
 // 3. Get Driver Profile and Documents
 exports.getDriverDetails = async (req, res) => {
     try {
-        const { driverId } = req.params;
+        const driverId = req.driver.driver_id;
 
         const { data, error } = await supabase
             .from('drivers')
@@ -114,6 +116,13 @@ exports.loginDriver = async (req, res) => {
 
         const isNumeric = /^\d+$/.test(driverId);
 
+        // driverId is interpolated into a PostgREST .or() filter string below, so it
+        // must be restricted to safe characters before that - otherwise commas/dots
+        // in a crafted value could inject extra filter clauses.
+        if (!/^[a-zA-Z0-9_-]+$/.test(driverId)) {
+            return res.status(400).json({ success: false, message: 'Invalid Driver ID format' });
+        }
+
         console.log('--- Login Attempt ---');
         console.log('Trying to log in with ID:', driverId);
 
@@ -132,18 +141,15 @@ exports.loginDriver = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid Driver ID' });
         }
 
-        // Verify Password
-        // If password_hash is not set (legacy or unassigned), we handle it
         if (!data.password_hash) {
-            // For now, if no password is set in DB, we allow login with any password OR a default '1234'
-            // In production, you would force an initial password setup or check a default.
-            console.log('User has no password set in DB. Allowing entry for setup.');
-        } else {
-            const isMatch = await bcrypt.compare(password, data.password_hash);
-            if (!isMatch) {
-                console.log('Password Mismatch');
-                return res.status(401).json({ success: false, message: 'Invalid password' });
-            }
+            console.log('Driver has no password set - cannot log in until admin issues one');
+            return res.status(401).json({ success: false, message: 'No password set for this account. Contact your administrator.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, data.password_hash);
+        if (!isMatch) {
+            console.log('Password Mismatch');
+            return res.status(401).json({ success: false, message: 'Invalid password' });
         }
 
         console.log('Match Found:', data.first_name, data.last_name);
@@ -156,11 +162,20 @@ exports.loginDriver = async (req, res) => {
             .limit(1)
             .single();
 
+        const { password_hash, ...driverWithoutHash } = data;
+
+        const token = jwt.sign(
+            { driver_id: data.driver_id, role: 'driver' },
+            process.env.DRIVER_JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
         res.status(200).json({
             success: true,
             message: 'Login successful',
+            token,
             user: {
-                ...data,
+                ...driverWithoutHash,
                 vehicle: vehicleData || null
             }
         });
@@ -176,9 +191,10 @@ exports.loginDriver = async (req, res) => {
  */
 exports.changePassword = async (req, res) => {
     try {
-        const { driverId, oldPassword, newPassword } = req.body;
+        const { oldPassword, newPassword } = req.body;
+        const driverId = req.driver.driver_id;
 
-        if (!driverId || !oldPassword || !newPassword) {
+        if (!oldPassword || !newPassword) {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
@@ -193,12 +209,13 @@ exports.changePassword = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Driver not found' });
         }
 
-        // 2. Verify Old Password (if one exists)
-        if (data.password_hash) {
-            const isMatch = await bcrypt.compare(oldPassword, data.password_hash);
-            if (!isMatch) {
-                return res.status(400).json({ success: false, message: 'Current password incorrect' });
-            }
+        // 2. Verify Old Password - always required, no unverified bypass
+        if (!data.password_hash) {
+            return res.status(400).json({ success: false, message: 'No password set for this account. Contact your administrator.' });
+        }
+        const isMatch = await bcrypt.compare(oldPassword, data.password_hash);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Current password incorrect' });
         }
 
         // 3. Hash New Password
@@ -228,8 +245,7 @@ exports.changePassword = async (req, res) => {
  */
 exports.getActiveMission = async (req, res) => {
     try {
-        const { driverId } = req.params; // This is now a number (e.g., "4")
-        const internalId = parseInt(driverId);
+        const internalId = req.driver.driver_id;
 
         console.log('--- Mission Scan ---');
         console.log('Searching assignments for Driver ID:', internalId);
@@ -289,8 +305,20 @@ exports.updateMissionStatus = async (req, res) => {
         console.log('--- DB Update Start ---');
         console.log('Assignment ID:', assignmentId, 'New Status:', status);
 
-        console.log('--- DB Update Start ---');
-        console.log('Assignment ID:', assignmentId, 'New Status:', status);
+        // Confirm this assignment actually belongs to the calling driver before
+        // letting them update it or its order.
+        const { data: ownedAssignment, error: ownError } = await supabase
+            .from('order_assignments')
+            .select('driver_id')
+            .eq('assignment_id', assignmentId)
+            .single();
+
+        if (ownError || !ownedAssignment) {
+            return res.status(404).json({ success: false, message: 'Assignment not found' });
+        }
+        if (ownedAssignment.driver_id !== req.driver.driver_id) {
+            return res.status(403).json({ success: false, message: 'Not your assignment' });
+        }
 
         // 1. Only update the high-level assignment status for critical milestones
         // This avoids "check constraint" errors for intermediate stages like 'started'
@@ -373,7 +401,8 @@ exports.updateMissionStatus = async (req, res) => {
  */
 exports.uploadDocument = async (req, res) => {
     try {
-        const { orderId, driverId, documentType, base64Image } = req.body;
+        const { orderId, documentType, base64Image } = req.body;
+        const driverId = req.driver.driver_id;
 
         if (!base64Image) {
             return res.status(400).json({ success: false, message: 'No image data provided' });
@@ -435,7 +464,8 @@ exports.uploadDocument = async (req, res) => {
  */
 exports.updateDutyStatus = async (req, res) => {
     try {
-        const { driverId, active } = req.body;
+        const { active } = req.body;
+        const driverId = req.driver.driver_id;
         const statusValue = active ? 'active' : 'inactive';
 
         console.log(`Updating Duty Status for Driver ${driverId} to: ${statusValue}`);
@@ -465,17 +495,13 @@ exports.updateDutyStatus = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
     try {
-        const { driverId, first_name, last_name, contact_number, empId } = req.body;
+        const { first_name, last_name, contact_number } = req.body;
 
         console.log('--- Profile Update Attempt ---');
         console.log('Received Body:', JSON.stringify(req.body, null, 2));
 
-        const targetId = driverId || empId;
-
-        if (!targetId) {
-            return res.status(400).json({ success: false, message: 'Missing Driver ID or Employee ID' });
-        }
-
+        // Always update the authenticated driver's own row - never a
+        // client-supplied ID, which would let any driver edit anyone's profile.
         const { error } = await supabase
             .from('drivers')
             .update({
@@ -484,7 +510,7 @@ exports.updateProfile = async (req, res) => {
                 contact_number,
                 updated_at: new Date()
             })
-            .or(`driver_id.eq.${targetId},emp_id.eq.${targetId}`);
+            .eq('driver_id', req.driver.driver_id);
 
         if (error) throw error;
 
@@ -503,8 +529,7 @@ exports.updateProfile = async (req, res) => {
  */
 exports.getDriverIssues = async (req, res) => {
     try {
-        const { driverId } = req.params;
-        const internalId = parseInt(driverId);
+        const internalId = req.driver.driver_id;
 
         console.log('--- Fetching Issues for Driver:', internalId, '---');
 
@@ -537,15 +562,16 @@ exports.getDriverIssues = async (req, res) => {
  */
 exports.reportIssue = async (req, res) => {
     try {
-        const { driverId, orderId, supplierId, issueType, priority, description } = req.body;
+        const { orderId, supplierId, issueType, priority, description } = req.body;
+        const driverId = req.driver.driver_id;
 
         console.log('--- New Issue Report ---');
         console.log('Driver:', driverId, '| Type:', issueType, '| Priority:', priority);
 
-        if (!driverId || !issueType || !description) {
+        if (!issueType || !description) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: driverId, issueType, description'
+                message: 'Missing required fields: issueType, description'
             });
         }
 
@@ -583,13 +609,14 @@ exports.reportIssue = async (req, res) => {
  */
 exports.uploadProfilePhoto = async (req, res) => {
     try {
-        const { driverId, base64Image } = req.body;
+        const { base64Image } = req.body;
+        const driverId = req.driver.driver_id;
 
         console.log('--- Profile Photo Upload ---');
         console.log('Driver ID:', driverId);
 
-        if (!driverId || !base64Image) {
-            return res.status(400).json({ success: false, message: 'Missing driverId or image data' });
+        if (!base64Image) {
+            return res.status(400).json({ success: false, message: 'Missing image data' });
         }
 
         // 1. Convert Base64 to Buffer
@@ -648,11 +675,7 @@ exports.uploadProfilePhoto = async (req, res) => {
  */
 exports.removeProfilePhoto = async (req, res) => {
     try {
-        const { driverId } = req.body;
-
-        if (!driverId) {
-            return res.status(400).json({ success: false, message: 'Missing driverId' });
-        }
+        const driverId = req.driver.driver_id;
 
         const { error: dbError } = await supabase
             .from('drivers')
@@ -682,7 +705,7 @@ exports.removeProfilePhoto = async (req, res) => {
  */
 exports.getDriverHistory = async (req, res) => {
     try {
-        const { driverId } = req.params;
+        const driverId = req.driver.driver_id;
 
         const { data, error } = await supabase
             .from('order_assignments')
@@ -810,7 +833,7 @@ exports.getTrackingStages = async (req, res) => {
  */
 exports.getAssignedVehicle = async (req, res) => {
     try {
-        const { driverId } = req.params;
+        const driverId = req.driver.driver_id;
 
         // 1. Find the active assignment to get the vehicle_id
         const { data: assignment, error: assignError } = await supabase

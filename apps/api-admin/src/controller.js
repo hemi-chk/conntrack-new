@@ -1,3 +1,5 @@
+import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 import { supabase } from '@conntrack/api-core'
 
 // =============================================
@@ -100,13 +102,19 @@ export const getAllDrivers = async (req, res) => {
 
 export const addDriver = async (req, res) => {
   try {
+    // Every driver needs a password to log in - generate one now rather than
+    // leaving password_hash null, which used to let anyone log in as them
+    // with any password at all.
+    const tempPassword = crypto.randomBytes(6).toString('base64url')
+    const password_hash = await bcrypt.hash(tempPassword, 10)
+
     const { data, error } = await supabase
       .from('drivers')
-      .insert(req.body)
+      .insert({ ...req.body, password_hash })
       .select()
 
     if (error) throw error
-    res.json(data)
+    res.json({ driver: data, tempPassword })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

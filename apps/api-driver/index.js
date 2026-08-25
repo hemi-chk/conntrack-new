@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const amqplib = require('amqplib');
+const { verifyDriverToken } = require('./src/middleware/auth');
 const driverRoutes = require('./src/routes/driver.routes');
 
 const app = express();
@@ -14,7 +15,9 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Routes
 // Note: Mounted at '/' because Gateway rewrites '/api/driver' by stripping it
-app.use('/', driverRoutes);
+// verifyDriverToken lets /login through unauthenticated, requires a valid
+// token for everything else.
+app.use('/', verifyDriverToken, driverRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

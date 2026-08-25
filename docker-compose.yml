@@ -5,6 +5,7 @@ x-api-env: &api-env
   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
   SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
   AMQP_URL: amqp://${RABBITMQ_USER:-conntrack}:${RABBITMQ_PASS:-conntrack123}@rabbitmq:5672
+  DRIVER_JWT_SECRET: ${DRIVER_JWT_SECRET}
 
 services:
   # ── Message Broker ───────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { verifyToken, authorizeRole } from '@conntrack/api-core'
 import { connectMessaging } from '@conntrack/messaging'
 import operationsRoutes from './src/routes/operations.routes.js'
 
@@ -13,7 +14,7 @@ app.use(cors())
 app.use(express.json())
 
 // Mounted at '/' because Gateway rewrites '/api/operations' by stripping it
-app.use('/', operationsRoutes)
+app.use('/', verifyToken, authorizeRole('operations'), operationsRoutes)
 
 app.get('/health', (req, res) => {
   res.json({ service: 'operations', status: 'ok' })

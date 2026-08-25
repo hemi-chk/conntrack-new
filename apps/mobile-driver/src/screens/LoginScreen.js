@@ -82,6 +82,9 @@ export default function LoginScreen({ navigation }) {
       const result = await response.json();
 
       if (result.success) {
+        // Persist the session token so subsequent API calls can authenticate
+        await AsyncStorage.setItem("driver_token", result.token);
+
         // Persist credentials locally if "Remember Me" is enabled
         if (rememberMe) {
           await AsyncStorage.setItem("saved_driver_id", driverId);
