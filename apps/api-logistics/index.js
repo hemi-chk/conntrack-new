@@ -13,12 +13,12 @@ const PORT = process.env.PORT || 5004
 app.use(cors())
 app.use(express.json())
 
-// Mounted at '/' because Gateway rewrites '/api/logistics' by stripping it
-app.use('/', verifyToken, authorizeRole('logistics'), logisticsRoutes)
-
 app.get('/health', (req, res) => {
   res.json({ service: 'logistics', status: 'ok' })
 })
+
+// Mounted at '/' because Gateway rewrites '/api/logistics' by stripping it
+app.use('/', verifyToken, authorizeRole('logistics'), logisticsRoutes)
 
 connectMessaging(process.env.AMQP_URL).then(() => {
   app.listen(PORT, () => {
