@@ -11,6 +11,7 @@ import Logistics from './pages/Logistics'
 import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import Staff from './pages/Staff'
+import Issues from './pages/Issues'
 import Login from './pages/Login'
 
 
@@ -37,9 +38,9 @@ function App() {
   // Redirect if logged in with non-admin role
   if (role !== 'admin') {
     const externalRedirectMap = {
-      operations: "http://127.0.0.1:5174",
-      supplier: "http://127.0.0.1:5175",
-      logistics: "http://127.0.0.1:5176",
+      operations: import.meta.env.VITE_OPERATIONS_URL || "http://127.0.0.1:5174",
+      supplier: import.meta.env.VITE_SUPPLIER_URL || "http://127.0.0.1:5175",
+      logistics: import.meta.env.VITE_LOGISTICS_URL || "http://127.0.0.1:5176",
     }
     if (externalRedirectMap[role]) {
       const redirectUrl = new URL(externalRedirectMap[role])
@@ -67,6 +68,7 @@ function App() {
       case '/operations': return <Operations />
       case '/logistics': return <Logistics />
       case '/staff': return <Staff darkMode={darkMode} />
+      case '/issues': return <Issues />
       case '/documents': return <Documents />
       case '/settings': return <Settings />
       default: return <Dashboard />

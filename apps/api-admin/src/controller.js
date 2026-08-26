@@ -405,7 +405,8 @@ export const getAllIssues = async (req, res) => {
         *,
         orders (order_reference),
         suppliers (company_name),
-        drivers (first_name, last_name)
+        drivers (first_name, last_name),
+        reporter:profiles!reported_by (first_name, last_name, role)
       `)
       .order('created_at', { ascending: false })
 
