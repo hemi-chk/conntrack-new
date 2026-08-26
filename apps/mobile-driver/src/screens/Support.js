@@ -19,20 +19,23 @@ const { width } = Dimensions.get("window");
 /**
  * Predefined issue categories for structured reporting.
  */
+// Category wording matches Logistics' issue form so Admin's unified Issues
+// view groups them together instead of showing separate near-duplicate types.
 const ISSUE_TYPES = [
-  { key: "vehicle_issue", label: "Vehicle Issue", icon: "directions-car", color: "#EF4444" },
-  { key: "delay_issue", label: "Delay / Route Issue", icon: "schedule", color: "#F59E0B" },
-  { key: "document_issue", label: "Document Issue", icon: "description", color: "#6366F1" },
-  { key: "other", label: "Other", icon: "help-outline", color: "#64748B" },
+  { key: "Mechanical Breakdown", label: "Mechanical Breakdown", icon: "directions-car", color: "#EF4444" },
+  { key: "Traffic/Route Delay", label: "Traffic / Route Delay", icon: "schedule", color: "#F59E0B" },
+  { key: "Documentation Issue", label: "Documentation Issue", icon: "description", color: "#6366F1" },
+  { key: "Cargo Damage", label: "Cargo Damage", icon: "local-shipping", color: "#DC2626" },
+  { key: "Other", label: "Other", icon: "help-outline", color: "#64748B" },
 ];
 
 /**
  * Priority levels to help the support team triage reports.
  */
 const PRIORITIES = [
-  { key: "low", label: "Low", color: "#10B981" },
-  { key: "medium", label: "Medium", color: "#F59E0B" },
-  { key: "high", label: "High", color: "#EF4444" },
+  { key: "minor", label: "Minor", color: "#10B981" },
+  { key: "major", label: "Major", color: "#F59E0B" },
+  { key: "critical", label: "Critical", color: "#EF4444" },
 ];
 
 export default function Support({ route, navigation }) {
@@ -41,7 +44,7 @@ export default function Support({ route, navigation }) {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
-  const [selectedPriority, setSelectedPriority] = useState("medium");
+  const [selectedPriority, setSelectedPriority] = useState("major");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,7 +58,7 @@ export default function Support({ route, navigation }) {
    */
   const resetForm = () => {
     setSelectedType(null);
-    setSelectedPriority("medium");
+    setSelectedPriority("major");
     setDescription("");
     setShowForm(false);
   };

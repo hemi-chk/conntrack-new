@@ -583,7 +583,7 @@ exports.reportIssue = async (req, res) => {
                 supplier_id: supplierId ? parseInt(supplierId) : null,
                 reported_by: null,
                 issue_type: issueType,
-                priority: priority || 'medium',
+                priority: priority || 'major',
                 description: description,
                 status: 'open',
                 created_at: new Date(),

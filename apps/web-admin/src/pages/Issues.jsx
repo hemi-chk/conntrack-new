@@ -34,11 +34,28 @@ const PRIORITY_META = {
   critical: { label: 'Critical', bg: '#FEE2E2', text: '#B91C1C' },
 }
 
+// Each interface's issue-report form phrases categories slightly differently
+// (Logistics: "Traffic/Route Delay", Driver: same now, Operations' upcoming
+// form: "Delay/Tracking Issue", legacy driver rows: "delay_issue", etc).
+// Normalize by keyword so they group under one canonical set instead of
+// fragmenting into near-duplicates on this page.
+const CATEGORIES = ['Mechanical Breakdown', 'Traffic/Route Delay', 'Documentation Issue', 'Cargo Damage', 'Other']
+
+function normalizeCategory(issueType) {
+  const t = (issueType || '').toLowerCase()
+  if (/mechanic|vehicle|breakdown/.test(t)) return 'Mechanical Breakdown'
+  if (/route|delay|traffic|tracking/.test(t)) return 'Traffic/Route Delay'
+  if (/document/.test(t)) return 'Documentation Issue'
+  if (/cargo|damage/.test(t)) return 'Cargo Damage'
+  return 'Other'
+}
+
 export default function Issues() {
   const [issues, setIssues] = useState([])
   const [loading, setLoading] = useState(true)
   const [sourceFilter, setSourceFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -51,14 +68,16 @@ export default function Issues() {
   const filtered = issues.filter(issue => {
     const source = getIssueSource(issue)
     const priority = normalizePriority(issue.priority)
+    const category = normalizeCategory(issue.issue_type)
     const matchSource = sourceFilter === 'all' || source === sourceFilter
     const matchPriority = priorityFilter === 'all' || priority === priorityFilter
+    const matchCategory = categoryFilter === 'all' || category === categoryFilter
     const matchSearch = !searchTerm.trim() || (
       (issue.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (issue.issue_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (issue.orders?.order_reference || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
-    return matchSource && matchPriority && matchSearch
+    return matchSource && matchPriority && matchCategory && matchSearch
   })
 
   const countBySource = (source) => issues.filter(i => getIssueSource(i) === source).length
@@ -138,6 +157,16 @@ export default function Issues() {
                   </button>
                 ))}
               </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All Categories</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
               <div className="relative">
                 <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
@@ -180,6 +209,7 @@ export default function Issues() {
                   const SourceIcon = sourceMeta.icon
                   const priority = normalizePriority(issue.priority)
                   const priorityMeta = PRIORITY_META[priority]
+                  const category = normalizeCategory(issue.issue_type)
 
                   return (
                     <tr key={issue.issue_id || issue.id} className="border-t border-slate-50 hover:bg-[#EBF4FF] transition">
@@ -193,7 +223,7 @@ export default function Issues() {
                       </td>
                       <td className="py-3.5 text-slate-500">{reporterName(issue)}</td>
                       <td className="py-3.5 text-slate-500 font-mono text-xs">{issue.orders?.order_reference || '—'}</td>
-                      <td className="py-3.5 text-slate-500">{issue.issue_type || '—'}</td>
+                      <td className="py-3.5 text-slate-500">{category}</td>
                       <td className="py-3.5 text-slate-500 max-w-xs truncate">{issue.description}</td>
                       <td className="py-3.5">
                         <span
