@@ -380,6 +380,34 @@ export const getTrackingByOrderId = async (req, res) => {
     }
 };
 
+export const updateTrackingLocation = async (req, res) => {
+    try {
+        const { order_id, driver_id, current_location, status, latitude, longitude } = req.body;
+
+        const { data, error } = await supabase
+            .from('container_tracking')
+            .insert([{
+                order_id: Number(order_id),
+                driver_id: driver_id ? Number(driver_id) : null,
+                current_location,
+                status: status || 'in_transit',
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null,
+                recorded_at: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            data: data ? data[0] : null
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 // --- ISSUES ---
 
 export const createIssue = async (req, res) => {
