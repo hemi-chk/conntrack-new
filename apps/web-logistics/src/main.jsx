@@ -1,17 +1,21 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.jsx'
+import './index.css'
 
 // Unified Auth Guard & Session Synchronization
 (function handleAuth() {
   const urlParams = new URLSearchParams(window.location.search)
   const tokenParam = urlParams.get('token')
+  const refreshTokenParam = urlParams.get('refresh_token')
   const roleParam = urlParams.get('role')
   const userParam = urlParams.get('user')
 
   if (tokenParam && roleParam) {
     localStorage.setItem('token', tokenParam)
+    if (refreshTokenParam) {
+      localStorage.setItem('refresh_token', refreshTokenParam)
+    }
     localStorage.setItem('role', roleParam)
     if (userParam) {
       localStorage.setItem('user', userParam)

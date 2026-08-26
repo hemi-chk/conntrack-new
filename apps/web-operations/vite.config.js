@@ -11,6 +11,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  define: {
+    __BUNDLED_DEV__: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

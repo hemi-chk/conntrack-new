@@ -1,16 +1,103 @@
-import { useState, useEffect } from "react";
-import { Printer, FileBarChart, Loader2, PackageCheck, User } from "lucide-react";
-import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Input } from "@conntrack/ui/shadcn";
+import {
+    ArrowDownToLine,
+    ArrowUpFromLine,
+    BarChart3,
+    CalendarDays,
+    FileBarChart,
+    Loader2,
+    PackageCheck,
+    PieChart as PieIcon,
+    Printer,
+    Truck
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
-// Import the centralized axios instance
+import {
+    Button,
+    Input,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/ui";
+
+import {
+    Bar,
+    BarChart,
+    CartesianGrid,
+    Cell,
+    Legend,
+    Pie,
+    PieChart,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
+} from "recharts";
+
 import api from "../../config/api";
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const STATUS_COLORS = {
+    created: "#64748B",
+    open_for_bids: "#F59E0B",
+    bid_accepted: "#8B5CF6",
+    driver_assigned: "#06B6D4",
+    in_transit: "#3B82F6",
+    completed: "#10B981",
+    cancelled: "#EF4444",
+};
+
+const STATUS_ORDER = [
+    "created",
+    "open_for_bids",
+    "bid_accepted",
+    "driver_assigned",
+    "in_transit",
+    "completed",
+    "cancelled",
+];
+
+const STATUS_LABELS = {
+    created: "Created",
+    open_for_bids: "Open Bids",
+    bid_accepted: "Bid Accepted",
+    driver_assigned: "Driver Assigned",
+    in_transit: "In Transit",
+    completed: "Completed",
+    cancelled: "Cancelled",
+};
+
+const CARGO_COLORS = [
+    "#1E40AF",
+    "#3B82F6",
+    "#10B981",
+    "#F59E0B",
+    "#8B5CF6",
+    "#EC4899",
+    "#64748B",
+];
+
+/* =========================================================
+   MAIN REPORT COMPONENT
+========================================================= */
 
 export default function Reports() {
     const [orders, setOrders] = useState([]);
-    const [stats, setStats] = useState({ total: 0, completedCount: 0, imports: 0, exports: 0, successRate: 0 });
+    const [stats, setStats] = useState({
+        total: 0,
+        completedCount: 0,
+        imports: 0,
+        exports: 0,
+    });
+
     const [loading, setLoading] = useState(true);
 
-    // Dates set to the current project year context (2026)
     const [fromDate, setFromDate] = useState("2026-01-01");
     const [toDate, setToDate] = useState("2026-12-31");
 
@@ -20,221 +107,1339 @@ export default function Reports() {
 
     async function fetchReportData() {
         setLoading(true);
+
         try {
-            // Axios 'params' handles the ?fromDate=...&toDate=... string for you
             const response = await api.get("/logistics/reports", {
-                params: { fromDate, toDate }
+                params: {
+                    fromDate,
+                    toDate,
+                },
             });
 
-            // Destructure data directly from the axios response
             const { orders, stats } = response.data;
-            setOrders(orders);
-            setStats(stats);
+
+            setOrders(orders || []);
+
+            setStats(
+                stats || {
+                    total: 0,
+                    completedCount: 0,
+                    imports: 0,
+                    exports: 0,
+                }
+            );
         } catch (err) {
-            // Context-aware error handling for a smoother dev experience
-            const errorMsg = err.response?.data?.message || err.message;
+            const errorMsg =
+                err.response?.data?.message || err.message;
+
             console.error("Logistics API Error:", errorMsg);
         } finally {
             setLoading(false);
         }
     }
 
-    const handlePrint = () => window.print();
+    const handlePrint = () => {
+        window.print();
+    };
+
+    /* =========================================================
+       DERIVED DATA
+    ========================================================= */
+
+    const statusChartData = useMemo(() => {
+        const counts = {};
+
+        orders.forEach((order) => {
+            const statusKey = order.current_status || "created";
+
+            counts[statusKey] =
+                (counts[statusKey] || 0) + 1;
+        });
+
+        return STATUS_ORDER
+            .filter(
+                (statusKey) =>
+                    counts[statusKey] !== undefined
+            )
+            .map((statusKey) => ({
+                name:
+                    STATUS_LABELS[statusKey] ||
+                    statusKey.replace(/_/g, " "),
+                count: counts[statusKey],
+                statusKey,
+            }));
+    }, [orders]);
+
+    const cargoChartData = useMemo(() => {
+        const categories = {};
+
+        orders.forEach((order) => {
+            const cargo =
+                order.cargo_type || "General Freight";
+
+            categories[cargo] =
+                (categories[cargo] || 0) + 1;
+        });
+
+        return Object.keys(categories)
+            .map((cargo, index) => ({
+                name: cargo,
+                value: categories[cargo],
+                color:
+                    CARGO_COLORS[
+                        index % CARGO_COLORS.length
+                    ],
+            }))
+            .sort((a, b) => b.value - a.value);
+    }, [orders]);
+
+    const destinationChartData = useMemo(() => {
+        const destinations = {};
+
+        orders.forEach((order) => {
+            const destination =
+                order.destination_location ||
+                order.destination_district ||
+                order.destination_state ||
+                "Unspecified Hub";
+
+            destinations[destination] =
+                (destinations[destination] || 0) + 1;
+        });
+
+        return Object.keys(destinations)
+            .map((destination) => ({
+                name:
+                    destination.length > 18
+                        ? `${destination.substring(
+                              0,
+                              18
+                          )}...`
+                        : destination,
+
+                fullName: destination,
+
+                shipments:
+                    destinations[destination],
+            }))
+            .sort(
+                (a, b) =>
+                    b.shipments - a.shipments
+            )
+            .slice(0, 5);
+    }, [orders]);
+
+    const completionRate = useMemo(() => {
+        if (!stats.total) return 0;
+
+        return Math.round(
+            (stats.completedCount / stats.total) * 100
+        );
+    }, [stats]);
+
+    const importPercentage = useMemo(() => {
+        if (!stats.total) return 0;
+
+        return Math.round(
+            (stats.imports / stats.total) * 100
+        );
+    }, [stats]);
+
+    const exportPercentage = useMemo(() => {
+        if (!stats.total) return 0;
+
+        return Math.round(
+            (stats.exports / stats.total) * 100
+        );
+    }, [stats]);
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Print specific styles */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @media print {
-                    nav, aside, .no-print { display: none !important; }
-                    main { margin-left: 0 !important; padding-top: 0 !important; }
-                    .printable-report { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: none !important; background: white !important; }
-                    .print-table { border: 1px solid #e2e8f0 !important; border-radius: 0 !important; }
-                    body { background: white !important; }
-                    .stat-card { border: 1px solid #e2e8f0 !important; box-shadow: none !important; }
-                    .efficiency-card { background: #EBF4FF !important; color: #0f172a !important; border: 1px solid #e2e8f0 !important; }
-                    .efficiency-card p, .efficiency-card h2 { color: #0f172a !important; }
-                }
-            `}} />
+            {/* =================================================
+                PRINT STYLES
+            ================================================= */}
 
-            <div className="printable-report p-6 max-w-7xl mx-auto space-y-6">
-                {/* Professional Print Header */}
-                <div className="hidden print:block border-b-2 border-slate-900 pb-6 mb-8">
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
+                    @media print {
+
+                        @page {
+                            margin: 12mm 10mm;
+                            size: portrait;
+                        }
+
+                        nav,
+                        aside,
+                        .no-print {
+                            display: none !important;
+                        }
+
+                        main {
+                            margin-left: 0 !important;
+                            padding-top: 0 !important;
+                        }
+
+                        body {
+                            background: #fff !important;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+
+                        .printable-report {
+                            padding: 0 !important;
+                            margin: 0 !important;
+                            width: 100% !important;
+                            max-width: none !important;
+                            background: #fff !important;
+                            color: #000 !important;
+                        }
+
+                        .printable-report svg,
+                        .printable-report .recharts-wrapper,
+                        .printable-report .chart-card,
+                        .printable-report .stat-card {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            break-inside: avoid !important;
+                        }
+
+                        .printable-report * {
+                            overflow: visible !important;
+                        }
+
+                        .chart-grid {
+                            display: grid !important;
+                            grid-template-columns: repeat(2, 1fr) !important;
+                            gap: 12px !important;
+                            margin-bottom: 20px !important;
+                        }
+
+                        .destination-chart {
+                            grid-column: span 2 !important;
+                        }
+
+                        .chart-card {
+                            border: 1px solid #cbd5e1 !important;
+                            border-radius: 8px !important;
+                            padding: 10px !important;
+                            background: #fff !important;
+                            break-inside: avoid !important;
+                        }
+
+                        .print-table {
+                            border: 1px solid #000 !important;
+                            border-radius: 0 !important;
+                            width: 100% !important;
+                            break-inside: auto !important;
+                        }
+
+                        .print-table table {
+                            width: 100% !important;
+                            table-layout: fixed !important;
+                            border-collapse: collapse !important;
+                            font-size: 9.5px !important;
+                        }
+
+                        .print-table th,
+                        .print-table td {
+                            padding: 6px 8px !important;
+                            vertical-align: top !important;
+                            word-wrap: break-word !important;
+                            line-height: 1.35 !important;
+                        }
+
+                        .print-table .print-nowrap {
+                            white-space: nowrap !important;
+                        }
+
+                        .print-table col.col-order {
+                            width: 12% !important;
+                        }
+
+                        .print-table col.col-customer {
+                            width: 26% !important;
+                        }
+
+                        .print-table col.col-route {
+                            width: 28% !important;
+                        }
+
+                        .print-table col.col-date {
+                            width: 14% !important;
+                        }
+
+                        .print-table col.col-status {
+                            width: 20% !important;
+                        }
+
+                        .print-table thead {
+                            border-bottom: 2px solid #000 !important;
+                        }
+
+                        .print-table tr {
+                            border-bottom: 1px solid #d4d4d4 !important;
+                            break-inside: avoid !important;
+                        }
+
+                        .status-badge {
+                            border: 1px solid #000 !important;
+                            font-weight: 700 !important;
+                            font-size: 7.5px !important;
+                            white-space: nowrap !important;
+                        }
+
+                        .stat-card {
+                            border: 1px solid #000 !important;
+                        }
+                    }
+                `,
+                }}
+            />
+
+            <div className="printable-report max-w-7xl mx-auto p-5 md:p-6 space-y-6">
+
+                {/* =================================================
+                    PRINT HEADER
+                ================================================= */}
+
+                <div className="hidden print:block border-b-2 border-slate-900 pb-4 mb-6">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Logistics Operations Report</h1>
-                            <p className="text-slate-500 font-medium mt-1">ConnTrack Integrated Logistics System</p>
+                            <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+                                Logistics Operations Report
+                            </h1>
+
+                            <p className="text-xs text-slate-500 font-medium mt-1">
+                                ConnTrack Integrated Logistics System
+                            </p>
                         </div>
+
                         <div className="text-right">
-                            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Report Status</p>
-                            <p className="text-sm font-bold text-emerald-600 uppercase">Official Document</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                Report Type
+                            </p>
+
+                            <p className="text-xs font-bold uppercase text-blue-900">
+                                Official Executive Summary
+                            </p>
                         </div>
                     </div>
-                    <div className="flex justify-between mt-8 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                        <span>Period: {new Date(fromDate).toLocaleDateString()} - {new Date(toDate).toLocaleDateString()}</span>
-                        <span>Generated: {new Date().toLocaleString()}</span>
+
+                    <div className="flex justify-between mt-4 text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>
+                            Period:{" "}
+                            {formatDate(fromDate)} -{" "}
+                            {formatDate(toDate)}
+                        </span>
+
+                        <span>
+                            Generated:{" "}
+                            {new Date().toLocaleString()}
+                        </span>
                     </div>
                 </div>
 
-                {/* Action Bar */}
-                <div className="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-blue-100 p-2 rounded-lg">
-                            <FileBarChart className="text-[#052659]" size={24} />
+                {/* =================================================
+                    PAGE HEADER / FILTER
+                ================================================= */}
+
+                <section className="no-print bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
+                    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+
+                        <div className="flex items-start gap-4">
+                            <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                                <FileBarChart
+                                    size={22}
+                                    className="text-[#1E40AF]"
+                                />
+                            </div>
+
+                            <div>
+                                <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+                                    Logistics Reports
+                                </h1>
+
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Monitor orders, shipments and operational performance.
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-slate-800">Logistics Reports</h1>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+
+                            <div className="flex items-center gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                <div className="flex items-center gap-2 px-2">
+                                    <CalendarDays
+                                        size={15}
+                                        className="text-slate-500"
+                                    />
+
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                        Period
+                                    </span>
+                                </div>
+
+                                <Input
+                                    type="date"
+                                    value={fromDate}
+                                    onChange={(e) =>
+                                        setFromDate(
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-36 bg-white border-slate-200 text-xs"
+                                />
+
+                                <span className="text-xs font-bold text-slate-400">
+                                    →
+                                </span>
+
+                                <Input
+                                    type="date"
+                                    value={toDate}
+                                    onChange={(e) =>
+                                        setToDate(
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-36 bg-white border-slate-200 text-xs"
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handlePrint}
+                                className="h-11 px-5 bg-[#1E40AF] hover:bg-blue-700 rounded-xl font-bold"
+                            >
+                                <Printer size={16} />
+                                Print Report
+                            </Button>
                         </div>
                     </div>
+                </section>
 
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-slate-100 rounded-lg px-2 border border-slate-200">
-                            <Input
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => setFromDate(e.target.value)}
-                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
-                            />
-                            <span className="text-slate-400 text-xs">to</span>
-                            <Input
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => setToDate(e.target.value)}
-                                className="bg-transparent border-none shadow-none focus-visible:ring-0 text-xs w-32"
-                            />
-                        </div>
-                        <Button onClick={handlePrint} variant="outline" className="gap-2">
-                            <Printer size={16} /> Print
-                        </Button>
-                    </div>
-                </div>
+                {/* =================================================
+                    KPI CARDS
+                ================================================= */}
 
-                {/* Statistics Overview */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                    <StatCard title="Total Orders" value={stats.total} loading={loading} />
+                <section className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+
+                    <StatCard
+                        title="Total Orders"
+                        value={stats.total}
+                        subtitle="All orders in period"
+                        icon={
+                            <FileBarChart size={18} />
+                        }
+                        color="blue"
+                        loading={loading}
+                    />
+
                     <StatCard
                         title="Completed"
                         value={stats.completedCount}
-                        color="text-emerald-600"
+                        subtitle={`${completionRate}% completion rate`}
+                        icon={
+                            <PackageCheck size={18} />
+                        }
+                        color="green"
                         loading={loading}
-                        icon={<PackageCheck size={12} />}
                     />
-                    <StatCard title="Imports" value={stats.imports} color="text-blue-600" loading={loading} />
-                    <StatCard title="Exports" value={stats.exports} color="text-indigo-600" loading={loading} />
-                    <div className="efficiency-card bg-slate-900 text-white rounded-lg p-4 shadow-md">
-                        <p className="text-xs font-medium text-slate-400 uppercase mb-2 text-center">Efficiency Rate</p>
-                        <h2 className="text-3xl font-bold text-center">{loading ? "..." : `${stats.successRate}%`}</h2>
+
+                    <StatCard
+                        title="Imports"
+                        value={stats.imports}
+                        subtitle={`${importPercentage}% of total orders`}
+                        icon={
+                            <ArrowDownToLine size={18} />
+                        }
+                        color="indigo"
+                        loading={loading}
+                    />
+
+                    <StatCard
+                        title="Exports"
+                        value={stats.exports}
+                        subtitle={`${exportPercentage}% of total orders`}
+                        icon={
+                            <ArrowUpFromLine size={18} />
+                        }
+                        color="purple"
+                        loading={loading}
+                    />
+
+                </section>
+
+                {/* =================================================
+                    ANALYTICS HEADER
+                ================================================= */}
+
+                <div className="flex items-center justify-between pt-1">
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                            Operational Analytics
+                        </h2>
+
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Visual overview of current logistics activity
+                        </p>
                     </div>
                 </div>
 
-                {/* Data Table */}
-                <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden print-table">
-                    <Table>
-                        <TableHeader className="bg-slate-50">
-                            <TableRow>
-                                <TableHead className="px-6 py-4 font-bold text-slate-700">Order ID</TableHead>
-                                <TableHead className="font-bold text-slate-700">Customer & Reference</TableHead>
-                                <TableHead className="font-bold text-slate-700">Route Details</TableHead>
-                                <TableHead className="font-bold text-slate-700">Date</TableHead>
-                                <TableHead className="text-right font-bold text-slate-700">Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                {/* =================================================
+                    CHART GRID
+                ================================================= */}
+
+                <section className="chart-grid grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+                    {/* STATUS CHART */}
+
+                    <div className="chart-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+                        <ChartHeader
+                            icon={
+                                <BarChart3
+                                    size={17}
+                                    className="text-[#1E40AF]"
+                                />
+                            }
+                            title="Order Status Overview"
+                            description="Orders grouped by operational stage"
+                        />
+
+                        <div className="h-64 mt-4">
+
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-64 text-center">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <Loader2 className="animate-spin text-[#052659]" size={32} />
-                                            <p className="text-slate-400 text-sm italic">Generating report data...</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : orders.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="h-32 text-center text-slate-500 italic">
-                                        No logistics data found for this period.
-                                    </TableCell>
-                                </TableRow>
+                                <ChartLoading />
+                            ) : statusChartData.length === 0 ? (
+                                <EmptyChart />
                             ) : (
-                                orders.map((order) => (
-                                    <TableRow key={order.order_id} className="hover:bg-slate-50/50 transition-colors">
-                                        <TableCell className="px-6 font-mono text-xs text-slate-500 uppercase">
-                                            #{String(order.order_id).padStart(5, '0')}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="bg-slate-100 p-1 rounded">
-                                                    <User size={12} className="text-slate-500" />
-                                                </div>
-                                                <span className="text-sm font-semibold text-slate-800">{order.customer_name}</span>
-                                            </div>
-                                            <div className="text-[10px] font-mono text-blue-600 mt-0.5">{order.order_reference}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-xs font-medium text-slate-700">
-                                                {order.pickup_state} <span className="text-slate-300 mx-1">-</span> {order.destination_state}
-                                            </div>
-                                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider italic">{order.order_type}</div>
-                                        </TableCell>
-                                        <TableCell className="text-xs text-slate-600">
-                                            {new Date(order.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <StatusBadge status={order.current_status} />
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                <ResponsiveContainer
+                                    width="100%"
+                                    height="100%"
+                                >
+                                    <BarChart
+                                        data={statusChartData}
+                                        margin={{
+                                            top: 10,
+                                            right: 10,
+                                            left: -20,
+                                            bottom: 20,
+                                        }}
+                                    >
+                                        <CartesianGrid
+                                            strokeDasharray="3 3"
+                                            vertical={false}
+                                            stroke="#E2E8F0"
+                                        />
+
+                                        <XAxis
+                                            dataKey="name"
+                                            tick={{
+                                                fontSize: 9,
+                                                fontWeight: 700,
+                                            }}
+                                            stroke="#64748B"
+                                            interval={0}
+                                            angle={-18}
+                                            textAnchor="end"
+                                            height={55}
+                                        />
+
+                                        <YAxis
+                                            allowDecimals={false}
+                                            tick={{
+                                                fontSize: 9,
+                                                fontWeight: 700,
+                                            }}
+                                            stroke="#64748B"
+                                        />
+
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor:
+                                                    "#0F172A",
+                                                border: "none",
+                                                borderRadius:
+                                                    "10px",
+                                                color: "#fff",
+                                                fontSize:
+                                                    "12px",
+                                            }}
+                                            cursor={{
+                                                fill: "#F1F5F9",
+                                            }}
+                                            formatter={(value) => [
+                                                `${value} orders`,
+                                                "Volume",
+                                            ]}
+                                        />
+
+                                        <Bar
+                                            dataKey="count"
+                                            radius={[
+                                                6,
+                                                6,
+                                                0,
+                                                0,
+                                            ]}
+                                        >
+                                            {statusChartData.map(
+                                                (
+                                                    entry,
+                                                    index
+                                                ) => (
+                                                    <Cell
+                                                        key={`status-${index}`}
+                                                        fill={
+                                                            STATUS_COLORS[
+                                                                entry
+                                                                    .statusKey
+                                                            ] ||
+                                                            "#1E40AF"
+                                                        }
+                                                    />
+                                                )
+                                            )}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
                             )}
-                        </TableBody>
-                    </Table>
+
+                        </div>
+                    </div>
+
+                    {/* CARGO CHART */}
+
+                    <div className="chart-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+                        <ChartHeader
+                            icon={
+                                <PieIcon
+                                    size={17}
+                                    className="text-[#1E40AF]"
+                                />
+                            }
+                            title="Cargo Distribution"
+                            description="Shipment volume by cargo classification"
+                        />
+
+                        <div className="h-64 mt-4">
+
+                            {loading ? (
+                                <ChartLoading />
+                            ) : cargoChartData.length === 0 ? (
+                                <EmptyChart />
+                            ) : (
+                                <ResponsiveContainer
+                                    width="100%"
+                                    height="100%"
+                                >
+                                    <PieChart>
+                                        <Pie
+                                            data={cargoChartData}
+                                            cx="50%"
+                                            cy="45%"
+                                            innerRadius={48}
+                                            outerRadius={78}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                        >
+                                            {cargoChartData.map(
+                                                (
+                                                    entry,
+                                                    index
+                                                ) => (
+                                                    <Cell
+                                                        key={`cargo-${index}`}
+                                                        fill={
+                                                            entry.color
+                                                        }
+                                                    />
+                                                )
+                                            )}
+                                        </Pie>
+
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor:
+                                                    "#0F172A",
+                                                border: "none",
+                                                borderRadius:
+                                                    "10px",
+                                                color: "#fff",
+                                                fontSize:
+                                                    "12px",
+                                            }}
+                                            formatter={(
+                                                value
+                                            ) => [
+                                                `${value} shipments`,
+                                                "Volume",
+                                            ]}
+                                        />
+
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            height={40}
+                                            iconType="circle"
+                                            wrapperStyle={{
+                                                fontSize:
+                                                    "10px",
+                                                fontWeight: 700,
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            )}
+
+                        </div>
+                    </div>
+
+                    {/* DESTINATION CHART */}
+
+                    <div className="chart-card destination-chart lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+
+                        <div className="flex items-start justify-between">
+
+                            <ChartHeader
+                                icon={
+                                    <Truck
+                                        size={17}
+                                        className="text-[#1E40AF]"
+                                    />
+                                }
+                                title="Top Delivery Destinations"
+                                description="Highest-volume freight destinations"
+                            />
+
+                            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide">
+                                Top 5 Hubs
+                            </span>
+
+                        </div>
+
+                        <div className="h-64 mt-4">
+
+                            {loading ? (
+                                <ChartLoading />
+                            ) : destinationChartData.length ===
+                              0 ? (
+                                <EmptyChart />
+                            ) : (
+                                <ResponsiveContainer
+                                    width="100%"
+                                    height="100%"
+                                >
+                                    <BarChart
+                                        layout="vertical"
+                                        data={
+                                            destinationChartData
+                                        }
+                                        margin={{
+                                            top: 5,
+                                            right: 30,
+                                            left: 10,
+                                            bottom: 5,
+                                        }}
+                                    >
+                                        <CartesianGrid
+                                            strokeDasharray="3 3"
+                                            horizontal={false}
+                                            stroke="#E2E8F0"
+                                        />
+
+                                        <XAxis
+                                            type="number"
+                                            allowDecimals={false}
+                                            tick={{
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                            }}
+                                            stroke="#64748B"
+                                        />
+
+                                        <YAxis
+                                            dataKey="name"
+                                            type="category"
+                                            tick={{
+                                                fontSize: 10,
+                                                fontWeight: 700,
+                                            }}
+                                            stroke="#64748B"
+                                            width={100}
+                                        />
+
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor:
+                                                    "#0F172A",
+                                                border: "none",
+                                                borderRadius:
+                                                    "10px",
+                                                color: "#fff",
+                                                fontSize:
+                                                    "12px",
+                                            }}
+                                            labelFormatter={(
+                                                label,
+                                                payload
+                                            ) =>
+                                                payload?.[0]
+                                                    ?.payload
+                                                    ?.fullName ||
+                                                label
+                                            }
+                                            formatter={(
+                                                value
+                                            ) => [
+                                                `${value} deliveries`,
+                                                "Volume",
+                                            ]}
+                                        />
+
+                                        <Bar
+                                            dataKey="shipments"
+                                            fill="#1E40AF"
+                                            radius={[
+                                                0,
+                                                7,
+                                                7,
+                                                0,
+                                            ]}
+                                            barSize={20}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+
+                        </div>
+                    </div>
+
+                </section>
+
+                {/* =================================================
+                    MANIFEST HEADER
+                ================================================= */}
+
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 pt-2">
+
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                            Detailed Logistics Manifest
+                        </h2>
+
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Complete order records for the selected period
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-500">
+                            Showing
+                        </span>
+
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 font-bold">
+                            {orders.length}
+                        </span>
+
+                        <span className="text-slate-500">
+                            records
+                        </span>
+                    </div>
+
                 </div>
 
-                {/* Professional Signature Section */}
-                <div className="hidden print:grid grid-cols-2 gap-12 mt-20 pt-10 border-t border-slate-200">
-                    <div className="space-y-12">
-                        <div className="border-b border-slate-300 w-full h-12"></div>
-                        <div className="text-center">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">Authorized Signature</p>
-                            <p className="text-[10px] text-slate-400 mt-1 uppercase">Logistics Manager / Department Head</p>
+                {/* =================================================
+                    DATA TABLE
+                ================================================= */}
+
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden print-table">
+
+                    <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <FileBarChart
+                                    size={14}
+                                    className="text-blue-700"
+                                />
+                            </div>
+
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                                Order Records
+                            </h3>
                         </div>
+
+                        <span className="text-[11px] font-mono text-slate-500 font-bold">
+                            {orders.length} Records
+                        </span>
                     </div>
-                    <div className="space-y-12">
-                        <div className="border-b border-slate-300 w-full h-12"></div>
-                        <div className="text-center">
-                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">Date of Approval</p>
-                            <p className="text-[10px] text-slate-400 mt-1 uppercase">Official Stamp Required</p>
-                        </div>
+
+                    <div className="overflow-x-auto">
+
+                        <Table>
+                            <colgroup>
+                                <col className="col-order" />
+                                <col className="col-customer" />
+                                <col className="col-route" />
+                                <col className="col-date" />
+                                <col className="col-status" />
+                            </colgroup>
+
+                            <TableHeader className="bg-slate-50">
+
+                                <TableRow className="border-slate-200">
+
+                                    <TableHead className="px-5 py-3.5 text-[11px] uppercase tracking-wide font-bold text-slate-500">
+                                        Order ID
+                                    </TableHead>
+
+                                    <TableHead className="text-[11px] uppercase tracking-wide font-bold text-slate-500">
+                                        Customer
+                                    </TableHead>
+
+                                    <TableHead className="text-[11px] uppercase tracking-wide font-bold text-slate-500">
+                                        Route
+                                    </TableHead>
+
+                                    <TableHead className="text-[11px] uppercase tracking-wide font-bold text-slate-500">
+                                        Date
+                                    </TableHead>
+
+                                    <TableHead className="text-right text-[11px] uppercase tracking-wide font-bold text-slate-500">
+                                        Status
+                                    </TableHead>
+
+                                </TableRow>
+
+                            </TableHeader>
+
+                            <TableBody>
+
+                                {loading ? (
+                                    <TableRow>
+
+                                        <TableCell
+                                            colSpan={5}
+                                            className="h-56 text-center"
+                                        >
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                                                    <Loader2
+                                                        className="animate-spin text-[#1E40AF]"
+                                                        size={22}
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <p className="text-sm text-slate-700 font-bold">
+                                                        Generating report
+                                                        data...
+                                                    </p>
+
+                                                    <p className="text-xs text-slate-400 mt-1">
+                                                        Please wait
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+
+                                    </TableRow>
+                                ) : orders.length === 0 ? (
+                                    <TableRow>
+
+                                        <TableCell
+                                            colSpan={5}
+                                            className="h-48 text-center"
+                                        >
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                                    <FileBarChart
+                                                        size={20}
+                                                        className="text-slate-400"
+                                                    />
+                                                </div>
+
+                                                <p className="text-sm text-slate-700 font-semibold">
+                                                    No logistics data found
+                                                </p>
+
+                                                <p className="text-xs text-slate-400">
+                                                    Try selecting a different date range.
+                                                </p>
+                                            </div>
+                                        </TableCell>
+
+                                    </TableRow>
+                                ) : (
+                                    orders.map((order) => (
+                                        <TableRow
+                                            key={
+                                                order.order_id
+                                            }
+                                            className="hover:bg-slate-50 transition-colors border-slate-100"
+                                        >
+
+                                            {/* ORDER ID */}
+
+                                            <TableCell className="px-5 py-4">
+                                                <span className="font-mono text-xs text-slate-700 font-bold uppercase print-nowrap">
+                                                    #
+                                                    {String(
+                                                        order.order_id
+                                                    ).padStart(
+                                                        5,
+                                                        "0"
+                                                    )}
+                                                </span>
+                                            </TableCell>
+
+                                            {/* CUSTOMER */}
+
+                                            <TableCell className="py-4">
+
+                                                <div className="flex items-center gap-2.5">
+
+                                                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                                        <span className="text-xs font-bold text-slate-600">
+                                                            {getInitials(
+                                                                order.customer_name
+                                                            )}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm font-bold text-slate-900 truncate max-w-[180px]">
+                                                            {order.customer_name ||
+                                                                "Unknown Customer"}
+                                                        </p>
+
+                                                        <p className="text-[10px] font-mono text-blue-700 font-bold mt-0.5">
+                                                            {order.order_reference ||
+                                                                "No reference"}
+                                                        </p>
+                                                    </div>
+
+                                                </div>
+
+                                            </TableCell>
+
+                                            {/* ROUTE */}
+
+                                            <TableCell className="py-4">
+
+                                                <div className="text-xs font-semibold text-slate-800">
+                                                    {order.route ||
+                                                        `${
+                                                            order.pickup_location ||
+                                                            order.pickup_district ||
+                                                            "N/A"
+                                                        } → ${
+                                                            order.destination_location ||
+                                                            order.destination_district ||
+                                                            "N/A"
+                                                        }`}
+                                                </div>
+
+                                                <div className="mt-1">
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                                                        {order.order_type ||
+                                                            "Order"}
+                                                    </span>
+                                                </div>
+
+                                            </TableCell>
+
+                                            {/* DATE */}
+
+                                            <TableCell className="py-4 text-xs text-slate-600 font-semibold print-nowrap">
+                                                {formatTableDate(
+                                                    order.created_at
+                                                )}
+                                            </TableCell>
+
+                                            {/* STATUS */}
+
+                                            <TableCell className="py-4 text-right">
+                                                <StatusBadge
+                                                    status={
+                                                        order.current_status
+                                                    }
+                                                />
+                                            </TableCell>
+
+                                        </TableRow>
+                                    ))
+                                )}
+
+                            </TableBody>
+
+                        </Table>
+
                     </div>
                 </div>
+
+                {/* =================================================
+                    PRINT SIGNATURE SECTION
+                ================================================= */}
+
+                <div className="hidden print:grid grid-cols-2 gap-12 mt-12 pt-8 border-t border-slate-200">
+
+                    <div className="space-y-8">
+                        <div className="border-b border-slate-300 w-full h-10" />
+
+                        <div className="text-center">
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">
+                                Authorized Signature
+                            </p>
+
+                            <p className="text-[10px] text-slate-400 mt-1 uppercase">
+                                Logistics Manager / Department Head
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="border-b border-slate-300 w-full h-10" />
+
+                        <div className="text-center">
+                            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-800">
+                                Date of Approval
+                            </p>
+
+                            <p className="text-[10px] text-slate-400 mt-1 uppercase">
+                                Official Stamp Required
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
         </div>
     );
 }
 
-// Reusable UI Components
-function StatCard({ title, value, color = "text-slate-900", loading, icon }) {
+/* =========================================================
+   STAT CARD
+========================================================= */
+
+function StatCard({
+    title,
+    value,
+    subtitle,
+    icon,
+    color = "blue",
+    loading,
+}) {
+    const colors = {
+        blue: {
+            icon: "bg-blue-50 text-blue-700",
+            value: "text-blue-700",
+        },
+
+        green: {
+            icon: "bg-emerald-50 text-emerald-700",
+            value: "text-emerald-700",
+        },
+
+        indigo: {
+            icon: "bg-indigo-50 text-indigo-700",
+            value: "text-indigo-700",
+        },
+
+        purple: {
+            icon: "bg-purple-50 text-purple-700",
+            value: "text-purple-700",
+        },
+    };
+
+    const theme = colors[color] || colors.blue;
+
     return (
-        <div className="stat-card bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-            <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5 ${color}`}>
-                {icon} {title}
-            </p>
-            <h2 className={`text-3xl font-black ${color}`}>{loading ? "..." : value}</h2>
+        <div className="stat-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+
+            <div className="flex items-start justify-between gap-3">
+
+                <div className="min-w-0">
+
+                    <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                        {title}
+                    </p>
+
+                    <p
+                        className={`text-2xl md:text-3xl font-black tracking-tight mt-2 ${theme.value}`}
+                    >
+                        {loading ? (
+                            <span className="text-slate-300">
+                                ...
+                            </span>
+                        ) : (
+                            value
+                        )}
+                    </p>
+
+                    <p className="text-[11px] text-slate-500 font-medium mt-1">
+                        {subtitle}
+                    </p>
+
+                </div>
+
+                <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${theme.icon}`}
+                >
+                    {icon}
+                </div>
+
+            </div>
+
         </div>
     );
 }
 
+/* =========================================================
+   CHART HEADER
+========================================================= */
+
+function ChartHeader({
+    icon,
+    title,
+    description,
+}) {
+    return (
+        <div className="flex items-start gap-3">
+
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                {icon}
+            </div>
+
+            <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                    {title}
+                </h3>
+
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    {description}
+                </p>
+            </div>
+
+        </div>
+    );
+}
+
+/* =========================================================
+   CHART LOADING
+========================================================= */
+
+function ChartLoading() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center gap-2">
+            <Loader2
+                size={22}
+                className="animate-spin text-blue-600"
+            />
+
+            <span className="text-xs text-slate-400 font-medium">
+                Loading analytics...
+            </span>
+        </div>
+    );
+}
+
+/* =========================================================
+   EMPTY CHART
+========================================================= */
+
+function EmptyChart() {
+    return (
+        <div className="h-full flex flex-col items-center justify-center">
+            <BarChart3
+                size={28}
+                className="text-slate-300"
+            />
+
+            <p className="text-xs text-slate-400 font-medium mt-2">
+                No data available
+            </p>
+        </div>
+    );
+}
+
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
 function StatusBadge({ status }) {
-    const s = status?.toLowerCase();
-    const isCompleted = s === 'completed';
-    const isPending = s === 'pending';
+    const normalizedStatus =
+        status?.toLowerCase() || "created";
+
+    const label =
+        STATUS_LABELS[normalizedStatus] ||
+        normalizedStatus.replace(/_/g, " ");
+
+    const color =
+        STATUS_COLORS[normalizedStatus] ||
+        "#64748B";
 
     return (
-        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${isCompleted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-            isPending ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                'bg-blue-100 text-blue-700 border border-blue-200'
-            }`}>
-            {status?.replace('_', ' ') || 'Pending'}
+        <span
+            className="status-badge inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wide border"
+            style={{
+                color,
+                backgroundColor: `${color}15`,
+                borderColor: `${color}30`,
+            }}
+        >
+            <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{
+                    backgroundColor: color,
+                }}
+            />
+
+            {label}
         </span>
     );
+}
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function formatDate(date) {
+    if (!date) return "";
+
+    return new Date(date).toLocaleDateString(
+        "en-GB",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }
+    );
+}
+
+function formatTableDate(date) {
+    if (!date) return "N/A";
+
+    return new Date(date).toLocaleDateString(
+        "en-GB",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }
+    );
+}
+
+function getInitials(name) {
+    if (!name) return "CU";
+
+    return name
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((word) => word[0])
+        .join("")
+        .toUpperCase();
 }

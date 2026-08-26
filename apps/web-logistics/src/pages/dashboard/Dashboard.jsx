@@ -1,14 +1,89 @@
-import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-    Package, Truck, AlertTriangle,
-    ArrowRight, Activity, Calendar, Loader2, RefreshCcw, CheckCircle2, Navigation,
-    Eye
+    Activity,
+    AlertTriangle,
+    ArrowRight,
+    ArrowUpRight,
+    Calendar,
+    CheckCircle2,
+    Clock3,
+    Loader2,
+    Package,
+    RefreshCcw,
+    Truck,
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button } from "@conntrack/ui/shadcn";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import {
+    Badge,
+    Button,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/ui";
 
 import api from "../../config/api";
+
+/* =========================================================
+   STATUS CONFIGURATION
+========================================================= */
+
+const STATUS_CONFIG = {
+    completed: {
+        dot: "bg-emerald-500",
+        badge: "bg-emerald-50 text-emerald-700 border-emerald-200",
+        label: "Completed",
+    },
+
+    in_transit: {
+        dot: "bg-blue-500",
+        badge: "bg-blue-50 text-blue-700 border-blue-200",
+        label: "In Transit",
+    },
+
+    at_port: {
+        dot: "bg-amber-500",
+        badge: "bg-amber-50 text-amber-700 border-amber-200",
+        label: "At Port",
+    },
+
+    pending: {
+        dot: "bg-slate-400",
+        badge: "bg-slate-50 text-slate-600 border-slate-200",
+        label: "Pending",
+    },
+};
+
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
+function StatusBadge({ status }) {
+    const key = status?.toLowerCase() || "pending";
+
+    const cfg =
+        STATUS_CONFIG[key] || STATUS_CONFIG.pending;
+
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold border ${cfg.badge}`}
+        >
+            <span
+                className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`}
+            />
+
+            {cfg.label}
+        </span>
+    );
+}
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -17,31 +92,58 @@ export default function Dashboard() {
         importOrdersCount: 0,
         exportOrdersCount: 0,
         recentActivity: [],
-        stats: { inTransitCount: 0, completedOrders: 0 }
+        stats: {
+            inTransitCount: 0,
+            completedOrders: 0,
+        },
     });
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    /* =====================================================
+       LOAD DASHBOARD DATA
+    ===================================================== */
 
     const loadDashboard = useCallback(async () => {
         setLoading(true);
         setError(null);
+
         try {
-            const response = await api.get("/logistics/dashboard-summary");
+            const response = await api.get(
+                "/logistics/dashboard-summary"
+            );
+
             const result = response.data;
 
             setData({
-                importOrdersCount: result?.importOrdersCount ?? 0,
-                exportOrdersCount: result?.exportOrdersCount ?? 0,
-                recentActivity: result?.recentActivity || [],
+                importOrdersCount:
+                    result?.importOrdersCount ?? 0,
+
+                exportOrdersCount:
+                    result?.exportOrdersCount ?? 0,
+
+                recentActivity:
+                    result?.recentActivity || [],
+
                 stats: {
-                    inTransitCount: result?.stats?.inTransitCount ?? 0,
-                    completedOrders: result?.stats?.completedOrders ?? 0
-                }
+                    inTransitCount:
+                        result?.stats?.inTransitCount ?? 0,
+
+                    completedOrders:
+                        result?.stats?.completedOrders ?? 0,
+                },
             });
         } catch (err) {
-            console.error("Dashboard Load Error:", err);
-            const errorMessage = err.response?.data?.message || "Failed to sync with logistics server";
-            setError(errorMessage);
+            console.error(
+                "Dashboard Load Error:",
+                err
+            );
+
+            setError(
+                err.response?.data?.message ||
+                    "Failed to connect to the logistics server."
+            );
         } finally {
             setLoading(false);
         }
@@ -51,152 +153,547 @@ export default function Dashboard() {
         loadDashboard();
     }, [loadDashboard]);
 
-    const today = new Date().toLocaleDateString("en-US", {
-        weekday: "long", year: "numeric", month: "long", day: "numeric",
-    });
+    /* =====================================================
+       DATE
+    ===================================================== */
+
+    const today = new Date().toLocaleDateString(
+        "en-US",
+        {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        }
+    );
+
+    /* =====================================================
+       METRIC CARDS
+    ===================================================== */
 
     const cards = [
-        { label: "Import Orders", count: data.importOrdersCount, icon: Package, color: "text-blue-600", border: "border-t-blue-600" },
-        { label: "Export Orders", count: data.exportOrdersCount, icon: Truck, color: "text-emerald-600", border: "border-t-emerald-600" },
-        { label: "In Transit", count: data.stats.inTransitCount, icon: Truck, color: "text-amber-500", border: "border-t-amber-500" },
-        { label: "Completed Deliveries", count: data.stats.completedOrders, icon: CheckCircle2, color: "text-indigo-600", border: "border-t-indigo-600" },
+        {
+            label: "Import Orders",
+            value: data.importOrdersCount,
+            description: "Inbound shipments",
+            icon: Package,
+            color: "text-blue-700",
+            bg: "bg-blue-50",
+            border: "border-blue-100",
+        },
+
+        {
+            label: "Export Orders",
+            value: data.exportOrdersCount,
+            description: "Outbound shipments",
+            icon: Truck,
+            color: "text-emerald-700",
+            bg: "bg-emerald-50",
+            border: "border-emerald-100",
+        },
+
+        {
+            label: "In Transit",
+            value: data.stats.inTransitCount,
+            description: "Currently moving",
+            icon: Activity,
+            color: "text-amber-700",
+            bg: "bg-amber-50",
+            border: "border-amber-100",
+        },
+
+        {
+            label: "Completed",
+            value: data.stats.completedOrders,
+            description: "Successfully delivered",
+            icon: CheckCircle2,
+            color: "text-indigo-700",
+            bg: "bg-indigo-50",
+            border: "border-indigo-100",
+        },
     ];
+
+    /* =====================================================
+       LOADING STATE
+    ===================================================== */
 
     if (loading) {
         return (
-            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
-                <Loader2 className="h-10 w-10 animate-spin text-[#052659]" />
-                <p className="text-sm font-medium text-slate-500 animate-pulse">Syncing fleet data...</p>
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                        <Loader2
+                            className="animate-spin text-blue-600"
+                            size={24}
+                        />
+                    </div>
+
+                    <div className="text-center">
+                        <p className="text-sm font-bold text-slate-700">
+                            Loading dashboard
+                        </p>
+
+                        <p className="text-xs text-slate-400 mt-1">
+                            Fetching the latest logistics activity...
+                        </p>
+                    </div>
+                </div>
             </div>
         );
     }
+
+    /* =====================================================
+       ERROR STATE
+    ===================================================== */
 
     if (error) {
         return (
-            <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-slate-50">
-                <div className="p-4 bg-red-50 rounded-full"><AlertTriangle className="h-10 w-10 text-red-600" /></div>
-                <div className="text-center">
-                    <h2 className="text-lg font-bold text-slate-900">Connection Failed</h2>
-                    <p className="text-sm text-slate-500 max-w-xs">{error}</p>
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+                <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-7 text-center">
+
+                    <div className="mx-auto w-12 h-12 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-center">
+                        <AlertTriangle
+                            className="text-rose-500"
+                            size={23}
+                        />
+                    </div>
+
+                    <h2 className="text-base font-bold text-slate-900 mt-4">
+                        Couldn't load dashboard
+                    </h2>
+
+                    <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+                        {error}
+                    </p>
+
+                    <Button
+                        onClick={loadDashboard}
+                        className="mt-5 bg-slate-900 hover:bg-slate-800 rounded-xl"
+                    >
+                        <RefreshCcw size={15} />
+                        Try Again
+                    </Button>
                 </div>
-                <Button onClick={loadDashboard} variant="outline" className="gap-2"><RefreshCcw size={16} /> Retry Connection</Button>
             </div>
         );
     }
 
+    /* =====================================================
+       MAIN UI
+    ===================================================== */
+
     return (
-        <div className="min-h-screen bg-slate-50/50 p-6 space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Logistics Overview</h1>
-                    <p className="text-sm text-slate-500 font-medium">Welcome back, <span className="text-[#052659]">Binuwara</span></p>
-                </div>
-                <div className="flex items-center gap-3 text-sm font-medium text-slate-600 bg-white border border-slate-200 px-4 py-2 rounded-lg shadow-sm">
-                    <Calendar size={16} className="text-[#052659]" />
-                    {today}
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
-                </div>
-            </div>
+        <div className="min-h-screen bg-slate-50 p-5 md:p-6 lg:p-8">
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                {cards.map((card) => (
-                    <Card key={card.label} className={`border-t-4 ${card.border} border-x-slate-200 border-b-slate-200 shadow-sm hover:shadow-md transition-all`}>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">{card.label}</CardTitle>
-                            <card.icon className={`h-5 w-5 ${card.color} opacity-80`} />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-slate-900">{card.count ?? 0}</div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+            <div className="max-w-7xl mx-auto space-y-6">
 
-            <Card className="border-slate-200 shadow-sm overflow-hidden">
-                <CardHeader className="bg-white border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 bg-[#EBF4FF] rounded-lg">
-                            <Activity className="h-5 w-5 text-[#052659]" />
+                {/* =================================================
+                    HEADER
+                ================================================= */}
+
+                <section className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5 md:p-6">
+
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+
+                        {/* TITLE */}
+
+                        <div className="flex items-start gap-4">
+
+                            <div className="w-11 h-11 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                                <Activity
+                                    size={22}
+                                    className="text-blue-700"
+                                />
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600">
+                                    Logistics Operations
+                                </p>
+
+                                <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
+                                    Dashboard
+                                </h1>
+
+                                <p className="text-sm text-slate-500 mt-1">
+                                    Overview of your current shipment activity and operations.
+                                </p>
+                            </div>
+
                         </div>
-                        <div>
-                            <CardTitle className="text-lg text-slate-800">Recent Activity</CardTitle>
+
+                        {/* DATE */}
+
+                        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
+
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center">
+                                <Calendar
+                                    size={15}
+                                    className="text-slate-600"
+                                />
+                            </div>
+
+                            <div>
+                                <p className="text-[10px] uppercase tracking-wide font-bold text-slate-400">
+                                    Today
+                                </p>
+
+                                <p className="text-xs sm:text-sm font-bold text-slate-700">
+                                    {today}
+                                </p>
+                            </div>
+
+                            <span className="ml-1 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
 
                         </div>
+
                     </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader className="bg-slate-50">
-                            <TableRow>
-                                <TableHead className="font-semibold">Order ID</TableHead>
-                                <TableHead className="font-semibold">Reference</TableHead>
-                                <TableHead className="font-semibold">Type</TableHead>
-                                <TableHead className="font-semibold">Asset / Driver</TableHead>
-                                <TableHead className="font-semibold">Status</TableHead>
-                                <TableHead className="text-right font-semibold">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.recentActivity?.length > 0 ? (
-                                data.recentActivity.map((order) => (
-                                    <TableRow key={order.order_id} className="hover:bg-slate-50/80 group">
-                                        <TableCell className="font-medium text-slate-500 text-xs">
-                                            #{order.order_id}
-                                        </TableCell>
-                                        <TableCell className="font-bold text-[#052659]">
-                                            {order.order_reference || "N/A"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="secondary"
-                                                className={order.order_type === 'import'
-                                                    ? "bg-purple-50 text-purple-700 border-purple-100"
-                                                    : "bg-blue-50 text-blue-700 border-blue-100"}
-                                            >
-                                                {(order.order_type || "Unknown").toUpperCase()}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-semibold text-slate-700">{order.vehicle_number || "Unassigned"}</span>
-                                                <span className="text-xs text-slate-500">{order.driver_name || "No driver assigned"}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`h-2 w-2 rounded-full ${order.current_status === 'completed' ? 'bg-emerald-500' :
-                                                    order.current_status === 'in_transit' ? 'bg-blue-500' :
-                                                        order.current_status === 'at_port' ? 'bg-amber-500' : 'bg-slate-300'
-                                                    }`} />
-                                                <span className="text-sm font-medium capitalize text-slate-600">{(order.current_status || "pending").replace('_', ' ')}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="transition-all hover:bg-blue-50 text-[#052659] gap-2 border-blue-200"
-                                                onClick={() => navigate(`/orders/${order.order_id}`)}
-                                            >
-                                                <Package size={14} /> View
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center">
-                                        <div className="flex flex-col items-center justify-center text-slate-400">
-                                            <Package className="h-8 w-8 mb-2 opacity-20" />
-                                            <p className="italic">No active logistics records found.</p>
+
+                </section>
+
+                {/* =================================================
+                    KPI CARDS
+                ================================================= */}
+
+                <section>
+
+                    <div className="flex items-center justify-between mb-3">
+
+                        <div>
+                            <h2 className="text-sm font-bold text-slate-900">
+                                Operations Overview
+                            </h2>
+
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                Current shipment statistics
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+                        {cards.map((card) => {
+                            const Icon = card.icon;
+
+                            return (
+                                <div
+                                    key={card.label}
+                                    className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all"
+                                >
+
+                                    <div className="flex items-start justify-between gap-3">
+
+                                        <div>
+                                            <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                                                {card.label}
+                                            </p>
+
+                                            <p className="text-3xl font-black text-slate-900 tracking-tight mt-2">
+                                                {card.value ?? 0}
+                                            </p>
+
+                                            <p className="text-[11px] text-slate-500 font-medium mt-1">
+                                                {card.description}
+                                            </p>
                                         </div>
-                                    </TableCell>
+
+                                        <div
+                                            className={`w-10 h-10 rounded-xl flex items-center justify-center border ${card.bg} ${card.color} ${card.border}`}
+                                        >
+                                            <Icon size={19} />
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            );
+                        })}
+
+                    </div>
+
+                </section>
+
+                {/* =================================================
+                    ACTIVITY SECTION
+                ================================================= */}
+
+                <section className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+                    {/* HEADER */}
+
+                    <div className="px-5 md:px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+                        <div className="flex items-center gap-3">
+
+                            <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                                <Clock3
+                                    size={17}
+                                    className="text-blue-700"
+                                />
+                            </div>
+
+                            <div>
+                                <h2 className="text-sm font-bold text-slate-900">
+                                    Recent Activity
+                                </h2>
+
+                                <p className="text-[11px] text-slate-500 mt-0.5">
+                                    Latest shipment records across your orders
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <button
+                            onClick={() =>
+                                navigate("/orders")
+                            }
+                            className="self-start sm:self-auto text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
+                        >
+                            View all orders
+                            <ArrowRight size={13} />
+                        </button>
+
+                    </div>
+
+                    {/* TABLE */}
+
+                    <div className="overflow-x-auto">
+
+                        <Table>
+
+                            <TableHeader>
+
+                                <TableRow className="bg-slate-50 border-b border-slate-100">
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Order
+                                    </TableHead>
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Reference
+                                    </TableHead>
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Type
+                                    </TableHead>
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Vehicle / Driver
+                                    </TableHead>
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Status
+                                    </TableHead>
+
+                                    <TableHead className="py-3.5 px-5 md:px-6 text-right text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                        Action
+                                    </TableHead>
+
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+
+                            </TableHeader>
+
+                            <TableBody>
+
+                                {data.recentActivity?.length > 0 ? (
+
+                                    data.recentActivity.map(
+                                        (order) => (
+                                            <TableRow
+                                                key={
+                                                    order.order_id
+                                                }
+                                                className="hover:bg-slate-50/80 transition-colors border-slate-100"
+                                            >
+
+                                                {/* ORDER */}
+
+                                                <TableCell className="py-4 px-5 md:px-6">
+
+                                                    <div className="flex items-center gap-3">
+
+                                                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                                                            <Package
+                                                                size={14}
+                                                                className="text-slate-600"
+                                                            />
+                                                        </div>
+
+                                                        <span className="font-mono text-xs font-bold text-slate-700">
+                                                            #
+                                                            {
+                                                                order.order_id
+                                                            }
+                                                        </span>
+
+                                                    </div>
+
+                                                </TableCell>
+
+                                                {/* REFERENCE */}
+
+                                                <TableCell className="py-4 px-5 md:px-6">
+
+                                                    <span className="text-sm font-semibold text-slate-800">
+                                                        {order.order_reference ||
+                                                            "—"}
+                                                    </span>
+
+                                                </TableCell>
+
+                                                {/* TYPE */}
+
+                                                <TableCell className="py-4 px-5 md:px-6">
+
+                                                    <OrderTypeBadge
+                                                        type={
+                                                            order.order_type
+                                                        }
+                                                    />
+
+                                                </TableCell>
+
+                                                {/* VEHICLE / DRIVER */}
+
+                                                <TableCell className="py-4 px-5 md:px-6">
+
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-800">
+                                                            {order.vehicle_number ||
+                                                                "No vehicle assigned"}
+                                                        </p>
+
+                                                        <p className="text-[11px] text-slate-400 mt-0.5">
+                                                            {order.driver_name ||
+                                                                "No driver assigned"}
+                                                        </p>
+                                                    </div>
+
+                                                </TableCell>
+
+                                                {/* STATUS */}
+
+                                                <TableCell className="py-4 px-5 md:px-6">
+                                                    <StatusBadge
+                                                        status={
+                                                            order.current_status
+                                                        }
+                                                    />
+                                                </TableCell>
+
+                                                {/* ACTION */}
+
+                                                <TableCell className="py-4 px-5 md:px-6 text-right">
+
+                                                    <button
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/orders/${order.order_id}`
+                                                            )
+                                                        }
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-bold transition-all"
+                                                    >
+                                                        Details
+                                                        <ArrowUpRight
+                                                            size={
+                                                                13
+                                                            }
+                                                        />
+                                                    </button>
+
+                                                </TableCell>
+
+                                            </TableRow>
+                                        )
+                                    )
+
+                                ) : (
+
+                                    <TableRow>
+
+                                        <TableCell
+                                            colSpan={6}
+                                            className="h-52 text-center"
+                                        >
+
+                                            <div className="flex flex-col items-center justify-center">
+
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                                                    <Package
+                                                        size={23}
+                                                        className="text-slate-300"
+                                                    />
+                                                </div>
+
+                                                <p className="text-sm font-bold text-slate-600 mt-3">
+                                                    No shipment activity yet
+                                                </p>
+
+                                                <p className="text-xs text-slate-400 mt-1">
+                                                    Orders will appear here once they are created.
+                                                </p>
+
+                                            </div>
+
+                                        </TableCell>
+
+                                    </TableRow>
+                                )}
+
+                            </TableBody>
+
+                        </Table>
+
+                    </div>
+
+                </section>
+
+                {/* =================================================
+                    FOOTER SUMMARY
+                ================================================= */}
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
+
+                    <p className="text-[11px] text-slate-400">
+                        ConnTrack Logistics Management System
+                    </p>
+
+                    <p className="text-[11px] text-slate-400">
+                        Dashboard data is retrieved from the latest server records.
+                    </p>
+
+                </div>
+
+            </div>
+
         </div>
+    );
+}
+
+/* =========================================================
+   ORDER TYPE BADGE
+========================================================= */
+
+function OrderTypeBadge({ type }) {
+    const normalized =
+        type?.toLowerCase() || "unknown";
+
+    const isImport =
+        normalized === "import";
+
+    return (
+        <Badge
+            variant="secondary"
+            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                isImport
+                    ? "bg-purple-50 text-purple-700 border-purple-200"
+                    : "bg-sky-50 text-sky-700 border-sky-200"
+            }`}
+        >
+            {normalized.charAt(0).toUpperCase() +
+                normalized.slice(1)}
+        </Badge>
     );
 }
