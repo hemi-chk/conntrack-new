@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 5001
 
 // Separate anon-key client for user-facing auth operations
 const supabaseAuth = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY || 'placeholder'
 )
 
 app.use(cors())
