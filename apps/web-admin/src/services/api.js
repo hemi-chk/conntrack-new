@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 
 // Anon-key client used only to refresh expired sessions
 const authClient = createClient(
-  import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co',
-  import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder'
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
 )
 
 const clearSessionAndReload = () => {
