@@ -12,14 +12,25 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Load deploy key into ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 40m
-          script: |
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy over SSH
+        env:
+          SERVICES_INPUT: ${{ github.event.inputs.services }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+          SERVICES="$SERVICES_INPUT"
+          if [ -z "$SERVICES" ] || [ "$SERVICES" = "all" ]; then
+            SERVICES="api-admin api-auth api-driver api-gateway api-logistics api-operations api-supplier web-admin web-operations web-logistics web-supplier"
+          fi
+
+          ssh "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" bash -s <<EOF
             set -e
             cd ~/conntrack-new
 
@@ -27,15 +38,10 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
-            SERVICES="${{ github.event.inputs.services }}"
-            if [ -z "$SERVICES" ] || [ "$SERVICES" = "all" ]; then
-              SERVICES="api-admin api-auth api-driver api-gateway api-logistics api-operations api-supplier web-admin web-operations web-logistics web-supplier"
-            fi
-
             echo "=== Building: $SERVICES ==="
             for svc in $SERVICES; do
-              echo "--- Building $svc ---"
-              docker compose build "$svc"
+              echo "--- Building \$svc ---"
+              docker compose build "\$svc"
             done
 
             echo "=== Restarting services ==="
@@ -43,3 +49,4 @@ jobs:
 
             echo "=== Current status ==="
             docker compose ps
+          EOF
