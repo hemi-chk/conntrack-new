@@ -74,33 +74,7 @@ router.post("/issues", createIssue);
 router.get("/issues", getAllIssues);
 router.patch("/issues/:id/status", updateIssueStatus);
 
-<<<<<<<< HEAD:apps/api-logistics/src/routes/logistics.routes.js
-export default router;
-========
-router.post(
-    "/issues",
-    createIssue
-);
-
-router.get(
-    "/issues",
-    getAllIssues
-);
-
-router.patch(
-    "/issues/:id/status",
-    updateIssueStatus
-);
-
-router.post(
-    "/tracking/location",
-    updateTrackingLocation
-);
-
-router.get(
-    "/orders/:orderId/tracking",
-    getTrackingByOrderId
-);
+router.post("/tracking/location", updateTrackingLocation);
+router.get("/orders/:orderId/tracking", getTrackingByOrderId);
 
 export default router;
->>>>>>>> dc52815 ( scaffold API admin routes, update UI component library, and configure monorepo dependencies):apps/api-admin/src/routes/logistics.routes.js
