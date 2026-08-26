@@ -245,23 +245,35 @@ export const getOrderById = async (req, res) => {
 };
 
 export const getOrdersByType = async (req, res) => {
-    const { type } = req.query;
+    const type = typeof req.query.type === 'string'
+        ? req.query.type.trim().toLowerCase()
+        : '';
 
     try {
-        const { data, error } = await supabase
+        let ordersQuery = supabase
             .from('orders')
             .select(`*, customers (customer_name)`)
-            .eq('order_type', type)
             .order('created_at', { ascending: false });
+
+        if (type) {
+            ordersQuery = ordersQuery.eq('order_type', type);
+        }
+
+        const { data, error } = await ordersQuery;
 
         if (error) throw error;
 
         res.status(200).json(
-            data.map(order => ({
-                ...order,
-                customer_name: order.customers?.customer_name || 'N/A',
-                route: `${order.pickup_state} → ${order.destination_state}`
-            }))
+            data.map(order => {
+                const pickup = order.pickup_location || order.pickup_state || order.pickup_district || 'N/A';
+                const destination = order.destination_location || order.destination_state || order.destination_district || 'N/A';
+
+                return {
+                    ...order,
+                    customer_name: order.customers?.customer_name || 'N/A',
+                    route: `${pickup} → ${destination}`
+                };
+            })
         );
 
     } catch (error) {
@@ -298,6 +310,8 @@ export const getTrackingByOrderId = async (req, res) => {
                 tracking_id,
                 status,
                 current_location,
+                latitude,
+                longitude,
                 recorded_at,
 
                 orders (
@@ -350,6 +364,8 @@ export const getTrackingByOrderId = async (req, res) => {
             tracking_details: {
                 status: data.status,
                 location: data.current_location,
+                latitude: data.latitude,
+                longitude: data.longitude,
                 timestamp: data.recorded_at
             },
 

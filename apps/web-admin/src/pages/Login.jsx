@@ -43,6 +43,7 @@ export default function Login() {
       } else if (externalRedirectMap[data.role]) {
         const redirectUrl = new URL(externalRedirectMap[data.role])
         redirectUrl.searchParams.set("token", data.token)
+        redirectUrl.searchParams.set("refresh_token", data.refresh_token || '')
         redirectUrl.searchParams.set("role", data.role)
         redirectUrl.searchParams.set("user", JSON.stringify(data.user))
         window.location.href = redirectUrl.toString()

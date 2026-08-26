@@ -1,18 +1,18 @@
 import { useState } from 'react'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Orders from './pages/Orders'
-import OrderDetails from './pages/OrderDetails'
 import Bids from './pages/Bids'
-import Drivers from './pages/Drivers'
-import Suppliers from './pages/Suppliers'
-import Operations from './pages/Operations'
-import Logistics from './pages/Logistics'
+import Dashboard from './pages/Dashboard'
 import Documents from './pages/Documents'
-import Settings from './pages/Settings'
-import Staff from './pages/Staff'
+import Drivers from './pages/Drivers'
 import Issues from './pages/Issues'
 import Login from './pages/Login'
+import Logistics from './pages/Logistics'
+import Operations from './pages/Operations'
+import OrderDetails from './pages/OrderDetails'
+import Orders from './pages/Orders'
+import Settings from './pages/Settings'
+import Staff from './pages/Staff'
+import Suppliers from './pages/Suppliers'
 
 
 function App() {
@@ -45,6 +45,7 @@ function App() {
     if (externalRedirectMap[role]) {
       const redirectUrl = new URL(externalRedirectMap[role])
       redirectUrl.searchParams.set("token", token)
+      redirectUrl.searchParams.set("refresh_token", localStorage.getItem('refresh_token') || '')
       redirectUrl.searchParams.set("role", role)
       redirectUrl.searchParams.set("user", localStorage.getItem('user') || '{}')
       localStorage.clear()

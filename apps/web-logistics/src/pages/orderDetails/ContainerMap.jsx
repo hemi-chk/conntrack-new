@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { Button, Card, CardContent } from "@/ui";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Clock, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
-import { Card, CardContent, Button } from "@/ui";
+import { AlertCircle, Loader2, MapPin, Navigation, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import api from '../../config/api';
+import { supabase } from '../../config/supabase';
 
 // Fix standard Leaflet default marker icon issue in React/Vite builds
 delete L.Icon.Default.prototype._getIconUrl;
@@ -54,10 +55,33 @@ const ContainerMap = ({ orderId, latitude: initialLat, longitude: initialLng, lo
     try {
       setLoading(true);
       setError(false);
+
+      const numericOrderId = Number(orderId);
+      const { data: trackingRecord, error: trackingError } = Number.isInteger(numericOrderId)
+        ? await supabase
+            .from('container_tracking')
+            .select('latitude, longitude, current_location, status, recorded_at')
+            .eq('order_id', numericOrderId)
+            .order('recorded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null, error: null };
+
+      if (!trackingError && trackingRecord) {
+        setLocationData({
+          latitude: parseFloat(trackingRecord.latitude),
+          longitude: parseFloat(trackingRecord.longitude),
+          current_location: trackingRecord.current_location || initialLocation || "Logistics Hub",
+          status: trackingRecord.status || initialStatus || "in_transit",
+          timestamp: trackingRecord.recorded_at || null
+        });
+        return;
+      }
+
       const res = await api.get(`/logistics/tracking/order/${orderId}`);
-      
-      if (res.data && res.data.trackingAvailable && res.data.tracking_details) {
-        const details = res.data.tracking_details;
+      const details = res.data?.tracking_details;
+
+      if (res.data?.trackingAvailable && details) {
         setLocationData({
           latitude: parseFloat(details.latitude),
           longitude: parseFloat(details.longitude),
@@ -109,27 +133,7 @@ const ContainerMap = ({ orderId, latitude: initialLat, longitude: initialLng, lo
     );
   }
 
-  if (!isValidCoords) {
-    return (
-      <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white mt-6">
-        <div className="bg-slate-50/75 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#1E40AF]">
-            <MapPin size={16} />
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Container Map Location</span>
-          </div>
-          <Button variant="ghost" size="sm" onClick={fetchContainerTrackingLocation} className="h-8 gap-1.5 text-xs text-slate-600">
-            <RefreshCw size={14} /> Refresh
-          </Button>
-        </div>
-        <CardContent className="p-8 text-center text-slate-500 text-sm flex flex-col items-center justify-center gap-2">
-          <AlertCircle className="text-amber-500" size={24} />
-          <span>No GPS coordinates found in container tracking table for Order #{orderId}</span>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const position = [lat, lng];
+  const position = isValidCoords ? [lat, lng] : [7.8731, 80.7718];
 
   return (
     <Card className="border-slate-200 shadow-sm rounded-xl overflow-hidden bg-white mt-6">
@@ -140,9 +144,11 @@ const ContainerMap = ({ orderId, latitude: initialLat, longitude: initialLng, lo
           <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Container Map Location</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-slate-500 font-semibold">
-            Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}
-          </span>
+          {isValidCoords && (
+            <span className="text-xs font-mono text-slate-500 font-semibold">
+              Lat: {lat.toFixed(5)}, Lng: {lng.toFixed(5)}
+            </span>
+          )}
           <Button variant="ghost" size="sm" onClick={fetchContainerTrackingLocation} className="h-7 px-2 text-xs text-slate-600 hover:text-blue-600">
             <RefreshCw size={13} />
           </Button>
@@ -162,21 +168,32 @@ const ContainerMap = ({ orderId, latitude: initialLat, longitude: initialLng, lo
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapViewUpdater position={position} />
-            <Marker position={position} icon={customIcon}>
-              <Popup>
-                <div className="text-xs font-sans p-1">
-                  <p className="font-bold text-slate-800 text-sm mb-1">{locationData.current_location}</p>
-                  <p className="text-slate-600 capitalize"><strong>Status:</strong> {locationData.status ? locationData.status.replace('_', ' ') : 'N/A'}</p>
-                  {locationData.timestamp && (
-                    <p className="text-slate-500 text-[11px] mt-1">
-                      <strong>Last sync:</strong> {new Date(locationData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
-                  <p className="text-slate-500 text-[11px] mt-1 font-mono">GPS Coords: {lat.toFixed(4)}, {lng.toFixed(4)}</p>
-                </div>
-              </Popup>
-            </Marker>
+            {isValidCoords && (
+              <Marker position={position} icon={customIcon}>
+                <Popup>
+                  <div className="text-xs font-sans p-1">
+                    <p className="font-bold text-slate-800 text-sm mb-1">{locationData.current_location}</p>
+                    <p className="text-slate-600 capitalize"><strong>Status:</strong> {locationData.status ? locationData.status.replace('_', ' ') : 'N/A'}</p>
+                    {locationData.timestamp && (
+                      <p className="text-slate-500 text-[11px] mt-1">
+                        <strong>Last sync:</strong> {new Date(locationData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
+                    <p className="text-slate-500 text-[11px] mt-1 font-mono">GPS Coords: {lat.toFixed(4)}, {lng.toFixed(4)}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
           </MapContainer>
+          {!isValidCoords && (
+            <div className="absolute inset-0 z-[400] flex items-center justify-center bg-white/70 p-6 text-center backdrop-blur-[1px]">
+              <div className="rounded-xl border border-amber-200 bg-white px-5 py-4 shadow-sm">
+                <AlertCircle className="mx-auto text-amber-500" size={24} />
+                <p className="mt-2 text-sm font-bold text-slate-700">GPS location unavailable</p>
+                <p className="mt-1 text-xs text-slate-500">No coordinates found for Order #{orderId} in container tracking.</p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
