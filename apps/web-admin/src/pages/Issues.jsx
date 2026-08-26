@@ -39,7 +39,7 @@ const PRIORITY_META = {
 // form: "Delay/Tracking Issue", legacy driver rows: "delay_issue", etc).
 // Normalize by keyword so they group under one canonical set instead of
 // fragmenting into near-duplicates on this page.
-const CATEGORIES = ['Mechanical Breakdown', 'Traffic/Route Delay', 'Documentation Issue', 'Cargo Damage', 'Other']
+const CATEGORIES = ['Mechanical Breakdown', 'Traffic/Route Delay', 'Documentation Issue', 'Cargo Damage', 'Driver Issue', 'Insurance Issue', 'Other']
 
 function normalizeCategory(issueType) {
   const t = (issueType || '').toLowerCase()
@@ -47,6 +47,8 @@ function normalizeCategory(issueType) {
   if (/route|delay|traffic|tracking/.test(t)) return 'Traffic/Route Delay'
   if (/document/.test(t)) return 'Documentation Issue'
   if (/cargo|damage/.test(t)) return 'Cargo Damage'
+  if (/driver/.test(t)) return 'Driver Issue'
+  if (/insurance/.test(t)) return 'Insurance Issue'
   return 'Other'
 }
 
