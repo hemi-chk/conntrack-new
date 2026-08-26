@@ -1,0 +1,61 @@
+
+> mobile-driver@1.0.0 lint
+> expo lint
+
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\components\Button.js
+  15:9  warning  'isPrimary' is assigned a value but never used  no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\i18n\index.js
+  8:1  warning  Caution: `i18n` also has a named export `use`. Check if you meant to write `import {use} from 'i18next'` instead  import/no-named-as-default-member
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\ChangePassword.js
+  13:11  warning  'user' is assigned a value but never used  no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\Dashboard.js
+   31:9   warning  'width' is assigned a value but never used                                                                                                       no-unused-vars
+   42:10  warning  'isUpdating' is assigned a value but never used                                                                                                  no-unused-vars
+   43:11  warning  'orderStatus' is assigned a value but never used                                                                                                 no-unused-vars
+   49:6   warning  React Hook useEffect has missing dependencies: 'fetchActiveMission' and 'fetchRecentIssues'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  113:9   warning  'syncStatusWithDb' is assigned a value but never used                                                                                            no-unused-vars
+  220:9   warning  'getColor' is assigned a value but never used                                                                                                    no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\Documents.js
+   7:100  warning  'Linking' is defined but never used                                                                                no-unused-vars
+  54:6    warning  React Hook useEffect has a missing dependency: 'fetchDocuments'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\DriverProfile.js
+  35:22  warning  'setWorkStatus' is assigned a value but never used  no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\History.js
+  50:6  warning  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\LoginScreen.js
+   70:6   warning  React Hook useEffect has a missing dependency: 'navigation'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  135:20  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                 no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\MapScreen.js
+  130:6   warning  React Hook useEffect has missing dependencies: 'order.drop' and 'order.pickup'. Either include them or remove the dependency array                      react-hooks/exhaustive-deps
+  134:13  warning  'stops' is assigned a value but never used                                                                                                              no-unused-vars
+  153:6   warning  React Hook useEffect has missing dependencies: 'currentLocation', 'order.drop', and 'order.pickup'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  189:6   warning  React Hook useEffect has a missing dependency: 'handleOpenNavigation'. Either include it or remove the dependency array                                 react-hooks/exhaustive-deps
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\Notifications.js
+  20:9  warning  The 'user' logical expression could make the dependencies of useCallback Hook (at line 47) change on every render. Move it inside the useCallback callback. Alternatively, wrap the initialization of 'user' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\OrderDetails.js
+   38:6  warning  React Hook useEffect has a missing dependency: 'sheetHeight'. Either include it or remove the dependency array                                                       react-hooks/exhaustive-deps
+   45:6  warning  React Hook useEffect has missing dependencies: 'activeMission', 'registerTrackingMission', and 'setOrderStatus'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  124:6  warning  React Hook useEffect has missing dependencies: 'order.drop' and 'order.pickup'. Either include them or remove the dependency array                                   react-hooks/exhaustive-deps
+  143:6  warning  React Hook useEffect has missing dependencies: 'order.drop.longitude' and 'order.pickup.longitude'. Either include them or remove the dependency array               react-hooks/exhaustive-deps
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\Tracking.js
+   42:6   warning  React Hook useEffect has a missing dependency: 'fetchStages'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+   94:6   warning  React Hook useEffect has a missing dependency: 'getInitialStep'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  134:18  warning  'e' is defined but never used. Allowed unused caught errors must match /^_/u                                       no-unused-vars
+
+C:\Users\PSB\Desktop\Frontend\conntrack-new\apps\mobile-driver\src\screens\VehicleInfo.js
+  51:6  warning  React Hook useEffect has a missing dependency: 'fetchVehicle'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 28 problems (0 errors, 28 warnings)
+

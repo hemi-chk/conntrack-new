@@ -17,8 +17,6 @@ import { authFetch } from "../utils/authFetch";
 
 export default function Notifications({ route, navigation }) {
   const { t } = useTranslation();
-  
-  // User context for fetching driver-specific issues
   const user = route?.params?.user || {};
 
   const [activeTab, setActiveTab] = useState("all");
@@ -26,10 +24,6 @@ export default function Notifications({ route, navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /**
-   * Fetches the list of reported issues from the backend.
-   * Logic handles different identification keys (driver_id or emp_id).
-   */
   const fetchIssues = useCallback(async () => {
     try {
       const driverId = user?.driver_id || user?.emp_id;
@@ -52,22 +46,15 @@ export default function Notifications({ route, navigation }) {
     }
   }, [user]);
 
-  // Initial load effect
   useEffect(() => {
     fetchIssues();
   }, [fetchIssues]);
 
-  /**
-   * Pull-to-refresh handler.
-   */
   const onRefresh = () => {
     setRefreshing(true);
     fetchIssues();
   };
 
-  /**
-   * Maps issue types to specific Material Icons and associated colors.
-   */
   const getIssueIcon = (type) => {
     switch (type) {
       case "vehicle_issue": return { name: "directions-car", color: "#EF4444" };
@@ -77,9 +64,6 @@ export default function Notifications({ route, navigation }) {
     }
   };
 
-  /**
-   * Maps current status strings to semantic UI badge configurations.
-   */
   const getStatusBadge = (status) => {
     switch (status) {
       case "open": return { label: "Open", bg: "#FEF3C7", color: "#D97706" };
@@ -89,9 +73,6 @@ export default function Notifications({ route, navigation }) {
     }
   };
 
-  /**
-   * Maps priority strings to colored dots for visual hierarchy.
-   */
   const getPriorityDot = (priority) => {
     switch (priority) {
       case "high": return "#EF4444";
@@ -101,17 +82,11 @@ export default function Notifications({ route, navigation }) {
     }
   };
 
-  /**
-   * Formats raw snake_case database strings into user-friendly titles.
-   */
   const formatIssueType = (type) => {
     if (!type) return "Issue";
     return type.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  /**
-   * Utility to calculate a human-readable relative time string.
-   */
   const getTimeAgo = (dateStr) => {
     if (!dateStr) return "";
     const now = new Date();
@@ -128,9 +103,6 @@ export default function Notifications({ route, navigation }) {
     return date.toLocaleDateString();
   };
 
-  /**
-   * Filters the main issues array based on the selected UI tab.
-   */
   const filteredIssues = issues.filter((issue) => {
     if (activeTab === "all") return true;
     if (activeTab === "open") return issue.status === "open" || issue.status === "escalated";
@@ -138,9 +110,6 @@ export default function Notifications({ route, navigation }) {
     return true;
   });
 
-  /**
-   * Renderer for individual list items.
-   */
   const renderItem = ({ item }) => {
     const icon = getIssueIcon(item.issue_type);
     const statusBadge = getStatusBadge(item.status);
@@ -175,7 +144,6 @@ export default function Notifications({ route, navigation }) {
               {item.description}
             </Typography>
 
-            {/* METADATA ROW: Order ID, Status Badge, and Priority */}
             <View style={styles.metaRow}>
               {item.orders?.order_reference && (
                 <View style={styles.orderRefBadge}>
@@ -206,9 +174,6 @@ export default function Notifications({ route, navigation }) {
     );
   };
 
-  /**
-   * Configuration for the top filtering tabs.
-   */
   const tabs = [
     { key: "all", label: t("all") },
     { key: "open", label: "Active" },
@@ -217,7 +182,6 @@ export default function Notifications({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* SCREEN HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
@@ -236,7 +200,6 @@ export default function Notifications({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* FILTERING TABS SECTION */}
       <View style={styles.tabContainer}>
         {tabs.map((tab) => (
           <TouchableOpacity
@@ -252,7 +215,6 @@ export default function Notifications({ route, navigation }) {
             >
               {tab.label}
             </Typography>
-            {/* Badge for unresolved issues count */}
             {tab.key === "open" && issues.filter(i => i.status === "open" || i.status === "escalated").length > 0 && (
               <View style={styles.tabBadge}>
                 <Typography variant="tiny" weight="bold" style={{ color: "white", fontSize: 10 }}>

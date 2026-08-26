@@ -1,23 +1,23 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, TouchableOpacity, Platform, Linking, Alert } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
 import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
-import { Card } from "../components/Card";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Linking, Platform, StyleSheet, TouchableOpacity, View } from "react-native";
+import MapView, { Marker, Polyline } from "react-native-maps";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { Typography } from "../components/Typography";
+import { theme } from "../constants/theme";
 
 export default function MapScreen({ route, navigation }) {
   const activeMission = route?.params?.order || {};
   const orderData = activeMission.orders || {};
   const status = (activeMission.status || "").toLowerCase();
+  const isHeadingToPickup = !status || status === "assigned" || status === "started" || status === "heading to pickup";
 
   const mapRef = useRef(null);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
 
-  // Request location permission on mount to show user location dot
   useEffect(() => {
     (async () => {
       try {
@@ -45,57 +45,102 @@ export default function MapScreen({ route, navigation }) {
     }
   };
 
-  const [routeCoordinates, setRouteCoordinates] = useState([
-    order.pickup,
-    order.drop
-  ]);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  useEffect(() => {
+    if (!hasLocationPermission) return undefined;
 
-  // Fetch actual driving route from OSRM
+    let isMounted = true;
+    const updateCurrentLocation = (location) => {
+      if (!isMounted) return;
+      setCurrentLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    };
+
+    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Highest })
+      .then(updateCurrentLocation)
+      .catch((error) => console.warn("MapScreen: Could not get current location:", error));
+
+    let locationSubscription;
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 100,
+        timeInterval: 15000,
+      },
+      updateCurrentLocation,
+    ).then((subscription) => {
+      if (isMounted) {
+        locationSubscription = subscription;
+      } else {
+        subscription.remove();
+      }
+    }).catch((error) => console.warn("MapScreen: Location tracking unavailable:", error));
+
+    return () => {
+      isMounted = false;
+      locationSubscription?.remove();
+    };
+  }, [hasLocationPermission]);
+
+  const [routeLegs, setRouteLegs] = useState({
+    toPickup: [],
+    toDelivery: [order.pickup, order.drop],
+  });
+
   useEffect(() => {
     const fetchRoute = async () => {
-      const pLat = order.pickup.latitude;
-      const pLng = order.pickup.longitude;
-      const dLat = order.drop.latitude;
-      const dLng = order.drop.longitude;
+      const start = currentLocation || order.pickup;
+      const toPickup = isHeadingToPickup ? [start, order.pickup] : [];
+      const toDelivery = isHeadingToPickup ? [order.pickup, order.drop] : [start, order.drop];
+      const legs = { toPickup, toDelivery };
 
-      if (!pLat || !pLng || !dLat || !dLng) {
-        setRouteCoordinates([order.pickup, order.drop]);
-        return;
-      }
+      const getRouteLeg = async (leg) => {
+        if (leg.length < 2 || leg.some((stop) => !stop.latitude || !stop.longitude)) return leg;
+
+        const waypoints = leg.map((stop) => `${stop.longitude},${stop.latitude}`).join(";");
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${waypoints}?overview=full&geometries=geojson&alternatives=true`,
+        );
+        const json = await response.json();
+        const routes = json.routes || [];
+        const fastestRoute = routes.reduce(
+          (fastest, candidate) => (!fastest || candidate.duration < fastest.duration ? candidate : fastest),
+          null,
+        );
+
+        if (!fastestRoute?.geometry?.coordinates?.length) return leg;
+        return fastestRoute.geometry.coordinates.map(([longitude, latitude]) => ({ latitude, longitude }));
+      };
 
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
-        const response = await fetch(url);
-        const json = await response.json();
-        
-        if (json.code === "Ok" && json.routes && json.routes[0]) {
-          const coords = json.routes[0].geometry.coordinates.map(coord => ({
-            latitude: coord[1],
-            longitude: coord[0]
-          }));
-          if (coords.length > 0) {
-            setRouteCoordinates(coords);
-            return;
-          }
-        }
-        setRouteCoordinates([order.pickup, order.drop]);
+        const [pickupLeg, deliveryLeg] = await Promise.all([
+          getRouteLeg(toPickup),
+          getRouteLeg(toDelivery),
+        ]);
+        setRouteLegs({ toPickup: pickupLeg, toDelivery: deliveryLeg });
       } catch (error) {
-        console.warn("MapScreen: OSRM route fetch failed, using straight line fallback:", error);
-        setRouteCoordinates([order.pickup, order.drop]);
+        console.warn("MapScreen: OSRM route fetch failed, using stop fallback:", error);
+        setRouteLegs(legs);
       }
     };
 
     fetchRoute();
-  }, [order.pickup.latitude, order.pickup.longitude, order.drop.latitude, order.drop.longitude]);
+  }, [currentLocation, isHeadingToPickup, order.pickup.latitude, order.pickup.longitude, order.drop.latitude, order.drop.longitude]);
 
-  // Auto-fit coordinates to see both markers
   useEffect(() => {
     if (mapRef.current && order.pickup.latitude && order.drop.latitude) {
+      const stops = currentLocation
+        ? isHeadingToPickup
+          ? [currentLocation, order.pickup, order.drop]
+          : [currentLocation, order.drop]
+        : [order.pickup, order.drop];
       const timer = setTimeout(() => {
         mapRef.current.fitToCoordinates(
           [
-            { latitude: order.pickup.latitude, longitude: order.pickup.longitude },
-            { latitude: order.drop.latitude, longitude: order.drop.longitude }
+            ...routeLegs.toPickup,
+            ...routeLegs.toDelivery,
           ],
           {
             edgePadding: { top: 100, right: 60, bottom: 250, left: 60 },
@@ -105,37 +150,43 @@ export default function MapScreen({ route, navigation }) {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [order.pickup.latitude, order.drop.latitude]);
+  }, [currentLocation?.latitude, currentLocation?.longitude, isHeadingToPickup, order.pickup.latitude, order.drop.latitude, routeLegs]);
 
-  const isHeadingToPickup = !status || status === "assigned" || status === "started" || status === "heading to pickup";
   const currentTarget = isHeadingToPickup ? order.pickup : order.drop;
 
   const handleOpenNavigation = () => {
-    const lat = currentTarget.latitude;
-    const lng = currentTarget.longitude;
+    const { latitude, longitude } = currentTarget;
     const label = encodeURIComponent(currentTarget.name);
-    
     const url = Platform.select({
-      ios: `maps://app?daddr=${lat},${lng}&q=${label}`,
-      android: `google.navigation:q=${lat},${lng}`
+      ios: `maps://app?daddr=${latitude},${longitude}&q=${label}`,
+      android: `google.navigation:q=${latitude},${longitude}`,
     });
-    
-    if (url) {
-      Linking.canOpenURL(url)
-        .then((supported) => {
-          if (supported) {
-            Linking.openURL(url);
-          } else {
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-            Linking.openURL(webUrl);
-          }
-        })
-        .catch((err) => {
-          console.error("An error occurred launching navigation:", err);
-          Alert.alert("Error", "Could not launch native navigation app.");
-        });
-    }
+
+    if (!url) return;
+
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          return Linking.openURL(url);
+        }
+
+        return Linking.openURL(
+          `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`,
+        );
+      })
+      .catch((error) => {
+        console.error("Could not launch external navigation:", error);
+        Alert.alert("Navigation Error", "Could not open Google Maps.");
+      });
   };
+
+  const hasAutoStartedNavigation = useRef(false);
+  useEffect(() => {
+    if (route?.params?.autoStartNavigation && !hasAutoStartedNavigation.current) {
+      hasAutoStartedNavigation.current = true;
+      handleOpenNavigation();
+    }
+  }, [route?.params?.autoStartNavigation, currentTarget.latitude, currentTarget.longitude]);
 
   return (
     <View style={styles.container}>
@@ -162,11 +213,24 @@ export default function MapScreen({ route, navigation }) {
           </View>
         </Marker>
 
-        <Polyline
-          coordinates={routeCoordinates}
-          strokeWidth={5}
-          strokeColor={theme.colors.primary}
-        />
+        {routeLegs.toPickup.length > 1 && (
+          <Polyline
+            coordinates={routeLegs.toPickup}
+            strokeWidth={5}
+            strokeColor="#F59E0B"
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
+        {routeLegs.toDelivery.length > 1 && (
+          <Polyline
+            coordinates={routeLegs.toDelivery}
+            strokeWidth={5}
+            strokeColor={theme.colors.primary}
+            lineCap="round"
+            lineJoin="round"
+          />
+        )}
       </MapView>
 
       <SafeAreaView style={styles.backButtonContainer} edges={["top"]}>
@@ -197,7 +261,7 @@ export default function MapScreen({ route, navigation }) {
         </Typography>
 
         <Button
-          title="Start Navigation"
+          title="Open Google Maps"
           onPress={handleOpenNavigation}
           style={styles.navButton}
           textStyle={styles.navButtonText}

@@ -4,35 +4,28 @@
  * Persists settings locally using AsyncStorage.
  */
 
-import React, { useState, useEffect } from "react";
-import { View, Switch, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
-import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
+import { theme } from "../constants/theme";
 import { AUTH_TOKEN_KEY } from "../utils/authFetch";
 
 export default function Settings({ route, navigation }) {
   const { t } = useTranslation();
-  
-  // User context for passing to child screens (like Support)
   const user = route?.params?.user || {};
 
-  // State for various system and UI toggles
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [soundAlerts, setSoundAlerts] = useState(true);
   const [locationAccess, setLocationAccess] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
 
-  /**
-   * Effect hook to synchronize local state with persisted AsyncStorage preferences.
-   */
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -54,11 +47,6 @@ export default function Settings({ route, navigation }) {
     loadSettings();
   }, []);
 
-  /**
-   * Generic utility to persist a setting to AsyncStorage.
-   * @param {string} key - The persistence key.
-   * @param {boolean} value - The setting value.
-   */
   const saveSetting = async (key, value) => {
     try {
       await AsyncStorage.setItem(key, value.toString());
@@ -67,10 +55,6 @@ export default function Settings({ route, navigation }) {
     }
   };
 
-  /**
-   * Handles user logout.
-   * Clears session credentials and resets the navigation stack to the Login screen.
-   */
   const handleLogout = () => {
     Alert.alert(
       t("logout_title") || "Logout",
@@ -81,7 +65,6 @@ export default function Settings({ route, navigation }) {
           text: t("logout") || "Logout", 
           style: "destructive",
           onPress: async () => {
-            // Clear all sensitive and persistence data
             await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
             await AsyncStorage.removeItem("saved_driver_id");
             await AsyncStorage.removeItem("saved_user");
@@ -89,7 +72,6 @@ export default function Settings({ route, navigation }) {
             await AsyncStorage.removeItem("remember_me");
             await AsyncStorage.removeItem("driver_token");
             
-            // Hard reset of navigation to ensure session cleanup
             navigation.reset({
               index: 0,
               routes: [{ name: "Login" }],
@@ -100,9 +82,6 @@ export default function Settings({ route, navigation }) {
     );
   };
 
-  /**
-   * Internal reusable component for a settings list item.
-   */
   const Row = ({ icon, title, subtitle, right, isLast, onPress }) => (
     <TouchableOpacity activeOpacity={onPress ? 0.7 : 1} onPress={onPress}>
       <View style={[styles.row, !isLast && styles.rowBorder]}>
@@ -139,7 +118,6 @@ export default function Settings({ route, navigation }) {
           </Typography>
         </View>
 
-        {/* APPEARANCE SECTION */}
         <Typography variant="caption" color="textMuted" style={styles.sectionTitle}>APPEARANCE</Typography>
         <Card elevation="sm" style={styles.card}>
           <Row
@@ -158,7 +136,6 @@ export default function Settings({ route, navigation }) {
           />
         </Card>
 
-        {/* ALERTS SECTION */}
         <Typography variant="caption" color="textMuted" style={styles.sectionTitle}>ALERTS & NOTIFICATIONS</Typography>
         <Card elevation="sm" style={styles.card}>
           <Row
@@ -191,7 +168,6 @@ export default function Settings({ route, navigation }) {
           />
         </Card>
 
-        {/* SYSTEM & SUPPORT SECTION */}
         <Typography variant="caption" color="textMuted" style={styles.sectionTitle}>SYSTEM & SUPPORT</Typography>
         <Card elevation="sm" style={styles.card}>
           <Row
@@ -226,7 +202,6 @@ export default function Settings({ route, navigation }) {
           />
         </Card>
 
-        {/* LOGOUT BUTTON: Prominently styled for accessibility */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialIcons name="logout" size={22} color={theme.colors.error} />
           <Typography variant="body" weight="semiBold" style={styles.logoutText}>
@@ -234,7 +209,6 @@ export default function Settings({ route, navigation }) {
           </Typography>
         </TouchableOpacity>
 
-        {/* FOOTER INFO: App version and branding */}
         <View style={styles.infoContainer}>
           <Typography variant="tiny" color="textMuted">
             Driver App v1.0.0

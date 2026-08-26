@@ -17,7 +17,6 @@ import { API_BASE_URL } from "../constants/config";
 import { authFetch } from "../utils/authFetch";
 
 export default function VehicleInfo({ route, navigation }) {
-  // Extract user context to identify associated supplier/vehicle
   const { user } = route.params || {};
   
   const [vehicle, setVehicle] = useState(null);
@@ -25,9 +24,6 @@ export default function VehicleInfo({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [licenseImage, setLicenseImage] = useState(null);
 
-  /**
-   * Fetches vehicle data from the backend using the supplier ID.
-   */
   const fetchVehicle = async () => {
     try {
       const driverId = user?.driver_id;
@@ -50,22 +46,15 @@ export default function VehicleInfo({ route, navigation }) {
     }
   };
 
-  // Load data on component mount
   useEffect(() => {
     fetchVehicle();
   }, []);
 
-  /**
-   * Handler for pull-to-refresh.
-   */
   const onRefresh = () => {
     setRefreshing(true);
     fetchVehicle();
   };
 
-  /**
-   * Allows the driver to pick a document image from the gallery for upload.
-   */
   const pickDoc = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -75,24 +64,16 @@ export default function VehicleInfo({ route, navigation }) {
 
     if (!result.canceled) {
       setLicenseImage(result.assets[0].uri);
-      /**
-       * SIMULATION: Success message.
-       * In production, this should include an API call to upload the base64 data to storage.
-       */
       Alert.alert("Success", "Document uploaded to system!");
     }
   };
 
-  /**
-   * Calculates the remaining days until insurance expiry to provide proactive warnings.
-   */
   const licenseExpiryDays = vehicle?.insurance_expiry ? 
     Math.ceil((new Date(vehicle.insurance_expiry) - new Date()) / (1000 * 60 * 60 * 24)) : 
     15;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER SECTION */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()}>
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -114,7 +95,6 @@ export default function VehicleInfo({ route, navigation }) {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }
         >
-          {/* VEHICLE TECHNICAL SPECIFICATIONS */}
           <Card elevation="sm" style={styles.card}>
             <View style={styles.iconContainer}>
               <MaterialIcons name="local-shipping" size={32} color={theme.colors.primary} />

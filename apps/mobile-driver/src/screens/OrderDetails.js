@@ -27,7 +27,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Animation for sheet height
   const sheetHeight = useRef(new Animated.Value(SCREEN_HEIGHT * 0.6)).current;
 
   useEffect(() => {
@@ -38,7 +37,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     }).start();
   }, [isExpanded]);
 
-  // Sync local status with mission data from server on load
   useEffect(() => {
     registerTrackingMission(activeMission);
     if (activeMission.status) {
@@ -49,7 +47,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const mapRef = useRef(null);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
 
-  // Request location permission on mount to show user location dot
   useEffect(() => {
     (async () => {
       try {
@@ -161,37 +158,25 @@ export default function OrderDetails({ route: navRoute, navigation }) {
 
   const statusInfo = getStatusInfo();
 
-  /**
-   * Launcher for turn-by-turn navigation in external maps (Google / Apple Maps).
-   */
   const handleOpenNavigation = () => {
     const isHeadingToPickup = !orderStatus || orderStatus === "assigned" || orderStatus === "started" || orderStatus === "heading to pickup";
     const target = isHeadingToPickup ? order.pickup : order.drop;
-    
-    const lat = target.latitude;
-    const lng = target.longitude;
     const label = encodeURIComponent(target.name);
-    
     const url = Platform.select({
-      ios: `maps://app?daddr=${lat},${lng}&q=${label}`,
-      android: `google.navigation:q=${lat},${lng}`
+      ios: `maps://app?daddr=${target.latitude},${target.longitude}&q=${label}`,
+      android: `google.navigation:q=${target.latitude},${target.longitude}`,
     });
-    
-    if (url) {
-      Linking.canOpenURL(url)
-        .then((supported) => {
-          if (supported) {
-            Linking.openURL(url);
-          } else {
-            const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-            Linking.openURL(webUrl);
-          }
-        })
-        .catch((err) => {
-          console.error("An error occurred launching navigation:", err);
-          Alert.alert("Error", "Could not launch native navigation app.");
-        });
-    }
+
+    if (!url) return;
+
+    Linking.canOpenURL(url)
+      .then((supported) => supported
+        ? Linking.openURL(url)
+        : Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${target.latitude},${target.longitude}`))
+      .catch((error) => {
+        console.error("Could not launch external navigation:", error);
+        Alert.alert("Navigation Error", "Could not open Google Maps.");
+      });
   };
 
   /**
@@ -319,7 +304,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           <MaterialIcons name="fullscreen" size={24} color={theme.colors.text} />
         </TouchableOpacity>
 
-        {/* Start Navigation Button */}
+        {/* Open the in-app route view */}
         <TouchableOpacity
           style={[styles.floatingCircleButton, { marginTop: 12, backgroundColor: theme.colors.primary }]}
           activeOpacity={0.8}
@@ -447,14 +432,14 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               <View style={styles.supportActions}>
                 <TouchableOpacity
                   style={styles.supportButton}
-                  onPress={() => navigation.navigate("Support")}
+                  onPress={() => navigation.navigate("Support", { order: activeMission })}
                 >
                   <MaterialIcons name="call" size={20} color={theme.colors.primary} />
                   <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("call_help")}</Typography>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.supportButton}
-                  onPress={() => navigation.navigate("Support")}
+                  onPress={() => navigation.navigate("Support", { order: activeMission })}
                 >
                   <MaterialIcons name="message" size={20} color={theme.colors.primary} />
                   <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("messages")}</Typography>

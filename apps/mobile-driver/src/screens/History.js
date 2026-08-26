@@ -17,17 +17,12 @@ import { authFetch } from "../utils/authFetch";
 
 export default function History({ route, navigation }) {
   const { t } = useTranslation();
-  
-  // User context passed for identification
   const user = route?.params?.user || {};
   
   const [trips, setTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /**
-   * Fetches the completed trip history from the backend.
-   */
   const fetchHistory = async () => {
     try {
       const driverId = user.driver_id || user.emp_id;
@@ -50,23 +45,15 @@ export default function History({ route, navigation }) {
     }
   };
 
-  // Initial data load on mount
   useEffect(() => {
     fetchHistory();
   }, []);
 
-  /**
-   * Handler for pull-to-refresh action.
-   */
   const onRefresh = () => {
     setRefreshing(true);
     fetchHistory();
   };
 
-  /**
-   * Maps trip status strings to appropriate theme colors.
-   * @param {string} status - Current status of the trip.
-   */
   const getStatusColor = (status) => {
     const s = status?.toLowerCase();
     if (s === "delivered" || s === "completed") return theme.colors.success;
@@ -74,10 +61,6 @@ export default function History({ route, navigation }) {
     return theme.colors.warning;
   };
 
-  /**
-   * Formats ISO date strings into a localized, human-readable format.
-   * @param {string} dateString - ISO date string.
-   */
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -86,7 +69,6 @@ export default function History({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER SECTION */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()}>
           <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -108,7 +90,6 @@ export default function History({ route, navigation }) {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
           }
         >
-          {/* TRIP LIST: Displays a card for each past assignment */}
           {trips.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialIcons name="history" size={64} color={theme.colors.border} />

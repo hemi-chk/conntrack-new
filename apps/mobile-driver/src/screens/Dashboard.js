@@ -209,7 +209,7 @@ export default function Dashboard({ route, navigation }) {
     { 
       icon: "support-agent", 
       label: t("help"), 
-      onPress: () => navigation.navigate("Support", { user }),
+      onPress: () => navigation.navigate("Support", { user, order: activeMission }),
       color: "#EC4899" 
     },
   ];
@@ -230,7 +230,6 @@ export default function Dashboard({ route, navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* HEADER SECTION: Welcome message and Profile link */}
         <View style={styles.header}>
           <View>
             <Typography variant="h2" weight="bold">
@@ -258,7 +257,6 @@ export default function Dashboard({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ACTIVE MISSION SECTION: Highlights the primary current task */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("active_mission")}
         </Typography>
@@ -313,7 +311,6 @@ export default function Dashboard({ route, navigation }) {
           </Card>
         )}
 
-        {/* QUICK ACTIONS GRID */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("quick_actions")}
         </Typography>
@@ -342,7 +339,6 @@ export default function Dashboard({ route, navigation }) {
           ))}
         </View>
 
-        {/* RECENT UPDATES SECTION: Feed-like view for recent events */}
         <View style={styles.sectionHeader}>
           <Typography variant="subtitle" weight="bold">
             {t("recent_updates")}

@@ -1,30 +1,23 @@
-/**
- * Edit Profile Screen
- * Allows drivers to modify their personal contact information.
- * Handles validation and synchronization with the backend profile system.
- */
-
-import React, { useState } from "react";
-import * as SecureStore from "expo-secure-store";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  View,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
-
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
 import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function EditProfile({ route, navigation }) {
@@ -37,9 +30,6 @@ export default function EditProfile({ route, navigation }) {
   const [emergencyContact, setEmergencyContact] = useState(user?.emergency_contact || "");
   const [isLoading, setIsLoading] = useState(false);
 
-  /**
-   * Validates and submits updated profile information to the server.
-   */
   const handleSave = async () => {
     if (!firstName || !lastName || !phone) {
       Alert.alert("Error", "Please fill in all fields");

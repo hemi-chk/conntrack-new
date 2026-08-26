@@ -3,16 +3,12 @@ const router = express.Router();
 const driverController = require('../controllers/driver.controller');
 const requireDriverAuth = require('../middleware/auth.middleware');
 
-// 4. Driver Login
 router.post('/login', driverController.loginDriver);
 
 router.use(requireDriverAuth);
 
-// 1. Get orders assigned to the driver
 router.get('/assignments/:driverId', driverController.getAssignedOrders);
-// 2. Post GPS tracking updates
 router.post('/tracking', driverController.updateTracking);
-// 3. Get driver profile and documents
 router.get('/profile/:driverId', driverController.getDriverDetails);
 router.get('/mission/:driverId', driverController.getActiveMission);
 router.post('/update-status', driverController.updateMissionStatus);

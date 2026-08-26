@@ -1,9 +1,3 @@
-/**
- * Change Password Screen
- * Facilitates secure password updates for the driver account.
- * Includes validation for matching passwords and minimum length constraints.
- */
-
 import { MaterialIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,9 +21,6 @@ export default function ChangePassword({ route, navigation }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  /**
-   * Validates input fields and triggers the password update process.
-   */
   const handleUpdate = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
       Alert.alert("Error", "Please fill in all fields");

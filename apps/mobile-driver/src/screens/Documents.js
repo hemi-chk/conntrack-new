@@ -21,7 +21,6 @@ import { authFetch } from "../utils/authFetch";
 export default function Documents({ route, navigation }) {
   const { t } = useTranslation();
   
-  // Extract order context from navigation parameters
   const activeMission = route?.params?.order || {};
   const orderId = activeMission.order_id;
 
@@ -29,9 +28,6 @@ export default function Documents({ route, navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /**
-   * Fetches the list of clearance documents associated with the current order.
-   */
   const fetchDocuments = async () => {
     try {
       if (!orderId) {
@@ -53,23 +49,15 @@ export default function Documents({ route, navigation }) {
     }
   };
 
-  // Fetch documents on initial screen load
   useEffect(() => {
     fetchDocuments();
   }, []);
 
-  /**
-   * Refresh handler for pull-to-refresh functionality.
-   */
   const onRefresh = () => {
     setRefreshing(true);
     fetchDocuments();
   };
 
-  /**
-   * Opens the document URL in an in-app browser for quick viewing.
-   * @param {string} url - The public URL of the document file.
-   */
   const handleView = async (url) => {
     if (url) {
       await WebBrowser.openBrowserAsync(url);
@@ -78,11 +66,6 @@ export default function Documents({ route, navigation }) {
     }
   };
 
-  /**
-   * Downloads the file to the app's cache and opens the system share/save menu.
-   * @param {string} url - The public URL of the document file.
-   * @param {string} fileName - The suggested name for the saved file.
-   */
   const handleDownload = async (url, fileName = "document") => {
     if (!url) {
       Alert.alert("Error", "No file URL available");
@@ -92,19 +75,16 @@ export default function Documents({ route, navigation }) {
     try {
       setIsLoading(true);
       
-      // 1. Prepare file info
       const extension = url.split('.').pop().split(/\#|\?/)[0] || 'pdf';
       const cleanFileName = `${fileName.replace(/[^a-z0-9]/gi, '_')}.${extension}`;
       const fileUri = `${FileSystem.cacheDirectory}${cleanFileName}`;
 
-      // 2. Download the file
       const downloadResult = await FileSystem.downloadAsync(url, fileUri);
       
       if (downloadResult.status !== 200) {
         throw new Error("Download failed");
       }
 
-      // 3. Open the system sharing/saving dialog
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: downloadResult.headers['Content-Type'] || 'application/pdf',
