@@ -374,8 +374,12 @@ export const createIssue = async (req, res) => {
             issue_type,
             priority,
             description,
-            reported_by
         } = req.body;
+
+        // Always the authenticated caller, never client-supplied - otherwise
+        // any logistics user could attribute an issue to someone else, and
+        // Admin's Issues page can't tell who actually reported it.
+        const reported_by = req.user.id
 
         const { data, error } = await supabase
             .from('issues')

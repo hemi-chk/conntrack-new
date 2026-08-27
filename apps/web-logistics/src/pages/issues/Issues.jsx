@@ -12,7 +12,7 @@ const Issues = () => {
         supplier_id: '',
         driver_id: '',
         issue_type: '',
-        priority: 'medium',
+        priority: 'major',
         description: '',
     });
 
@@ -36,7 +36,7 @@ const Issues = () => {
                     supplier_id: '',
                     driver_id: '',
                     issue_type: '',
-                    priority: 'medium',
+                    priority: 'major',
                     description: '',
                 });
             }
@@ -144,8 +144,8 @@ const Issues = () => {
                             {/* Section 3: Priority Selection */}
                             <div className="space-y-3">
                                 <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Severity Level</label>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    {['low', 'medium', 'high', 'critical'].map((p) => (
+                                <div className="grid grid-cols-3 gap-3">
+                                    {['minor', 'major', 'critical'].map((p) => (
                                         <label key={p} className="relative flex items-center cursor-pointer">
                                             <input
                                                 type="radio"
@@ -192,7 +192,7 @@ const Issues = () => {
                                             supplier_id: '',
                                             driver_id: '',
                                             issue_type: '',
-                                            priority: 'medium',
+                                            priority: 'major',
                                             description: '',
                                         });
                                         setStatusMessage({ type: '', text: '' });
