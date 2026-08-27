@@ -13,7 +13,8 @@ import {
     uploadDocuments,
     deleteDocument,
     getAllIssues,
-    updateIssueStatus
+    updateIssueStatus,
+    updateTrackingLocation
 } from "../controllers/logistics.controller.js";
 
 const router = express.Router();
@@ -72,5 +73,8 @@ router.delete("/documents/:id", deleteDocument);
 router.post("/issues", createIssue);
 router.get("/issues", getAllIssues);
 router.patch("/issues/:id/status", updateIssueStatus);
+
+router.post("/tracking/location", updateTrackingLocation);
+router.get("/orders/:orderId/tracking", getTrackingByOrderId);
 
 export default router;

@@ -1,6 +1,6 @@
-import { useNavigate } from "react-router-dom";
-import { Bell, Menu, Search, LogOut } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function LogoutModal({ onConfirm, onCancel }) {
   return (
@@ -88,20 +88,6 @@ export default function Navbar({ isOpen, onMenuClick }) {
               </span>
             </div>
           )}
-        </div>
-
-        {/* Center — Search */}
-        <div
-          className="flex items-center gap-2.5 px-4 py-2 rounded-xl w-72"
-          style={{ background: '#EBF4FF' }}
-        >
-          <Search size={15} className="shrink-0 opacity-50" style={{ color: '#5483B3' }} />
-          <input
-            type="text"
-            placeholder="Search orders..."
-            className="bg-transparent text-sm outline-none w-full"
-            style={{ color: '#052659' }}
-          />
         </div>
 
         {/* Right — Actions */}

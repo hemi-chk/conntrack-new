@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  define: {
+    __BUNDLED_DEV__: true,
+  },
   server: {
     port: 5173,
     host: '127.0.0.1',

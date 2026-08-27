@@ -245,23 +245,35 @@ export const getOrderById = async (req, res) => {
 };
 
 export const getOrdersByType = async (req, res) => {
-    const { type } = req.query;
+    const type = typeof req.query.type === 'string'
+        ? req.query.type.trim().toLowerCase()
+        : '';
 
     try {
-        const { data, error } = await supabase
+        let ordersQuery = supabase
             .from('orders')
             .select(`*, customers (customer_name)`)
-            .eq('order_type', type)
             .order('created_at', { ascending: false });
+
+        if (type) {
+            ordersQuery = ordersQuery.eq('order_type', type);
+        }
+
+        const { data, error } = await ordersQuery;
 
         if (error) throw error;
 
         res.status(200).json(
-            data.map(order => ({
-                ...order,
-                customer_name: order.customers?.customer_name || 'N/A',
-                route: `${order.pickup_state} → ${order.destination_state}`
-            }))
+            data.map(order => {
+                const pickup = order.pickup_location || order.pickup_state || order.pickup_district || 'N/A';
+                const destination = order.destination_location || order.destination_state || order.destination_district || 'N/A';
+
+                return {
+                    ...order,
+                    customer_name: order.customers?.customer_name || 'N/A',
+                    route: `${pickup} → ${destination}`
+                };
+            })
         );
 
     } catch (error) {
@@ -275,12 +287,31 @@ export const getTrackingByOrderId = async (req, res) => {
     const { orderId } = req.params;
 
     try {
+        let actualOrderId = orderId;
+
+        // If the orderId is not a numeric string, treat it as order_reference
+        if (orderId && !/^\d+$/.test(orderId)) {
+            const { data: orderData, error: orderError } = await supabase
+                .from('orders')
+                .select('order_id')
+                .eq('order_reference', orderId)
+                .maybeSingle();
+
+            if (orderError) throw orderError;
+            if (!orderData) {
+                return res.status(200).json({ trackingAvailable: false });
+            }
+            actualOrderId = orderData.order_id;
+        }
+
         const { data, error } = await supabase
             .from('container_tracking')
             .select(`
                 tracking_id,
                 status,
                 current_location,
+                latitude,
+                longitude,
                 recorded_at,
 
                 orders (
@@ -315,7 +346,7 @@ export const getTrackingByOrderId = async (req, res) => {
                     )
                 )
             `)
-            .eq('order_id', orderId)
+            .eq('order_id', actualOrderId)
             .order('recorded_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -333,6 +364,8 @@ export const getTrackingByOrderId = async (req, res) => {
             tracking_details: {
                 status: data.status,
                 location: data.current_location,
+                latitude: data.latitude,
+                longitude: data.longitude,
                 timestamp: data.recorded_at
             },
 
@@ -363,6 +396,34 @@ export const getTrackingByOrderId = async (req, res) => {
     }
 };
 
+export const updateTrackingLocation = async (req, res) => {
+    try {
+        const { order_id, driver_id, current_location, status, latitude, longitude } = req.body;
+
+        const { data, error } = await supabase
+            .from('container_tracking')
+            .insert([{
+                order_id: Number(order_id),
+                driver_id: driver_id ? Number(driver_id) : null,
+                current_location,
+                status: status || 'in_transit',
+                latitude: latitude ? parseFloat(latitude) : null,
+                longitude: longitude ? parseFloat(longitude) : null,
+                recorded_at: new Date().toISOString()
+            }])
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            data: data ? data[0] : null
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+};
+
 // --- ISSUES ---
 
 export const createIssue = async (req, res) => {
@@ -376,18 +437,21 @@ export const createIssue = async (req, res) => {
             description,
         } = req.body;
 
+        const cleanOrderId = order_id && order_id !== "" ? parseInt(order_id, 10) : null;
+        const cleanSupplierId = supplier_id && supplier_id !== "" ? parseInt(supplier_id, 10) : null;
+        const cleanDriverId = driver_id && driver_id !== "" ? parseInt(driver_id, 10) : null;
         // Always the authenticated caller, never client-supplied - otherwise
         // any logistics user could attribute an issue to someone else, and
         // Admin's Issues page can't tell who actually reported it.
-        const reported_by = req.user.id
+        const cleanReportedBy = req.user.id
 
         const { data, error } = await supabase
             .from('issues')
             .insert([{
-                order_id,
-                supplier_id,
-                driver_id,
-                reported_by,
+                order_id: cleanOrderId,
+                supplier_id: cleanSupplierId,
+                driver_id: cleanDriverId,
+                reported_by: cleanReportedBy,
                 issue_type,
                 priority,
                 description,

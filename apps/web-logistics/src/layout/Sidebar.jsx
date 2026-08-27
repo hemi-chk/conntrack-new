@@ -13,7 +13,6 @@ const menuItems = [
   { icon: Package, label: "Import Orders", path: "/import" },
   { icon: Truck, label: "Export Orders", path: "/export" },
   { icon: AlertTriangle, label: "Issues", path: "/issues" },
-  { icon: Search, label: "Tracking", path: "/tracking" },
   { icon: FileText, label: "Reports", path: "/reports" },
 ]
 
