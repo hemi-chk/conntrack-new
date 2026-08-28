@@ -2,7 +2,6 @@ import { useState } from 'react'
 import Layout from './components/Layout'
 import Bids from './pages/Bids'
 import Dashboard from './pages/Dashboard'
-import Documents from './pages/Documents'
 import Drivers from './pages/Drivers'
 import Issues from './pages/Issues'
 import Login from './pages/Login'
@@ -70,7 +69,6 @@ function App() {
       case '/logistics': return <Logistics />
       case '/staff': return <Staff darkMode={darkMode} />
       case '/issues': return <Issues />
-      case '/documents': return <Documents />
       case '/settings': return <Settings />
       default: return <Dashboard />
     }
