@@ -5,7 +5,6 @@ import { AlertCircle, Loader2, MapPin, Navigation, RefreshCw } from 'lucide-reac
 import { useEffect, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import api from '../../config/api';
-import { supabase } from '../../config/supabase';
 
 // Fix standard Leaflet default marker icon issue in React/Vite builds
 delete L.Icon.Default.prototype._getIconUrl;
@@ -56,28 +55,10 @@ const ContainerMap = ({ orderId, latitude: initialLat, longitude: initialLng, lo
       setLoading(true);
       setError(false);
 
-      const numericOrderId = Number(orderId);
-      const { data: trackingRecord, error: trackingError } = Number.isInteger(numericOrderId)
-        ? await supabase
-            .from('container_tracking')
-            .select('latitude, longitude, current_location, status, recorded_at')
-            .eq('order_id', numericOrderId)
-            .order('recorded_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        : { data: null, error: null };
-
-      if (!trackingError && trackingRecord) {
-        setLocationData({
-          latitude: parseFloat(trackingRecord.latitude),
-          longitude: parseFloat(trackingRecord.longitude),
-          current_location: trackingRecord.current_location || initialLocation || "Logistics Hub",
-          status: trackingRecord.status || initialStatus || "in_transit",
-          timestamp: trackingRecord.recorded_at || null
-        });
-        return;
-      }
-
+      // Always go through the backend API rather than querying Supabase
+      // directly from the browser - keeps this data behind our own
+      // verifyToken/authorizeRole middleware instead of depending on RLS
+      // policies being correctly configured on container_tracking.
       const res = await api.get(`/logistics/tracking/order/${orderId}`);
       const details = res.data?.tracking_details;
 
