@@ -44,11 +44,11 @@ export const Dashboard = () => {
 
   // Vehicles Stats
   const totalVehicles = vehicles.length;
-  const availableVehiclesCount = vehicles.filter(v => (v.availability_status || v.status)?.toLowerCase() !== 'unavailable').length;
+  const availableVehiclesCount = vehicles.filter(v => (v.availability_status || v.status)?.toLowerCase() === 'available').length;
 
   // Drivers Stats
   const totalDrivers = drivers.length;
-  const availableDriversCount = drivers.filter(d => (d.availability_status || d.status)?.toLowerCase() !== 'unavailable').length;
+  const availableDriversCount = drivers.filter(d => (d.availability_status || d.status)?.toLowerCase() === 'available').length;
 
   const statCards = [
     {

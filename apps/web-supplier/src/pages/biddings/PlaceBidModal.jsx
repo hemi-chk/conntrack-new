@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, AlertTriangle, Send, DollarSign, MapPin, Truck, Calendar, Package } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 import { submitBid } from '../../services/biddingService';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const inputCls = "w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white";
 const labelCls = "block mb-0.5 text-xs font-semibold text-gray-600";
@@ -15,12 +16,6 @@ export const PlaceBidModal = ({ isOpen, onClose, bid, onBidSuccess }) => {
   if (!isOpen || !bid) return null;
 
   const order = bid.orders || {};
-
-  const formatCurrency = (val) => {
-    if (!val) return '';
-    const num = val.replace(/\D/g, '');
-    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  };
 
   const handleAmountChange = (e) => {
     const val = e.target.value;

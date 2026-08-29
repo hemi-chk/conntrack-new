@@ -32,27 +32,19 @@ export const getVehicles = async (supplierId) => {
 
 export const addVehicle = async (vehicleData) => {
   try {
-    console.log("Service: Attempting to add vehicle...", vehicleData);
-    console.log("Service: Target URL:", `${BASE_URL}/supplier/vehicles`);
-    
     const res = await fetch(`${BASE_URL}/supplier/vehicles`, {
       method: 'POST',
       ...(hasFiles(vehicleData)
         ? { body: buildVehicleFormData(vehicleData) }
         : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(vehicleData) })
     });
-    
-    console.log("Service: Response status:", res.status);
-    
+
     if (!res.ok) {
       const err = await res.json();
-      console.error("Service: Error response from backend:", err);
       throw new Error(err.error || 'Failed to add vehicle');
     }
-    
-    const result = await res.json();
-    console.log("Service: Success result:", result);
-    return result;
+
+    return await res.json();
   } catch (error) {
     console.error("Service: Fetch exception:", error);
     throw error;
@@ -61,7 +53,6 @@ export const addVehicle = async (vehicleData) => {
 
 export const updateVehicle = async (id, vehicleData) => {
   try {
-    console.log(`Service: Updating vehicle ${id}...`, vehicleData);
     const res = await fetch(`${BASE_URL}/supplier/vehicles/${id}`, {
       method: 'PUT',
       ...(hasFiles(vehicleData)
@@ -83,8 +74,7 @@ export const updateVehicle = async (id, vehicleData) => {
 
 export const deleteVehicle = async (id, supplierId) => {
   try {
-    console.log(`Service: Deleting vehicle ${id}...`);
-    const url = supplierId 
+    const url = supplierId
       ? `${BASE_URL}/supplier/vehicles/${id}?supplier_id=${supplierId}`
       : `${BASE_URL}/supplier/vehicles/${id}`;
     const res = await fetch(url, {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 
@@ -20,6 +20,21 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
   const { profileData } = useProfile();
   const [formData, setFormData] = useState(emptyForm);
   const [error, setError] = useState('');
+  const insuranceFileRef = useRef(null);
+  const portPassFileRef = useRef(null);
+
+  // Reset only when the modal opens - not on every submit attempt, so a
+  // failed add doesn't wipe what the supplier already typed/uploaded, and
+  // reopening after Cancel doesn't show stale data from last time. File
+  // inputs are uncontrolled, so they need clearing via ref, not state.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(emptyForm);
+      setError('');
+      if (insuranceFileRef.current) insuranceFileRef.current.value = '';
+      if (portPassFileRef.current) portPassFileRef.current.value = '';
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -67,7 +82,6 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
       ...formData,
       supplier_id: profileData?.id || profileData?.supplier_id
     });
-    setFormData(emptyForm);
   };
 
   return (
@@ -126,11 +140,11 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
             {/* Row 3: Document Uploads */}
             <div>
               <label className={labelCls}>Insurance Copy</label>
-              <input type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+              <input ref={insuranceFileRef} type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Port Pass Copy</label>
-              <input type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+              <input ref={portPassFileRef} type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
 
           </div>

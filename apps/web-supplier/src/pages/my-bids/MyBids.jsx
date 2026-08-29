@@ -14,6 +14,7 @@ import { ViewBidModal } from './ViewBidModal';
 import { EditBidModal } from './EditBidModal';
 import { DeleteBidModal } from './DeleteBidModal';
 import { updateBid, deleteBid } from '../../services/biddingService';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export const MyBids = () => {
   const { profileData } = useProfile();
@@ -23,11 +24,6 @@ export const MyBids = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
-  const formatCurrency = (val) => {
-    if (!val) return '0';
-    return val.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  };
 
   const getStatusStyle = (status) => {
     const s = status?.toLowerCase();
@@ -47,7 +43,7 @@ export const MyBids = () => {
       pickupDate.setHours(0, 0, 0, 0);
 
       if (filterType === 'active') {
-        return pickupDate > today;
+        return pickupDate >= today;
       } else {
         return pickupDate < today;
       }
@@ -217,7 +213,7 @@ export const MyBids = () => {
                       {bid.bidding?.orders?.pickup_date ? new Date(bid.bidding.orders.pickup_date).toLocaleDateString('en-GB') : 'N/A'}
                     </td>
                     <td className="px-6 py-4 font-bold text-dark text-sm">
-                      {formatCurrency(bid.bid_amount)}
+                      {formatCurrency(bid.bid_amount) || '0'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${getStatusStyle(bid.bid_status || bid.status)}`}>

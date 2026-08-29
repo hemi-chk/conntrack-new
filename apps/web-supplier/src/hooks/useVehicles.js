@@ -3,14 +3,22 @@ import { getVehicles } from '../services/vehicleService';
 import { useProfile } from './useProfile';
 
 export const useVehicles = () => {
-  const { profileData } = useProfile();
+  const { profileData, isLoading: profileLoading, error: profileError } = useProfile();
   const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchVehiclesList = useCallback(async () => {
     // Wait for profile data if it's still loading to ensure we get the supplier_id
-    if (!profileData) return;
+    if (profileLoading) return;
+
+    // Profile finished loading but failed - stop waiting instead of
+    // spinning forever, and surface why.
+    if (!profileData) {
+      setIsLoading(false);
+      setError(profileError || 'Failed to load supplier profile');
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -24,7 +32,7 @@ export const useVehicles = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [profileData]);
+  }, [profileData, profileLoading, profileError]);
 
   useEffect(() => {
     fetchVehiclesList();
