@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { adminAPI } from '../services/api'
-import { AlertTriangle, Search, Package, Truck, Building2, User } from 'lucide-react'
+import { AlertTriangle, Search, Package, Truck, Building2, User, X, Clock, Eye, CheckCircle2 } from 'lucide-react'
 
 const SOURCES = ['operations', 'logistics', 'supplier', 'driver']
 
@@ -34,6 +34,19 @@ const PRIORITY_META = {
   critical: { label: 'Critical', bg: '#FEE2E2', text: '#B91C1C' },
 }
 
+// Raw DB values stay open/escalated/resolved (Operations' and Logistics'
+// own Issues pages already read these directly) - this is purely the
+// Admin-facing label/color for the same three states.
+const STATUS_ORDER = ['open', 'escalated', 'resolved']
+const STATUS_META = {
+  open: { label: 'Not Reviewed', bg: '#F1F5F9', text: '#475569', icon: Clock },
+  escalated: { label: 'Reviewing', bg: '#C1E8FF', text: '#052659', icon: Eye },
+  resolved: { label: 'Solved', bg: '#D1FAE5', text: '#065F46', icon: CheckCircle2 },
+}
+function statusMeta(status) {
+  return STATUS_META[status] || STATUS_META.open
+}
+
 // Each interface's issue-report form phrases categories slightly differently
 // (Logistics: "Traffic/Route Delay", Driver: same now, Operations' upcoming
 // form: "Delay/Tracking Issue", legacy driver rows: "delay_issue", etc).
@@ -59,6 +72,8 @@ export default function Issues() {
   const [priorityFilter, setPriorityFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedIssue, setSelectedIssue] = useState(null)
+  const [savingStatus, setSavingStatus] = useState(false)
 
   useEffect(() => {
     adminAPI.getIssues()
@@ -66,6 +81,22 @@ export default function Issues() {
       .catch(() => setIssues([]))
       .finally(() => setLoading(false))
   }, [])
+
+  const issueKey = (issue) => issue.issue_id || issue.id
+
+  const handleStatusChange = async (issue, newStatus) => {
+    if (newStatus === issue.status) return
+    setSavingStatus(true)
+    try {
+      const updated = await adminAPI.updateIssueStatus(issueKey(issue), newStatus)
+      setIssues(prev => prev.map(i => issueKey(i) === issueKey(issue) ? { ...i, ...updated } : i))
+      setSelectedIssue(prev => prev && issueKey(prev) === issueKey(issue) ? { ...prev, ...updated } : prev)
+    } catch (err) {
+      console.error('Failed to update issue status:', err)
+    } finally {
+      setSavingStatus(false)
+    }
+  }
 
   const filtered = issues.filter(issue => {
     const source = getIssueSource(issue)
@@ -212,9 +243,15 @@ export default function Issues() {
                   const priority = normalizePriority(issue.priority)
                   const priorityMeta = PRIORITY_META[priority]
                   const category = normalizeCategory(issue.issue_type)
+                  const sMeta = statusMeta(issue.status)
+                  const StatusIcon = sMeta.icon
 
                   return (
-                    <tr key={issue.issue_id || issue.id} className="border-t border-slate-50 hover:bg-[#EBF4FF] transition">
+                    <tr
+                      key={issueKey(issue)}
+                      onClick={() => setSelectedIssue(issue)}
+                      className="border-t border-slate-50 hover:bg-[#EBF4FF] transition cursor-pointer"
+                    >
                       <td className="py-3.5">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 bg-[#EBF4FF] rounded-lg flex items-center justify-center">
@@ -236,12 +273,12 @@ export default function Issues() {
                         </span>
                       </td>
                       <td className="py-3.5">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                          issue.status === 'open'
-                            ? 'bg-[#C1E8FF] text-[#052659]'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {issue.status === 'open' ? 'Open' : (issue.status || 'Resolved')}
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                          style={{ background: sMeta.bg, color: sMeta.text }}
+                        >
+                          <StatusIcon size={12} />
+                          {sMeta.label}
                         </span>
                       </td>
                     </tr>
@@ -257,6 +294,112 @@ export default function Issues() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {selectedIssue && (
+        <IssueDetailModal
+          issue={selectedIssue}
+          savingStatus={savingStatus}
+          onStatusChange={(status) => handleStatusChange(selectedIssue, status)}
+          onClose={() => setSelectedIssue(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function IssueDetailModal({ issue, savingStatus, onStatusChange, onClose }) {
+  const source = getIssueSource(issue)
+  const sourceMeta = SOURCE_META[source] || { label: 'Unknown', icon: AlertTriangle }
+  const SourceIcon = sourceMeta.icon
+  const priority = normalizePriority(issue.priority)
+  const priorityMeta = PRIORITY_META[priority]
+  const category = normalizeCategory(issue.issue_type)
+  const reporterName = issue.reporter?.first_name
+    ? `${issue.reporter.first_name} ${issue.reporter.last_name || ''}`.trim()
+    : issue.drivers?.first_name
+      ? `${issue.drivers.first_name} ${issue.drivers.last_name || ''}`.trim()
+      : '—'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#EBF4FF] rounded-lg flex items-center justify-center">
+              <SourceIcon size={15} className="text-[#5483B3]" />
+            </div>
+            <h2 className="text-base font-bold text-[#1E293B]">{sourceMeta.label} Issue</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Reported By</p>
+              <p className="text-[#1E293B] font-medium">{reporterName}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Order</p>
+              <p className="text-[#1E293B] font-mono text-xs">{issue.orders?.order_reference || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Category</p>
+              <p className="text-[#1E293B] font-medium">{category}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Priority</p>
+              <span
+                className="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold"
+                style={{ background: priorityMeta.bg, color: priorityMeta.text }}
+              >
+                {priorityMeta.label}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Reported On</p>
+              <p className="text-[#1E293B] font-medium">
+                {issue.created_at ? new Date(issue.created_at).toLocaleString() : '—'}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Description</p>
+            <p className="text-sm text-[#1E293B] leading-relaxed bg-slate-50 rounded-xl p-3">{issue.description}</p>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Status</p>
+            <div className="grid grid-cols-3 gap-2">
+              {STATUS_ORDER.map((status) => {
+                const meta = STATUS_META[status]
+                const Icon = meta.icon
+                const active = issue.status === status
+                return (
+                  <button
+                    key={status}
+                    disabled={savingStatus}
+                    onClick={() => onStatusChange(status)}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-semibold transition disabled:opacity-50 ${
+                      active ? 'border-transparent' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-500'
+                    }`}
+                    style={active ? { background: meta.bg, color: meta.text } : undefined}
+                  >
+                    <Icon size={16} />
+                    {meta.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

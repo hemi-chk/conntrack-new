@@ -311,7 +311,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
                         <CheckCircle2 size={12} />
-                        Resolved
+                        Solved
                     </span>
                 );
 
@@ -319,7 +319,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
                         <ShieldAlert size={12} />
-                        Escalated
+                        Reviewing
                     </span>
                 );
 
@@ -327,7 +327,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">
                         <Clock size={12} />
-                        Open
+                        Not Reviewed
                     </span>
                 );
         }
@@ -425,7 +425,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Open
+                                    Not Reviewed
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-amber-600">
@@ -443,7 +443,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Escalated
+                                    Reviewing
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-indigo-600">
@@ -461,7 +461,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Resolved
+                                    Solved
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-emerald-600">
@@ -532,13 +532,13 @@ const Issues = () => {
                                                 All
                                             </option>
                                             <option value="open">
-                                                Open
+                                                Not Reviewed
                                             </option>
                                             <option value="escalated">
-                                                Escalated
+                                                Reviewing
                                             </option>
                                             <option value="resolved">
-                                                Resolved
+                                                Solved
                                             </option>
                                         </select>
                                     </div>

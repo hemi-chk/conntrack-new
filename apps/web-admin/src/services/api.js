@@ -167,6 +167,7 @@ export const adminAPI = {
 
   // Issues
   getIssues: () => fetchData('/admin/issues'),
+  updateIssueStatus: (id, status) => putData(`/admin/issues/${id}/status`, { status }),
 
   // Auth
   verifyPassword: (password) => postData('/auth/verify-password', {
