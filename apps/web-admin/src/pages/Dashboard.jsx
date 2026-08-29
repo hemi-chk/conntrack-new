@@ -4,9 +4,19 @@ import { adminAPI } from '../services/api'
 
 // Issue rows from /admin/issues carry priority (minor/major/critical), not
 // a `type` field - matches the same 3-tier scale used on the Issues page.
-const isCritical = (issue) => {
+const issueTier = (issue) => {
   const p = (issue.priority || '').toLowerCase()
-  return p === 'critical' || p === 'high' || p === 'urgent'
+  if (['critical', 'high', 'urgent'].includes(p)) return 'critical'
+  if (['major', 'medium'].includes(p)) return 'major'
+  return 'minor'
+}
+const isCritical = (issue) => issueTier(issue) === 'critical'
+
+// Pale card tint per severity - critical=red, major=yellow, minor=plain white
+const TIER_META = {
+  critical: { card: 'bg-red-50/70 hover:bg-red-50 border-l-4 border-l-red-400', icon: 'bg-red-100 text-red-600', badge: 'bg-red-100 text-red-700', label: 'Critical' },
+  major: { card: 'bg-amber-50/70 hover:bg-amber-50 border-l-4 border-l-amber-400', icon: 'bg-amber-100 text-amber-600', badge: 'bg-amber-100 text-amber-700', label: 'Major' },
+  minor: { card: 'bg-white hover:bg-slate-50 border-l-4 border-l-transparent', icon: 'bg-[#EBF4FF] text-[#7DA0CA]', badge: 'bg-[#EBF4FF] text-[#7DA0CA]', label: 'Minor' },
 }
 
 function Dashboard({ onNavigate }) {
@@ -35,6 +45,7 @@ function Dashboard({ onNavigate }) {
         setRecentOrders(
           (ordersData || []).slice(0, 5).map(o => ({
             id: o.order_reference || `ORD-${String(o.order_id).padStart(5, '0')}`,
+            orderId: o.order_id,
             client: o.customers?.customer_name || 'N/A',
             route: `${o.pickup_location || 'N/A'} → ${o.destination_country || 'N/A'}`,
             status: o.current_status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'Unknown',
@@ -198,37 +209,43 @@ function Dashboard({ onNavigate }) {
           <div className="divide-y divide-slate-50">
             {issues.length === 0 ? (
               <p className="p-4 text-sm text-slate-400 text-center">No issues reported</p>
-            ) : issues.map((issue) => (
-              <div key={issue.issue_id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition group">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 p-1 rounded-lg bg-[#EBF4FF]">
-                    {isCritical(issue)
-                      ? <XCircle size={14} className="text-[#052659]" />
-                      : <AlertTriangle size={14} className="text-[#7DA0CA]" />
-                    }
-                  </div>
-                  <div>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      isCritical(issue)
-                        ? 'bg-[#EBF4FF] text-[#052659]'
-                        : 'bg-[#EBF4FF] text-[#7DA0CA]'
-                    }`}>
-                      {issue.issue_type || 'Issue'}
-                    </span>
-                    <p className="text-sm text-slate-600 mt-1">{issue.description}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {issue.created_at ? new Date(issue.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                    </p>
-                  </div>
-                </div>
-                <button
+            ) : issues.map((issue) => {
+              const tier = TIER_META[issueTier(issue)]
+              return (
+                <div
+                  key={issue.issue_id}
                   onClick={() => onNavigate?.('/issues')}
-                  className="text-xs font-medium text-[#052659] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4"
+                  className={`p-4 flex items-center justify-between transition group cursor-pointer ${tier.card}`}
                 >
-                  Review <ArrowRight size={12} />
-                </button>
-              </div>
-            ))}
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 p-1 rounded-lg ${tier.icon}`}>
+                      {isCritical(issue)
+                        ? <XCircle size={14} />
+                        : <AlertTriangle size={14} />
+                      }
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tier.badge}`}>
+                          {tier.label}
+                        </span>
+                        <span className="text-xs font-medium text-slate-500">{issue.issue_type || 'Issue'}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">{issue.description}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {issue.created_at ? new Date(issue.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onNavigate?.('/issues') }}
+                    className="text-xs font-medium text-[#052659] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4"
+                  >
+                    Review <ArrowRight size={12} />
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -239,11 +256,15 @@ function Dashboard({ onNavigate }) {
               <h2 className="text-sm font-bold text-[#1E293B]">Recent Orders</h2>
               <p className="text-xs text-slate-400 mt-0.5">Latest activity</p>
             </div>
-            <button className="text-xs text-[#052659] font-medium hover:underline">View all</button>
+            <button onClick={() => onNavigate?.('/orders')} className="text-xs text-[#052659] font-medium hover:underline">View all</button>
           </div>
           <div className="divide-y divide-slate-50">
             {recentOrders.map((order) => (
-              <div key={order.id} className="p-4 hover:bg-slate-50 transition cursor-pointer group">
+              <div
+                key={order.id}
+                onClick={() => onNavigate?.(`/orders/${order.orderId}`)}
+                className="p-4 hover:bg-slate-50 transition cursor-pointer group"
+              >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-bold text-[#052659]">{order.id}</span>
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
