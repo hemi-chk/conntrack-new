@@ -2,7 +2,14 @@ import { AlertTriangle, ArrowRight, CheckCircle, Clock, Package, TrendingUp, Tru
 import { useEffect, useState } from 'react'
 import { adminAPI } from '../services/api'
 
-function Dashboard() {
+// Issue rows from /admin/issues carry priority (minor/major/critical), not
+// a `type` field - matches the same 3-tier scale used on the Issues page.
+const isCritical = (issue) => {
+  const p = (issue.priority || '').toLowerCase()
+  return p === 'critical' || p === 'high' || p === 'urgent'
+}
+
+function Dashboard({ onNavigate }) {
   const userName = JSON.parse(localStorage.getItem('user') || '{}').name || 'Admin'
 
   const [stats, setStats] = useState({
@@ -116,9 +123,12 @@ function Dashboard() {
               {getGreeting()}, Hi {userName}! 👋
             </h1>
             <p className="text-blue-100 text-sm max-w-md">
-              You have <span className="font-bold text-white">{issues.filter(i => i.type === 'error').length} critical issues</span> that need your attention today. Let's get started!
+              You have <span className="font-bold text-white">{issues.filter(isCritical).length} critical issues</span> that need your attention today. Let's get started!
             </p>
-            <button className="mt-4 flex items-center gap-2 bg-white text-[#052659] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm">
+            <button
+              onClick={() => onNavigate?.('/issues')}
+              className="mt-4 flex items-center gap-2 bg-white text-[#052659] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-50 transition shadow-sm"
+            >
               Review Issues
               <ArrowRight size={16} />
             </button>
@@ -128,7 +138,7 @@ function Dashboard() {
             {[
               { value: loading ? '...' : stats.total_orders, label: 'Total Orders' },
               { value: loading ? '...' : stats.active_orders, label: 'Active Now' },
-              { value: issues.filter(i => i.type === 'error').length, label: 'Critical Issues' },
+              { value: issues.filter(isCritical).length, label: 'Critical Issues' },
             ].map(item => (
               <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 text-center min-w-[88px] border border-white/20">
                 <p className="text-3xl font-bold text-white">{item.value}</p>
@@ -182,33 +192,40 @@ function Dashboard() {
               </div>
             </div>
             <span className="bg-[#052659] text-white text-xs font-bold px-3 py-1 rounded-full">
-              {issues.filter(i => i.type === 'error').length} Critical
+              {issues.filter(isCritical).length} Critical
             </span>
           </div>
           <div className="divide-y divide-slate-50">
-            {issues.map((issue) => (
-              <div key={issue.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition group">
+            {issues.length === 0 ? (
+              <p className="p-4 text-sm text-slate-400 text-center">No issues reported</p>
+            ) : issues.map((issue) => (
+              <div key={issue.issue_id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition group">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 p-1 rounded-lg bg-[#EBF4FF]">
-                    {issue.type === 'error'
+                    {isCritical(issue)
                       ? <XCircle size={14} className="text-[#052659]" />
                       : <AlertTriangle size={14} className="text-[#7DA0CA]" />
                     }
                   </div>
                   <div>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      issue.type === 'error'
+                      isCritical(issue)
                         ? 'bg-[#EBF4FF] text-[#052659]'
                         : 'bg-[#EBF4FF] text-[#7DA0CA]'
                     }`}>
-                      {issue.category}
+                      {issue.issue_type || 'Issue'}
                     </span>
-                    <p className="text-sm text-slate-600 mt-1">{issue.message}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{issue.date}</p>
+                    <p className="text-sm text-slate-600 mt-1">{issue.description}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {issue.created_at ? new Date(issue.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </p>
                   </div>
                 </div>
-                <button className="text-xs font-medium text-[#052659] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4">
-                  {issue.action} <ArrowRight size={12} />
+                <button
+                  onClick={() => onNavigate?.('/issues')}
+                  className="text-xs font-medium text-[#052659] opacity-0 group-hover:opacity-100 transition flex items-center gap-1 whitespace-nowrap ml-4"
+                >
+                  Review <ArrowRight size={12} />
                 </button>
               </div>
             ))}
