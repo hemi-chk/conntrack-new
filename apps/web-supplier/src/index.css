@@ -47,11 +47,6 @@
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
 
-    /* Custom colors from supplier-ui */
-    --color-primary-custom: #1E40AF;
-    --color-primary-dark: #1E3A8A;
-    --color-primary-light: #3B82F6;
-    
     --color-dark: #1E293B;
     --color-dark-light: #334155;
     --color-dark-dark: #0F172A;
@@ -70,8 +65,11 @@
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
+    /* Was oklch(0.205 0 0) - near-black. tailwind.config.js declared a
+       lighter blue brand color but Tailwind v4 (CSS-first, no @config
+       directive) never loaded that file, so it never actually rendered. */
+    --primary: #3B82F6;
+    --primary-foreground: #FFFFFF;
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
@@ -81,7 +79,7 @@
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: #93C5FD;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

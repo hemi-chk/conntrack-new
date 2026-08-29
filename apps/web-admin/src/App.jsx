@@ -60,7 +60,7 @@ function App() {
     }
 
     switch (currentPath) {
-      case '/': return <Dashboard />
+      case '/': return <Dashboard onNavigate={setCurrentPath} />
       case '/orders': return <Orders onNavigate={setCurrentPath} />
       case '/bids': return <Bids />
       case '/drivers': return <Drivers />
@@ -70,7 +70,7 @@ function App() {
       case '/staff': return <Staff darkMode={darkMode} />
       case '/issues': return <Issues />
       case '/settings': return <Settings />
-      default: return <Dashboard />
+      default: return <Dashboard onNavigate={setCurrentPath} />
     }
   }
 
