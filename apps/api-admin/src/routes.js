@@ -19,6 +19,7 @@ import {
   grantSupplierAccess,
   getAllBids,
   getAllIssues,
+  updateIssueStatus,
 } from './controller.js'
 
 const router = express.Router()
@@ -70,5 +71,6 @@ router.get('/bids', getAllBids)
 
 // Issues
 router.get('/issues', getAllIssues)
+router.put('/issues/:id/status', updateIssueStatus)
 
 export default router

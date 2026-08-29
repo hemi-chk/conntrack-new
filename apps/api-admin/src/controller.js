@@ -416,3 +416,34 @@ export const getAllIssues = async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 }
+
+const ISSUE_STATUSES = ['open', 'escalated', 'resolved']
+
+export const updateIssueStatus = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+
+    if (!ISSUE_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${ISSUE_STATUSES.join(', ')}` })
+    }
+
+    const updateData = { status }
+    if (status === 'resolved') {
+      updateData.resolved_at = new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('issues')
+      .update(updateData)
+      .eq('issue_id', id)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Issue not found' })
+
+    res.json(data[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
