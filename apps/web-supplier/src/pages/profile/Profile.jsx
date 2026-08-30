@@ -96,7 +96,6 @@ export const Profile = () => {
         <div className="flex flex-col gap-6">
           {/* Main Info Card */}
           <div className="flex flex-col gap-6 items-center p-6 bg-white rounded-xl border border-gray-200 shadow-sm sm:flex-row sm:items-start">
-<<<<<<< HEAD
             <div className="overflow-hidden relative flex justify-center items-center w-24 h-24 bg-blue-50 rounded-xl border border-blue-100 text-primary shrink-0 group">
               {profileData?.supplier_logo ? (
                 <img src={profileData.supplier_logo} alt="Company logo" className="object-cover w-full h-full" />

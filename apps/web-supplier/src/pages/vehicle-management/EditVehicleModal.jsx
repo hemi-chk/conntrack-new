@@ -180,7 +180,6 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
                 className={inputCls}
               />
             </div>
-            </div>
 
           </div>
 
