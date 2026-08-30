@@ -1,6 +1,7 @@
 import { Bell, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../config/api";
 import {
     getNotifications,
     markAllNotificationsAsRead,
@@ -42,9 +43,7 @@ export default function Navbar({ isOpen, onMenuClick }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const user = JSON.parse(localStorage.getItem('user') || '{"name":"Logistics"}')
-  const userName = user.name || 'Logistics'
-  const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
     const loadNotifications = async () => {
@@ -52,8 +51,29 @@ export default function Navbar({ isOpen, onMenuClick }) {
       setNotifications(nextNotifications);
     };
 
+    const loadProfile = async () => {
+      try {
+        const { data } = await api.get('/logistics/profile');
+        setProfile(data);
+      } catch (error) {
+        console.warn('Could not load profile for navbar:', error);
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{"name":"Logistics"}');
+        setProfile({
+          first_name: savedUser.first_name || savedUser.name?.split(' ')[0] || 'Logistics',
+          last_name: savedUser.last_name || savedUser.name?.split(' ').slice(1).join(' ') || '',
+          position: 'Logistics Handler',
+        });
+      }
+    };
+
     loadNotifications();
+    loadProfile();
   }, []);
+
+  const userName = profile
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Logistics'
+    : 'Logistics';
+  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'L';
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,

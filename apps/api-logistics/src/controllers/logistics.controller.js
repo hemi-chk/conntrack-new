@@ -133,6 +133,43 @@ export const markAllNotificationsAsRead = async (req, res) => {
     }
 };
 
+export const getMyProfile = async (req, res) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, role, position, employee_id, contact_number, status, address')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ message: 'Profile not found' });
+        }
+
+        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+
+        return res.status(200).json({
+            first_name: data.first_name,
+            last_name: data.last_name,
+            full_name: fullName,
+            role: data.role,
+            position: data.position || 'Logistics Handler',
+            employee_id: data.employee_id || 'N/A',
+            contact_number: data.contact_number || 'N/A',
+            status: data.status || 'active',
+            address: data.address || 'N/A',
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to load profile', error: error.message });
+    }
+};
+
 // --- DASHBOARD METHODS ---
 
 export const getDashboardSummary = async (req, res) => {

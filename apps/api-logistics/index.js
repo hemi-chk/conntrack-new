@@ -1,8 +1,8 @@
-import express from 'express'
+import { authorizeRole, verifyToken } from '@conntrack/api-core'
+import { connectMessaging } from '@conntrack/messaging'
 import cors from 'cors'
 import dotenv from 'dotenv'
-import { verifyToken, authorizeRole } from '@conntrack/api-core'
-import { connectMessaging } from '@conntrack/messaging'
+import express from 'express'
 import logisticsRoutes from './src/routes/logistics.routes.js'
 
 dotenv.config()
@@ -17,8 +17,8 @@ app.get('/health', (req, res) => {
   res.json({ service: 'logistics', status: 'ok' })
 })
 
-// Mounted at '/' because Gateway rewrites '/api/logistics' by stripping it
-app.use('/', verifyToken, authorizeRole('logistics'), logisticsRoutes)
+// Support both gateway-rooted requests (`/notifications`) and direct service calls (`/api/logistics/notifications`)
+app.use(['/', '/api/logistics'], verifyToken, authorizeRole('logistics'), logisticsRoutes)
 
 connectMessaging(process.env.AMQP_URL).then(() => {
   app.listen(PORT, () => {

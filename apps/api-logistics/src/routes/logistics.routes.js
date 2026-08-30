@@ -8,6 +8,7 @@ import {
     getAllIssues,
     getDashboardSummary,
     getFilteredReports,
+    getMyProfile,
     getNotifications,
     getOrderById,
     getOrdersByType,
@@ -50,6 +51,7 @@ const upload = multer({
 // =============================================
 router.get("/dashboard-summary", getDashboardSummary);
 router.get("/reports", getFilteredReports);
+router.get("/profile", getMyProfile);
 
 // =============================================
 // ORDERS
