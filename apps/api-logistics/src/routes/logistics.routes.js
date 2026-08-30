@@ -2,19 +2,22 @@ import express from "express";
 import multer from "multer";
 
 import {
-    getDashboardSummary,
-    getOrdersByType,
     createIssue,
-    getFilteredReports,
-    getShortlistedBids,
-    finalizeOrder,
-    getOrderById,
-    getTrackingByOrderId,
-    uploadDocuments,
     deleteDocument,
+    finalizeOrder,
     getAllIssues,
+    getDashboardSummary,
+    getFilteredReports,
+    getNotifications,
+    getOrderById,
+    getOrdersByType,
+    getShortlistedBids,
+    getTrackingByOrderId,
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
     updateIssueStatus,
-    updateTrackingLocation
+    updateTrackingLocation,
+    uploadDocuments
 } from "../controllers/logistics.controller.js";
 
 const router = express.Router();
@@ -73,6 +76,10 @@ router.delete("/documents/:id", deleteDocument);
 router.post("/issues", createIssue);
 router.get("/issues", getAllIssues);
 router.patch("/issues/:id/status", updateIssueStatus);
+
+router.get("/notifications", getNotifications);
+router.patch("/notifications/:id/read", markNotificationAsRead);
+router.patch("/notifications/read-all", markAllNotificationsAsRead);
 
 router.post("/tracking/location", updateTrackingLocation);
 router.get("/orders/:orderId/tracking", getTrackingByOrderId);
