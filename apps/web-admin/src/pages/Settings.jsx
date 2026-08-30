@@ -1,18 +1,31 @@
-import { useState } from 'react'
-import { User, Bell, Shield, Building2, Save } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { User, Bell, Shield, Building2, Save, Camera } from 'lucide-react'
+import { adminAPI, uploadFile } from '../services/api'
+
+const DEFAULT_NOTIFICATIONS = {
+  new_order: true,
+  new_bid: true,
+  bid_accepted: true,
+  driver_update: true,
+  license_expiry: true,
+  system_alerts: true,
+}
 
 function Settings() {
   // WHY: Controls which settings tab is active
   const [activeTab, setActiveTab] = useState('profile')
+  const [loading, setLoading] = useState(true)
+  const logoInputRef = useRef(null)
 
   // WHY: Stores profile form data
   const [profileForm, setProfileForm] = useState({
-    first_name: 'Hemindi',
-    last_name: 'Chathurika',
-    email: 'hemindi@contrack.lk',
-    contact_number: '0771234567',
-    employee_id: 'ADMIN001',
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_number: '',
+    employee_id: '',
   })
+  const [lastSignInAt, setLastSignInAt] = useState(null)
 
   // WHY: Stores password form data
   const [passwordForm, setPasswordForm] = useState({
@@ -22,28 +35,57 @@ function Settings() {
   })
 
   // WHY: Stores notification preferences
-  const [notifications, setNotifications] = useState({
-    new_order: true,
-    new_bid: true,
-    bid_accepted: true,
-    driver_update: true,
-    license_expiry: true,
-    system_alerts: true,
-  })
+  const [notifications, setNotifications] = useState(DEFAULT_NOTIFICATIONS)
 
   // WHY: Stores company settings
   const [companyForm, setCompanyForm] = useState({
-    company_name: 'ConTrack Logistics',
-    company_email: 'info@contrack.lk',
-    company_phone: '0112345678',
-    company_address: 'No. 123, Colombo 03, Sri Lanka',
+    company_name: '',
+    company_email: '',
+    company_phone: '',
+    company_address: '',
+    logo_url: '',
   })
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [logoError, setLogoError] = useState('')
 
   // WHY: Shows success message after saving
   const [saveSuccess, setSaveSuccess] = useState('')
+  const [saveError, setSaveError] = useState('')
 
   // WHY: Shows password error
   const [passwordError, setPasswordError] = useState('')
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [profile, company] = await Promise.all([
+          adminAPI.getMyProfile(),
+          adminAPI.getCompanySettings(),
+        ])
+        setProfileForm({
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          email: profile.email || '',
+          contact_number: profile.contact_number || '',
+          employee_id: profile.employee_id || '',
+        })
+        setLastSignInAt(profile.last_sign_in_at || null)
+        setNotifications({ ...DEFAULT_NOTIFICATIONS, ...(profile.notification_preferences || {}) })
+        setCompanyForm({
+          company_name: company.company_name || '',
+          company_email: company.company_email || '',
+          company_phone: company.company_phone || '',
+          company_address: company.company_address || '',
+          logo_url: company.logo_url || '',
+        })
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAll()
+  }, [])
 
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
@@ -52,13 +94,65 @@ function Settings() {
     { id: 'security', label: 'Security', icon: Shield },
   ]
 
-  const handleSave = (section) => {
-    // TODO: Connect to backend API
-    setSaveSuccess(`${section} settings saved successfully!`)
+  const flashSuccess = (message) => {
+    setSaveError('')
+    setSaveSuccess(message)
     setTimeout(() => setSaveSuccess(''), 3000)
   }
 
-  const handlePasswordChange = (e) => {
+  const handleSaveProfile = async () => {
+    try {
+      await adminAPI.updateMyProfile({
+        first_name: profileForm.first_name,
+        last_name: profileForm.last_name,
+        contact_number: profileForm.contact_number,
+        email: profileForm.email,
+      })
+      flashSuccess('Profile settings saved successfully!')
+    } catch (error) {
+      setSaveError(error.message || 'Failed to save profile')
+    }
+  }
+
+  const handleSaveCompany = async () => {
+    try {
+      await adminAPI.updateCompanySettings(companyForm)
+      flashSuccess('Company settings saved successfully!')
+    } catch (error) {
+      setSaveError(error.message || 'Failed to save company settings')
+    }
+  }
+
+  const handleSaveNotifications = async () => {
+    try {
+      await adminAPI.updateMyProfile({ notification_preferences: notifications })
+      flashSuccess('Notification settings saved successfully!')
+    } catch (error) {
+      setSaveError(error.message || 'Failed to save notifications')
+    }
+  }
+
+  const handleLogoClick = () => logoInputRef.current?.click()
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    try {
+      setIsUploadingLogo(true)
+      setLogoError('')
+      const url = await uploadFile('company-assets', file, 'logo')
+      const updated = await adminAPI.updateCompanySettings({ logo_url: url })
+      setCompanyForm((prev) => ({ ...prev, logo_url: updated.logo_url }))
+    } catch (error) {
+      setLogoError(error.message || 'Failed to upload logo')
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
+  const handlePasswordChange = async (e) => {
     e.preventDefault()
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       setPasswordError('New passwords do not match.')
@@ -69,8 +163,13 @@ function Settings() {
       return
     }
     setPasswordError('')
-    handleSave('Password')
-    setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
+    try {
+      await adminAPI.updateMyPassword(passwordForm.current_password, passwordForm.new_password)
+      flashSuccess('Password updated successfully!')
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' })
+    } catch (error) {
+      setPasswordError(error.message || 'Failed to update password')
+    }
   }
 
   return (
@@ -89,7 +188,17 @@ function Settings() {
           <p className="text-sm text-green-600 font-medium">✅ {saveSuccess}</p>
         </div>
       )}
+      {saveError && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600 font-medium">⚠️ {saveError}</p>
+        </div>
+      )}
 
+      {loading ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
+          Loading settings...
+        </div>
+      ) : (
       <div className="flex gap-6">
 
         {/* Sidebar Tabs */}
@@ -126,7 +235,7 @@ function Settings() {
               <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-2xl">
                 <div className="w-16 h-16 bg-[#052659] rounded-2xl flex items-center justify-center shadow-sm">
                   <span className="text-white text-xl font-bold">
-                    {profileForm.first_name[0]}{profileForm.last_name[0]}
+                    {profileForm.first_name?.[0]}{profileForm.last_name?.[0]}
                   </span>
                 </div>
                 <div>
@@ -190,7 +299,7 @@ function Settings() {
                 </div>
 
                 <button
-                  onClick={() => handleSave('Profile')}
+                  onClick={handleSaveProfile}
                   className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
                 >
                   <Save size={16} />
@@ -250,16 +359,40 @@ function Settings() {
                 {/* WHY: Company logo upload for branding */}
                 <div>
                   <label className="text-sm font-medium text-slate-700">Company Logo</label>
-                  <div className="mt-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:border-blue-400 transition cursor-pointer bg-slate-50">
-                    <img src="/logo.png" alt="Current Logo" className="h-12 mx-auto mb-2 object-contain" />
-                    <p className="text-sm text-slate-500">Click to update logo</p>
-                    <p className="text-xs text-slate-400 mt-1">PNG or SVG recommended</p>
-                    <p className="text-xs text-slate-400 mt-1">* Upload will be enabled after backend integration</p>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={handleLogoClick}
+                    className="mt-1 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:border-blue-400 transition cursor-pointer bg-slate-50"
+                  >
+                    {isUploadingLogo ? (
+                      <p className="text-sm text-slate-500 py-6">Uploading...</p>
+                    ) : (
+                      <>
+                        <img
+                          src={companyForm.logo_url || '/logo.png'}
+                          alt="Current Logo"
+                          className="h-12 mx-auto mb-2 object-contain"
+                        />
+                        <p className="text-sm text-slate-500 flex items-center justify-center gap-1.5">
+                          <Camera size={14} /> Click to update logo
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">PNG or SVG recommended</p>
+                      </>
+                    )}
                   </div>
+                  {logoError && (
+                    <p className="text-xs text-red-500 mt-1">⚠️ {logoError}</p>
+                  )}
                 </div>
 
                 <button
-                  onClick={() => handleSave('Company')}
+                  onClick={handleSaveCompany}
                   className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200"
                 >
                   <Save size={16} />
@@ -305,7 +438,7 @@ function Settings() {
               </div>
 
               <button
-                onClick={() => handleSave('Notification')}
+                onClick={handleSaveNotifications}
                 className="flex items-center gap-2 bg-[#052659] text-white px-5 py-2.5 rounded-xl hover:bg-[#5483B3] transition text-sm font-semibold shadow-sm shadow-blue-200 mt-6"
               >
                 <Save size={16} />
@@ -377,14 +510,16 @@ function Settings() {
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                     <div>
                       <p className="text-sm font-medium text-[#1E293B]">Current Session</p>
-                      <p className="text-xs text-slate-500">Logged in as Admin — ADMIN001</p>
+                      <p className="text-xs text-slate-500">Logged in as Admin — {profileForm.employee_id || 'N/A'}</p>
                     </div>
                     <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Active</span>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                     <div>
                       <p className="text-sm font-medium text-[#1E293B]">Last Login</p>
-                      <p className="text-xs text-slate-500">Today at 5:00 PM</p>
+                      <p className="text-xs text-slate-500">
+                        {lastSignInAt ? new Date(lastSignInAt).toLocaleString() : 'Unknown'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -395,6 +530,7 @@ function Settings() {
 
         </div>
       </div>
+      )}
     </div>
   )
 }

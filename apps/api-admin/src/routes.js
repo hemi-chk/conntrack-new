@@ -20,6 +20,11 @@ import {
   getAllBids,
   getAllIssues,
   updateIssueStatus,
+  getMyProfile,
+  updateMyProfile,
+  updateMyPassword,
+  getCompanySettings,
+  updateCompanySettings,
 } from './controller.js'
 
 const router = express.Router()
@@ -72,5 +77,14 @@ router.get('/bids', getAllBids)
 // Issues
 router.get('/issues', getAllIssues)
 router.put('/issues/:id/status', updateIssueStatus)
+
+// My Profile
+router.get('/profile/me', getMyProfile)
+router.put('/profile/me', updateMyProfile)
+router.put('/profile/me/password', updateMyPassword)
+
+// Company Settings
+router.get('/company-settings', getCompanySettings)
+router.put('/company-settings', updateCompanySettings)
 
 export default router
