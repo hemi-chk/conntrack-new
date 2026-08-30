@@ -1,6 +1,12 @@
-import { Bell, LogOut, Menu } from "lucide-react";
-import { useState } from "react";
+import { Bell, LogOut, Menu, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../config/api";
+import {
+    getNotifications,
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
+} from "../lib/notifications";
 
 function LogoutModal({ onConfirm, onCancel }) {
   return (
@@ -35,13 +41,71 @@ function LogoutModal({ onConfirm, onCancel }) {
 export default function Navbar({ isOpen, onMenuClick }) {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const user = JSON.parse(localStorage.getItem('user') || '{"name":"Logistics"}')
-  const userName = user.name || 'Logistics'
-  const initials = userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      const nextNotifications = await getNotifications();
+      setNotifications(nextNotifications);
+    };
+
+    const loadProfile = async () => {
+      try {
+        const { data } = await api.get('/logistics/profile');
+        setProfile(data);
+      } catch (error) {
+        console.warn('Could not load profile for navbar:', error);
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{"name":"Logistics"}');
+        setProfile({
+          first_name: savedUser.first_name || savedUser.name?.split(' ')[0] || 'Logistics',
+          last_name: savedUser.last_name || savedUser.name?.split(' ').slice(1).join(' ') || '',
+          position: 'Logistics Handler',
+        });
+      }
+    };
+
+    loadNotifications();
+    loadProfile();
+  }, []);
+
+  const userName = profile
+    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Logistics'
+    : 'Logistics';
+  const initials = userName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) || 'L';
+
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications]
+  );
 
   const confirmLogout = () => {
     localStorage.clear();
     window.location.href = `${import.meta.env.VITE_ADMIN_URL || 'http://127.0.0.1:5173'}?logout=true`;
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.read) {
+      const nextNotifications = await markNotificationAsRead(notification.id);
+      setNotifications(nextNotifications);
+    }
+
+    setShowNotifications(false);
+
+    if (notification.actionUrl) {
+      navigate(notification.actionUrl);
+    }
+  };
+
+  const handleViewAll = () => {
+    setShowNotifications(false);
+    navigate('/notifications');
+  };
+
+  const handleMarkAllAsRead = async () => {
+    const nextNotifications = await markAllNotificationsAsRead();
+    setNotifications(nextNotifications);
   };
 
   return (
@@ -91,20 +155,94 @@ export default function Navbar({ isOpen, onMenuClick }) {
         </div>
 
         {/* Right — Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
           {/* Notifications */}
-          <button
-            className="relative p-2 rounded-xl transition-all duration-200"
-            style={{ color: '#5483B3' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#EBF4FF'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <Bell size={19} />
-            <span
-              className="absolute top-[9px] right-[9px] w-2 h-2 rounded-full ring-[1.5px] ring-white"
-              style={{ background: '#5483B3' }}
-            />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifications((prev) => !prev)}
+              className="relative p-2 rounded-xl transition-all duration-200"
+              style={{ color: '#5483B3' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#EBF4FF'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              <Bell size={19} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#052659] text-[10px] font-bold text-white flex items-center justify-center ring-2 ring-white">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 top-12 w-[360px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+                  <div>
+                    <p className="text-sm font-extrabold text-slate-900">Notifications</p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                      {unreadCount} unread
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                <div className="max-h-[360px] overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-5 text-center text-sm text-slate-500">
+                      No notifications yet.
+                    </div>
+                  ) : (
+                    notifications.slice(0, 5).map((notification) => (
+                      <button
+                        key={notification.id}
+                        onClick={() => handleNotificationClick(notification)}
+                        className={`w-full text-left border-b border-slate-100 px-4 py-3 hover:bg-slate-50 transition ${
+                          !notification.read ? 'bg-blue-50/50' : 'bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                            {notification.priority === 'critical' ? '!' : notification.type === 'issue' ? 'I' : notification.type === 'tracking' ? 'T' : 'N'}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-bold text-slate-900 truncate">{notification.title}</p>
+                              {!notification.read && (
+                                <span className="h-2 w-2 rounded-full bg-[#052659]" />
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">{notification.message}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mt-2">
+                              {new Date(notification.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3">
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="text-xs font-bold text-[#052659] hover:text-[#5483B3]"
+                  >
+                    Mark all read
+                  </button>
+                  <button
+                    onClick={handleViewAll}
+                    className="text-xs font-bold text-[#052659] hover:text-[#5483B3]"
+                  >
+                    View all
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Divider */}
           <div className="w-px h-7 mx-2" style={{ background: '#C1E8FF' }} />

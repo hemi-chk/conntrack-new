@@ -1,6 +1,175 @@
 import { supabase } from '@conntrack/database';
 import { publish } from '@conntrack/messaging';
 
+const normalizeNotificationRow = (row) => ({
+    id: row.id,
+    title: row.title,
+    message: row.message,
+    type: row.type || 'info',
+    priority: row.priority || 'medium',
+    read: Boolean(row.is_read),
+    createdAt: row.created_at,
+    actionUrl: row.action_url || null,
+    is_read: row.is_read,
+    created_at: row.created_at,
+    action_url: row.action_url || null,
+});
+
+export const createLogisticsNotification = async ({
+    recipient_id,
+    sender_id = null,
+    order_id = null,
+    issue_id = null,
+    title,
+    message,
+    type = 'info',
+    priority = 'medium',
+    action_url = null,
+}) => {
+    if (!title || !message) {
+        throw new Error('Notification title and message are required');
+    }
+
+    const { data, error } = await supabase
+        .from('notifications_logistics')
+        .insert([{
+            recipient_id: recipient_id || null,
+            sender_id: sender_id || null,
+            order_id: order_id ?? null,
+            issue_id: issue_id ?? null,
+            title,
+            message,
+            type,
+            priority,
+            action_url: action_url || null,
+            is_read: false,
+            created_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const getNotifications = async (req, res) => {
+    const recipientId = req.user?.id || req.user?.uuid;
+
+    if (!recipientId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('notifications_logistics')
+            .select('*')
+            .eq('recipient_id', recipientId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return res.status(200).json((data || []).map(normalizeNotificationRow));
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to load notifications', error: error.message });
+    }
+};
+
+export const markNotificationAsRead = async (req, res) => {
+    const { id } = req.params;
+    const recipientId = req.user?.id || req.user?.uuid;
+
+    if (!recipientId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('notifications_logistics')
+            .update({
+                is_read: true,
+                read_at: new Date().toISOString(),
+            })
+            .eq('id', id)
+            .eq('recipient_id', recipientId)
+            .select();
+
+        if (error) throw error;
+
+        return res.status(200).json({
+            success: true,
+            notifications: (data || []).map(normalizeNotificationRow),
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to update notification', error: error.message });
+    }
+};
+
+export const markAllNotificationsAsRead = async (req, res) => {
+    const recipientId = req.user?.id || req.user?.uuid;
+
+    if (!recipientId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('notifications_logistics')
+            .update({
+                is_read: true,
+                read_at: new Date().toISOString(),
+            })
+            .eq('recipient_id', recipientId)
+            .eq('is_read', false)
+            .select();
+
+        if (error) throw error;
+
+        return res.status(200).json({
+            success: true,
+            notifications: (data || []).map(normalizeNotificationRow),
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to clear notifications', error: error.message });
+    }
+};
+
+export const getMyProfile = async (req, res) => {
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, role, position, employee_id, contact_number, status, address')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) {
+            return res.status(404).json({ message: 'Profile not found' });
+        }
+
+        const fullName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
+
+        return res.status(200).json({
+            first_name: data.first_name,
+            last_name: data.last_name,
+            full_name: fullName,
+            role: data.role,
+            position: data.position || 'Logistics Handler',
+            employee_id: data.employee_id || 'N/A',
+            contact_number: data.contact_number || 'N/A',
+            status: data.status || 'active',
+            address: data.address || 'N/A',
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to load profile', error: error.message });
+    }
+};
+
 // --- DASHBOARD METHODS ---
 
 export const getDashboardSummary = async (req, res) => {
@@ -140,45 +309,47 @@ export const finalizeOrder = async (req, res) => {
 
         // 8️⃣ Notify Operations team
         if (orderData?.created_by) {
-            await supabase.from('notifications').insert([{
-                order_id: orderId,
+            await createLogisticsNotification({
                 recipient_id: orderData.created_by,
+                sender_id: req.user?.id || null,
+                order_id: Number(orderId),
                 title: 'Winning Bid Selected',
                 message: `Logistics has selected a winning bid for ${orderRef}. Please assign a driver to proceed.`,
-                type: 'bid_accepted',
-                is_read: false,
-                created_at: new Date().toISOString(),
-            }]);
+                type: 'order',
+                priority: 'high',
+                action_url: `/orders/${orderId}`,
+            });
         }
 
-        // 9️⃣ Notify winning supplier
-        if (winningBid?.supplier_id) {
-            await supabase.from('notifications').insert([{
-                supplier_id: winningBid.supplier_id,
+        // 9️⃣ Notify current logistics user of the successful selection
+        if (req.user?.id) {
+            await createLogisticsNotification({
+                recipient_id: req.user.id,
+                sender_id: req.user.id,
                 order_id: Number(orderId),
-                title: 'Bid Accepted',
-                message: `Congratulations! Your bid for order ${orderRef} has been accepted. A driver will be assigned shortly.`,
-                type: 'bid_accepted',
-                is_read: false,
-                created_at: new Date().toISOString(),
-            }]);
+                title: 'Carrier Selected',
+                message: `Carrier selection for ${orderRef} was completed successfully.`,
+                type: 'order',
+                priority: 'medium',
+                action_url: `/orders/${orderId}`,
+            });
         }
 
-        // 🔟 Notify losing suppliers
+        // 🔟 Notify losing suppliers (kept in supplier-side system; no logistics table requirement here)
         if (losingSelections?.length) {
             const losingSupplierIds = [...new Set(losingSelections.map(s => s.supplier_id).filter(Boolean))];
             if (losingSupplierIds.length) {
-                await supabase.from('notifications').insert(
-                    losingSupplierIds.map(supplierId => ({
-                        supplier_id: supplierId,
+                for (const supplierId of losingSupplierIds) {
+                    await createLogisticsNotification({
+                        recipient_id: supplierId,
                         order_id: Number(orderId),
                         title: 'Bid Not Selected',
                         message: `Thank you for bidding on order ${orderRef}. Another supplier has been selected for this order.`,
-                        type: 'bid_rejected',
-                        is_read: false,
-                        created_at: new Date().toISOString(),
-                    }))
-                );
+                        type: 'order',
+                        priority: 'medium',
+                        action_url: `/orders/${orderId}`,
+                    });
+                }
             }
         }
 
@@ -461,9 +632,26 @@ export const createIssue = async (req, res) => {
 
         if (error) throw error;
 
+        const issue = data?.[0];
+        const notificationRecipient = cleanReportedBy || req.user?.id || null;
+
+        if (notificationRecipient) {
+            await createLogisticsNotification({
+                recipient_id: notificationRecipient,
+                sender_id: req.user?.id || cleanReportedBy || null,
+                issue_id: issue?.issue_id ?? null,
+                order_id: cleanOrderId,
+                title: 'Issue reported successfully',
+                message: `Your ${issue_type} issue has been submitted for admin review.`,
+                type: 'issue',
+                priority: priority || 'medium',
+                action_url: '/issues',
+            });
+        }
+
         res.status(201).json({
             success: true,
-            data: data[0]
+            data: issue
         });
 
     } catch (error) {

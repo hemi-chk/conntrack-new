@@ -1,15 +1,16 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./index.css";
 
 import Layout from "./layout/Layout";
 import Dashboard from "./pages/dashboard/Dashboard";
-import OrderDetails from "./pages/orderDetails/OrderDetails";
-import OrdersPage from "./pages/orders/Orders";
 import Issues from "./pages/issues/Issues";
-import Reports from "./pages/reports/Reports";
-import Profile from "./pages/profile/Profile";
+import NotificationsPage from "./pages/notifications/NotificationsPage";
 import BidSelectionPage from "./pages/orderDetails/BidSelectionPage";
 import DocumentsPage from "./pages/orderDetails/DocumentsPage";
+import OrderDetails from "./pages/orderDetails/OrderDetails";
+import OrdersPage from "./pages/orders/Orders";
+import Profile from "./pages/profile/Profile";
+import Reports from "./pages/reports/Reports";
 
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/issues" element={<Issues />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/orders/:id" element={<OrderDetails />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/orders/:id/bids" element={<BidSelectionPage />} />
           <Route path="/orders/:id/documents" element={<DocumentsPage />} />
