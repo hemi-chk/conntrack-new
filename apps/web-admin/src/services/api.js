@@ -169,6 +169,15 @@ export const adminAPI = {
   getIssues: () => fetchData('/admin/issues'),
   updateIssueStatus: (id, status) => putData(`/admin/issues/${id}/status`, { status }),
 
+  // My Profile
+  getMyProfile: () => fetchData('/admin/profile/me'),
+  updateMyProfile: (data) => putData('/admin/profile/me', data),
+  updateMyPassword: (current_password, new_password) => putData('/admin/profile/me/password', { current_password, new_password }),
+
+  // Company Settings
+  getCompanySettings: () => fetchData('/admin/company-settings'),
+  updateCompanySettings: (data) => putData('/admin/company-settings', data),
+
   // Auth
   verifyPassword: (password) => postData('/auth/verify-password', {
     email: JSON.parse(localStorage.getItem('user') || '{}')?.email,

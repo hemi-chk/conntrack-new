@@ -1,6 +1,12 @@
 import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '@conntrack/api-core'
+
+// Anon-key client used only to verify a password via signInWithPassword -
+// the service-role client above can't do this (it bypasses auth checks
+// entirely rather than validating credentials).
+const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
 
 // =============================================
 // FILE UPLOAD
@@ -443,6 +449,137 @@ export const updateIssueStatus = async (req, res) => {
     if (!data || data.length === 0) return res.status(404).json({ error: 'Issue not found' })
 
     res.json(data[0])
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+// =============================================
+// MY PROFILE (the logged-in admin's own account)
+// =============================================
+
+export const getMyProfile = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single()
+
+    if (error) throw error
+
+    res.json({
+      ...data,
+      email: req.user.email,
+      last_sign_in_at: req.user.last_sign_in_at,
+    })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const updateMyProfile = async (req, res) => {
+  try {
+    const { first_name, last_name, contact_number, email, notification_preferences } = req.body
+
+    const profileUpdate = {}
+    if (first_name !== undefined) profileUpdate.first_name = first_name
+    if (last_name !== undefined) profileUpdate.last_name = last_name
+    if (contact_number !== undefined) profileUpdate.contact_number = contact_number
+    if (notification_preferences !== undefined) profileUpdate.notification_preferences = notification_preferences
+
+    if (Object.keys(profileUpdate).length > 0) {
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('id', req.user.id)
+      if (error) throw error
+    }
+
+    // Email lives in Supabase Auth, not profiles - only touch it if it
+    // actually changed, since updateUserById triggers a re-verification.
+    if (email && email !== req.user.email) {
+      const { error: authError } = await supabase.auth.admin.updateUserById(req.user.id, { email })
+      if (authError) throw authError
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single()
+    if (error) throw error
+
+    res.json({ ...data, email: email || req.user.email })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const updateMyPassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: 'current_password and new_password are required' })
+    }
+    if (new_password.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters' })
+    }
+
+    const { error: verifyError } = await supabaseAuth.auth.signInWithPassword({
+      email: req.user.email,
+      password: current_password,
+    })
+    if (verifyError) return res.status(401).json({ error: 'Current password is incorrect' })
+
+    const { error } = await supabase.auth.admin.updateUserById(req.user.id, { password: new_password })
+    if (error) throw error
+
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+// =============================================
+// COMPANY SETTINGS (singleton row)
+// =============================================
+
+export const getCompanySettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('company_settings')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle()
+
+    if (error) throw error
+    res.json(data || {})
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+export const updateCompanySettings = async (req, res) => {
+  try {
+    const { company_name, company_email, company_phone, company_address, logo_url } = req.body
+
+    const update = { updated_at: new Date().toISOString() }
+    if (company_name !== undefined) update.company_name = company_name
+    if (company_email !== undefined) update.company_email = company_email
+    if (company_phone !== undefined) update.company_phone = company_phone
+    if (company_address !== undefined) update.company_address = company_address
+    if (logo_url !== undefined) update.logo_url = logo_url
+
+    const { data, error } = await supabase
+      .from('company_settings')
+      .update(update)
+      .eq('id', 1)
+      .select()
+      .single()
+
+    if (error) throw error
+    res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
