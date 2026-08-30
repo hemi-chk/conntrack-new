@@ -79,7 +79,7 @@ function Dashboard({ onNavigate }) {
         fetchJson(`${API_BASE_URL}/orders`, "Orders"),
         fetchJson(`${API_BASE_URL}/issues`, "Issues"),
         fetchJson(
-          `${API_BASE_URL}/tracking-all-debug`,
+          `${API_BASE_URL}/tracking`,
           "Tracking"
         ),
       ]);
@@ -779,10 +779,10 @@ function Dashboard({ onNavigate }) {
   // UI
   // =========================================================
   return (
-    <div className="h-full overflow-auto bg-[#EBF4FF] p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="h-full overflow-auto bg-[#EBF4FF] p-8">
+      <div className="mx-auto max-w-7xl space-y-8">
         {/* HEADER */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[#1E293B]">
               Dashboard
@@ -844,7 +844,7 @@ function Dashboard({ onNavigate }) {
         )}
 
         {/* SUMMARY CARDS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
           <DashboardMiniCard
             title="Active Orders"
             value={
@@ -939,10 +939,10 @@ function Dashboard({ onNavigate }) {
         </div>
 
         {/* MAIN CONTENT */}
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+        <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-3">
           {/* ORDER OVERVIEW */}
           <div className="self-start rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-            <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 border-b border-slate-200 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-[#1E293B]">
                   Order Overview
@@ -1174,9 +1174,9 @@ function Dashboard({ onNavigate }) {
           </div>
 
           {/* RIGHT COLUMN */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* NEEDS ATTENTION */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-[#1E293B]">
@@ -1260,7 +1260,7 @@ function Dashboard({ onNavigate }) {
             </div>
 
             {/* LATEST TRACKING */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-[#1E293B]">
@@ -1397,7 +1397,7 @@ function DashboardMiniCard({
       type="button"
       onClick={onClick}
       disabled={loading}
-      className={`w-full rounded-2xl border bg-white p-4 text-left shadow-sm transition-all ${
+      className={`w-full rounded-2xl border bg-white p-5 text-left shadow-sm transition-all ${
         active
           ? "border-[#1E40AF] ring-2 ring-blue-100"
           : "border-slate-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
