@@ -3,19 +3,18 @@
  * Handles fetching, viewing, and downloading clearance documents for a specific order.
  */
 
-import React, { useEffect, useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, ActivityIndicator, RefreshControl, Linking } from "react-native";
-import * as WebBrowser from "expo-web-browser";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
-import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
 import { authFetch } from "../utils/authFetch";
 
 export default function Documents({ route, navigation }) {
@@ -100,16 +99,6 @@ export default function Documents({ route, navigation }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  /**
-   * Logic for confirming that all required clearance documents are processed.
-   */
-  const handleConfirmAll = () => {
-    Alert.alert(
-      t("clearance_confirmed_title"),
-      t("clearance_confirmed_msg")
-    );
   };
 
   /**
@@ -209,15 +198,6 @@ export default function Documents({ route, navigation }) {
               );
             })
           )}
-
-          {/* SUBMIT/CONFIRM BUTTON */}
-          <Button
-            title={t("confirm_clearance")}
-            onPress={handleConfirmAll}
-            style={styles.confirmButton}
-            variant="primary"
-            disabled={documents.length === 0}
-          />
 
           <View style={{ height: theme.spacing.xl }} />
         </ScrollView>
