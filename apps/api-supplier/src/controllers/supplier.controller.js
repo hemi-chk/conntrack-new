@@ -91,9 +91,8 @@ export const updateSupplierLogo = async (req, res) => {
   }
 }
 
-// GET /api/supplier/ - Fetch all supplier data (not called by any frontend
-// currently, kept as-is/unscoped since it predates this fix and routes.js
-// still wires it up)
+// GET /api/supplier/ - Fetch all supplier data
+
 export const getSupplierData = async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -170,13 +169,15 @@ export const addVehicle = async (req, res) => {
       insurance_expiry,
       port_pass_status,
       port_pass_expiry,
-      condition_status
+      condition_status,
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
 
     const insuranceFile = req.files?.insurance?.[0]
     const portPassFile = req.files?.port_pass?.[0]
 
-    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+    const [uploadedInsurance, uploadedPortPass] = await Promise.all([
       insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
       portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
     ])
@@ -191,8 +192,8 @@ export const addVehicle = async (req, res) => {
       port_pass_expiry,
       condition_status: condition_status || 'good',
       supplier_id: req.supplierId,
-      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
-      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
+      Vehicle_Insurance_Copy: uploadedInsurance || Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy: uploadedPortPass || Vehicle_Port_Pass_Copy
     }
 
     const { data, error } = await supabase
@@ -218,13 +219,15 @@ export const updateVehicle = async (req, res) => {
       insurance_expiry,
       port_pass_status,
       port_pass_expiry,
-      condition_status
+      condition_status,
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
 
     const insuranceFile = req.files?.insurance?.[0]
     const portPassFile = req.files?.port_pass?.[0]
 
-    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+    const [uploadedInsurance, uploadedPortPass] = await Promise.all([
       insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
       portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
     ])
@@ -238,8 +241,8 @@ export const updateVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
-      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
+      ...(uploadedInsurance || Vehicle_Insurance_Copy ? { Vehicle_Insurance_Copy: uploadedInsurance || Vehicle_Insurance_Copy } : {}),
+      ...(uploadedPortPass || Vehicle_Port_Pass_Copy ? { Vehicle_Port_Pass_Copy: uploadedPortPass || Vehicle_Port_Pass_Copy } : {})
     }
 
     const { data, error } = await supabase

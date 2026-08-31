@@ -42,6 +42,7 @@ export const Profile = () => {
     }
   };
 
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6 duration-500 text-dark animate-in fade-in slide-in-from-bottom-4">
