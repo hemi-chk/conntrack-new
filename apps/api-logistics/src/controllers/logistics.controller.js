@@ -1,6 +1,15 @@
 import { supabase } from '@conntrack/database';
 import { publish } from '@conntrack/messaging';
 
+// =========================================================
+// LOGISTICS API CONTROLLER
+// ---------------------------------------------------------
+// This file contains all business logic for the logistics interface.
+// It is intentionally separated from admin, supplier, and driver flows.
+// Each section below maps to a logistics feature: dashboard, orders,
+// tracking, documents, issues, notifications, and profile information.
+// =========================================================
+
 const normalizeNotificationRow = (row) => ({
     id: row.id,
     title: row.title,
@@ -170,8 +179,11 @@ export const getMyProfile = async (req, res) => {
     }
 };
 
-// --- DASHBOARD METHODS ---
-
+// -----------------------------------------------------------------------------
+// DASHBOARD METHODS
+// -----------------------------------------------------------------------------
+// Used to power the logistics home page with the latest count summary and the
+// recent activity feed shown in the dashboard cards and table.
 export const getDashboardSummary = async (req, res) => {
     try {
         const [importRes, exportRes, inTransitRes, completedRes, activityRes] = await Promise.all([
@@ -208,8 +220,11 @@ export const getDashboardSummary = async (req, res) => {
     }
 };
 
-// --- BIDS ---
-
+// -----------------------------------------------------------------------------
+// BIDS
+// -----------------------------------------------------------------------------
+// These endpoints supply supplier bids for a logistics order so the user can
+// compare offers and finalize the assignment.
 export const getShortlistedBids = async (req, res) => {
     const { orderId } = req.params;
 
@@ -249,8 +264,11 @@ export const getShortlistedBids = async (req, res) => {
     }
 };
 
-// --- FINALIZE ORDER ---
-
+// -----------------------------------------------------------------------------
+// FINALIZE ORDER
+// -----------------------------------------------------------------------------
+// Finalization confirms the winning supplier and marks the order as assigned in
+// the logistics workflow.
 export const finalizeOrder = async (req, res) => {
     const { orderId } = req.params;
     const { selectionId, bidId } = req.body;
@@ -595,8 +613,11 @@ export const updateTrackingLocation = async (req, res) => {
     }
 };
 
-// --- ISSUES ---
-
+// -----------------------------------------------------------------------------
+// ISSUES
+// -----------------------------------------------------------------------------
+// Issue creation is the escalation path when a shipment, vehicle, supplier, or
+// route problem must be reported for admin review and follow-up.
 export const createIssue = async (req, res) => {
     try {
         const {

@@ -3,6 +3,11 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 
+// =========================================================
+// LOGISTICS LAYOUT
+// ---------------------------------------------------------
+// This shell keeps the sidebar, navbar, and routed pages together for the
+// logistics portal. It also owns the logistics-only dark mode state.
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [darkMode, setDarkMode] = useState(() => {

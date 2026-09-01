@@ -29,6 +29,14 @@ import {
 import api from "../../config/api";
 
 /* =========================================================
+   LOGISTICS DASHBOARD
+   ---------------------------------------------------------
+   This page summarizes the active state of the logistics operation.
+   It combines counts, status insights, and recent activity so the user
+   can understand workload, shipment progress, and follow-up needs at a glance.
+========================================================= */
+
+/* =========================================================
    STATUS CONFIGURATION
 ========================================================= */
 
@@ -171,15 +179,38 @@ export default function Dashboard() {
        METRIC CARDS
     ===================================================== */
 
+    const totalActiveOrders =
+        (data.importOrdersCount || 0) +
+        (data.exportOrdersCount || 0);
+
+    const attentionItems = (data.recentActivity || []).filter(
+        (order) => {
+            const status = (order.current_status || "").toLowerCase();
+            return ["pending", "created", "at_port", "in_transit"].includes(status);
+        }
+    );
+
+    const needsAttentionCount = attentionItems.length;
+
     const cards = [
+        {
+            label: "Active Orders",
+            value: totalActiveOrders,
+            description: "Open logistics movements",
+            icon: Activity,
+            color: "text-blue-700",
+            bg: "bg-blue-50",
+            border: "border-blue-100",
+        },
+
         {
             label: "Import Orders",
             value: data.importOrdersCount,
             description: "Inbound shipments",
             icon: Package,
-            color: "text-blue-700",
-            bg: "bg-blue-50",
-            border: "border-blue-100",
+            color: "text-indigo-700",
+            bg: "bg-indigo-50",
+            border: "border-indigo-100",
         },
 
         {
@@ -196,7 +227,7 @@ export default function Dashboard() {
             label: "In Transit",
             value: data.stats.inTransitCount,
             description: "Currently moving",
-            icon: Activity,
+            icon: ArrowUpRight,
             color: "text-amber-700",
             bg: "bg-amber-50",
             border: "border-amber-100",
@@ -207,9 +238,19 @@ export default function Dashboard() {
             value: data.stats.completedOrders,
             description: "Successfully delivered",
             icon: CheckCircle2,
-            color: "text-indigo-700",
-            bg: "bg-indigo-50",
-            border: "border-indigo-100",
+            color: "text-emerald-700",
+            bg: "bg-emerald-50",
+            border: "border-emerald-100",
+        },
+
+        {
+            label: "Needs Attention",
+            value: needsAttentionCount,
+            description: "Pending / action required",
+            icon: AlertTriangle,
+            color: "text-rose-700",
+            bg: "bg-rose-50",
+            border: "border-rose-100",
         },
     ];
 
@@ -371,7 +412,7 @@ export default function Dashboard() {
 
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
 
                         {cards.map((card) => {
                             const Icon = card.icon;
@@ -393,7 +434,7 @@ export default function Dashboard() {
                                                 {card.value ?? 0}
                                             </p>
 
-                                            <p className="text-[11px] text-slate-500 font-medium mt-1">
+                                            <p className="text-[11px] text-slate-500 font-medium mt-1 leading-relaxed">
                                                 {card.description}
                                             </p>
                                         </div>
@@ -412,6 +453,94 @@ export default function Dashboard() {
 
                     </div>
 
+                </section>
+
+                <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900">Priority Actions</h3>
+                                <p className="text-[11px] text-slate-500 mt-0.5">Operational items needing attention</p>
+                            </div>
+                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                {needsAttentionCount} items
+                            </span>
+                        </div>
+
+                        <div className="space-y-3">
+                            {(data.recentActivity || []).slice(0, 3).map((order) => {
+                                const status = (order.current_status || "pending").toLowerCase();
+                                const tone =
+                                    status === "completed"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : status === "in_transit"
+                                            ? "bg-blue-50 text-blue-700 border-blue-200"
+                                            : "bg-amber-50 text-amber-700 border-amber-200";
+
+                                return (
+                                    <div
+                                        key={order.order_id}
+                                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-bold text-slate-800">{order.order_reference || `ORD-${order.order_id}`}</p>
+                                            <p className="text-[11px] text-slate-500">{order.customer || "Internal"}</p>
+                                        </div>
+
+                                        <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
+                                            {status.replace(/_/g, " ")}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 className="text-sm font-bold text-slate-900">Operations Summary</h3>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Current operational status</p>
+
+                        <div className="mt-5 space-y-4">
+                            <div>
+                                <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
+                                    <span>In transit</span>
+                                    <span>{data.stats.inTransitCount}</span>
+                                </div>
+                                <div className="h-2.5 rounded-full bg-slate-100">
+                                    <div
+                                        className="h-full rounded-full bg-blue-500"
+                                        style={{ width: `${Math.min((data.stats.inTransitCount / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
+                                    <span>Completed</span>
+                                    <span>{data.stats.completedOrders}</span>
+                                </div>
+                                <div className="h-2.5 rounded-full bg-slate-100">
+                                    <div
+                                        className="h-full rounded-full bg-emerald-500"
+                                        style={{ width: `${Math.min((data.stats.completedOrders / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
+                                    <span>Needs attention</span>
+                                    <span>{needsAttentionCount}</span>
+                                </div>
+                                <div className="h-2.5 rounded-full bg-slate-100">
+                                    <div
+                                        className="h-full rounded-full bg-amber-500"
+                                        style={{ width: `${Math.min((needsAttentionCount / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 {/* =================================================

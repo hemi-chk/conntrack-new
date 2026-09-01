@@ -38,6 +38,11 @@ function LogoutModal({ onConfirm, onCancel }) {
   )
 }
 
+// =========================================================
+// LOGISTICS NAVBAR
+// ---------------------------------------------------------
+// The navbar is the top-level control bar for logistics users. It exposes
+// notifications, the active user profile, sign-out, and the dark mode toggle.
 export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick }) {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);

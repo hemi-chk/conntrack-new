@@ -13,6 +13,12 @@ import Profile from "./pages/profile/Profile";
 import Reports from "./pages/reports/Reports";
 
 
+// =========================================================
+// LOGISTICS APP ROUTES
+// ---------------------------------------------------------
+// This router defines the logistics-only screens used in the portal.
+// All routes here belong to the logistics interface, not admin or supplier apps.
+// =========================================================
 export default function App() {
   return (
     <BrowserRouter>

@@ -23,6 +23,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/ui";
 import api from "../../config/api";
 
+// =========================================================
+// LOGISTICS ISSUES PAGE
+// ---------------------------------------------------------
+// This page is the logistics escalation workflow. It allows users to report an
+// operational issue and review previous issue records related to shipment activity.
 const Issues = () => {
     const [issues, setIssues] = useState([]);
     const [ordersList, setOrdersList] = useState([]);

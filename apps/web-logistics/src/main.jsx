@@ -3,7 +3,13 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// Unified Auth Guard & Session Synchronization
+// =========================================================
+// LOGISTICS APP BOOTSTRAP
+// ---------------------------------------------------------
+// This guard ensures only authenticated logistics users can access the app.
+// It reads the token + role from the central auth flow and redirects any
+// invalid or non-logistics sessions before the UI mounts.
+// =========================================================
 (function handleAuth() {
   const urlParams = new URLSearchParams(window.location.search)
   const tokenParam = urlParams.get('token')
