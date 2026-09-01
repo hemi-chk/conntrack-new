@@ -1,4 +1,4 @@
-import { AlertTriangle, PlusSquare } from "lucide-react";
+import { AlertTriangle, PlusSquare, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const OPS_API = `${
@@ -6,7 +6,10 @@ const OPS_API = `${
 }/api/operations`;
 
 function Orders({ onNavigate }) {
-  const [activeTab, setActiveTab] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [issueFilter, setIssueFilter] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
   const [openMenu, setOpenMenu] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [issueOrder, setIssueOrder] = useState(null);
@@ -153,6 +156,18 @@ function Orders({ onNavigate }) {
       "At Freezone",
       "At Port",
       "Completed",
+    ].includes(status);
+  };
+
+  const canViewBidResult = (status) => {
+    return [
+      "Bid Accepted",
+      "Driver Assigned",
+      "In Transit",
+      "At Freezone",
+      "At Port",
+      "Completed",
+      "Archived",
     ].includes(status);
   };
 
@@ -532,7 +547,59 @@ function Orders({ onNavigate }) {
   };
 
   const filteredOrders = ordersData.filter((order) => {
-    return activeTab === "All" || order.status === activeTab;
+    const latestIssue = getLatestIssueForOrder(order);
+
+    const matchesStatus =
+      statusFilter === "All" || order.status === statusFilter;
+
+    const matchesType =
+      typeFilter === "All" || order.type === typeFilter;
+
+    const matchesIssue =
+      issueFilter === "All" ||
+      (issueFilter === "With Issues" && Boolean(latestIssue)) ||
+      (issueFilter === "Without Issues" && !latestIssue);
+
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    const issueSearchText = latestIssue
+      ? [
+          latestIssue.status,
+          latestIssue.priority,
+          ...(latestIssue.issueTypes || []),
+          latestIssue.details,
+        ]
+          .filter(Boolean)
+          .join(" ")
+      : "no issue";
+
+    const searchableText = [
+      order.id,
+      order.orderReference,
+      order.type,
+      order.supplier,
+      order.driver,
+      order.pickupDistrict,
+      order.pickupLocation,
+      order.destinationDistrict,
+      order.destinationLocation,
+      order.status,
+      issueSearchText,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    const matchesSearch =
+      !normalizedSearch ||
+      searchableText.includes(normalizedSearch);
+
+    return (
+      matchesStatus &&
+      matchesType &&
+      matchesIssue &&
+      matchesSearch
+    );
   });
 
   const statusBadge = (status) => {
@@ -914,9 +981,9 @@ function Orders({ onNavigate }) {
         break;
 
       case "view_bid_result":
-        if (order.status !== "Bid Accepted") {
+        if (!canViewBidResult(order.status)) {
           alert(
-            "Bid Result is available only after Logistics has selected the winning supplier."
+            "Bid Result is available only after the bidding stage has been completed."
           );
           return;
         }
@@ -948,7 +1015,7 @@ function Orders({ onNavigate }) {
     }
   };
 
-  const statusTabs = [
+  const statusOptions = [
     "All",
     "Created",
     "Open for Bids",
@@ -962,24 +1029,81 @@ function Orders({ onNavigate }) {
     "Archived",
   ];
 
+  const typeOptions = [
+    "All",
+    "Import",
+    "Export",
+  ];
+
+  const issueOptions = [
+    "All",
+    "With Issues",
+    "Without Issues",
+  ];
+
   return (
     <div className="min-h-full w-full bg-[#EBF4FF] px-8 py-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
-          <div className="flex flex-wrap gap-4">
-            {statusTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                  activeTab === tab
-                    ? "bg-[#052659] text-white"
-                    : "bg-slate-100 text-[#1E293B] hover:bg-[#EBF4FF]"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1 lg:max-w-md">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by order ID, district, driver, type or issue..."
+                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-[#1E293B] outline-none transition focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+            >
+              <option value="All">All Statuses</option>
+              {statusOptions
+                .filter((status) => status !== "All")
+                .map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+            >
+              <option value="All">All Types</option>
+              {typeOptions
+                .filter((type) => type !== "All")
+                .map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              value={issueFilter}
+              onChange={(event) => setIssueFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+            >
+              {issueOptions.map((issueOption) => (
+                <option key={issueOption} value={issueOption}>
+                  {issueOption === "All"
+                    ? "All Issue States"
+                    : issueOption}
+                </option>
+              ))}
+            </select>
           </div>
 
           <button
@@ -987,10 +1111,10 @@ function Orders({ onNavigate }) {
               onNavigate &&
               onNavigate("/create")
             }
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1E40AF] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3A8A]"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#052659] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#5483B3]"
           >
             <PlusSquare size={16} />
-            New Order
+            Create New Order
           </button>
         </div>
 
@@ -1111,129 +1235,122 @@ function Orders({ onNavigate }) {
                         </td>
 
                         <td className="relative whitespace-nowrap px-4 py-4 text-center">
-                          {order.status === "Archived" ? (
+                          <div className="relative inline-block">
                             <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200"
+                              onClick={() =>
+                                setOpenMenu(
+                                  openMenu === order.dbId
+                                    ? null
+                                    : order.dbId
+                                )
+                              }
+                              className="rounded-lg bg-[#052659] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#5483B3]"
                             >
-                              Review
+                              Manage ▾
                             </button>
-                          ) : (
-                            <div className="relative inline-block">
-                              <button
-                                onClick={() =>
-                                  setOpenMenu(
-                                    openMenu === order.dbId
-                                      ? null
-                                      : order.dbId
-                                  )
-                                }
-                                className="rounded-lg bg-[#1E40AF] px-4 py-2 text-xs font-medium text-white hover:bg-[#1E3A8A]"
-                              >
-                                Manage ▾
-                              </button>
 
-                              {openMenu === order.dbId && (
-                                <div className="absolute right-0 z-50 mt-2 w-44 rounded-lg border border-slate-200 bg-white text-left text-xs shadow-lg">
+                            {openMenu === order.dbId && (
+                              <div className="absolute right-0 z-50 mt-2 w-48 rounded-lg border border-slate-200 bg-white text-left text-xs shadow-lg">
+                                <div
+                                  onClick={() =>
+                                    handleAction(
+                                      "details",
+                                      order
+                                    )
+                                  }
+                                  className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
+                                >
+                                  View Details
+                                </div>
+
+                                {order.status === "Created" && (
                                   <div
                                     onClick={() =>
                                       handleAction(
-                                        "details",
+                                        "bidding",
                                         order
                                       )
                                     }
-                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#EBF4FF]"
+                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
                                   >
-                                    View Details
+                                    Open Bidding
                                   </div>
+                                )}
 
-                                  {order.status === "Created" && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "bidding",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
-                                    >
-                                      Open Bidding
-                                    </div>
-                                  )}
+                                {order.status === "Open for Bids" && (
+                                  <div
+                                    onClick={() =>
+                                      handleAction(
+                                        "view_bidding",
+                                        order
+                                      )
+                                    }
+                                    className="cursor-pointer px-3 py-2 text-[#1E40AF] hover:bg-[#EFF6FF]"
+                                  >
+                                    View Bidding
+                                  </div>
+                                )}
 
-                                  {order.status === "Open for Bids" && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "view_bidding",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 text-[#1E40AF] hover:bg-[#EFF6FF]"
-                                    >
-                                      View Bidding
-                                    </div>
-                                  )}
+                                {canViewBidResult(order.status) && (
+                                  <div
+                                    onClick={() =>
+                                      handleAction(
+                                        "view_bid_result",
+                                        order
+                                      )
+                                    }
+                                    className="cursor-pointer px-3 py-2 font-medium text-[#1E40AF] hover:bg-[#EFF6FF]"
+                                  >
+                                    View Bid Result
+                                  </div>
+                                )}
 
-                                  {order.status === "Bid Accepted" && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "view_bid_result",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 font-medium text-[#1E40AF] hover:bg-[#EFF6FF]"
-                                    >
-                                      View Bid Result
-                                    </div>
-                                  )}
+                                {canTrackOrder(order.status) && (
+                                  <div
+                                    onClick={() =>
+                                      handleAction(
+                                        "tracking",
+                                        order
+                                      )
+                                    }
+                                    className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
+                                  >
+                                    Track Order
+                                  </div>
+                                )}
 
-                                  {canTrackOrder(order.status) && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "tracking",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 text-[#1E293B] hover:bg-[#F8FAFC]"
-                                    >
-                                      Track Order
-                                    </div>
-                                  )}
+                                {canReportIssue(order.status) && (
+                                  <div
+                                    onClick={() =>
+                                      handleAction(
+                                        "issue",
+                                        order
+                                      )
+                                    }
+                                    className="cursor-pointer px-3 py-2 text-[#DC2626] hover:bg-red-50"
+                                  >
+                                    {order.status === "Archived"
+                                      ? "Report Archive Mistake"
+                                      : "Report Issue"}
+                                  </div>
+                                )}
 
-                                  {canReportIssue(order.status) && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "issue",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 text-[#DC2626] hover:bg-red-50"
-                                    >
-                                      Report Issue
-                                    </div>
-                                  )}
-
-                                  {order.status === "Completed" && (
-                                    <div
-                                      onClick={() =>
-                                        handleAction(
-                                          "archive",
-                                          order
-                                        )
-                                      }
-                                      className="cursor-pointer px-3 py-2 text-[#16A34A] hover:bg-green-50"
-                                    >
-                                      Archive Order
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                {order.status === "Completed" && (
+                                  <div
+                                    onClick={() =>
+                                      handleAction(
+                                        "archive",
+                                        order
+                                      )
+                                    }
+                                    className="cursor-pointer px-3 py-2 text-[#16A34A] hover:bg-green-50"
+                                  >
+                                    Archive Order
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1261,6 +1378,7 @@ function Orders({ onNavigate }) {
           setArchiveOrder={setArchiveOrder}
           canReportIssue={canReportIssue}
           canTrackOrder={canTrackOrder}
+          canViewBidResult={canViewBidResult}
         />
       )}
 
@@ -1473,6 +1591,7 @@ function OrderDetailsPanel({
   setArchiveOrder,
   canReportIssue,
   canTrackOrder,
+  canViewBidResult,
 }) {
   const latestIssue =
     getLatestIssueForOrder(selectedOrder);
@@ -1781,7 +1900,7 @@ function OrderDetailsPanel({
           </button>
         )}
 
-        {selectedOrder.status === "Bid Accepted" && (
+        {canViewBidResult(selectedOrder.status) && (
           <button
             onClick={() =>
               handleAction(
@@ -1789,7 +1908,7 @@ function OrderDetailsPanel({
                 selectedOrder
               )
             }
-            className="rounded-lg bg-[#1E40AF] px-4 py-2 text-sm text-white hover:bg-[#1E3A8A]"
+            className="rounded-lg bg-[#052659] px-4 py-2 text-sm text-white transition hover:bg-[#5483B3]"
           >
             View Bid Result
           </button>
