@@ -142,15 +142,15 @@ export default function OrdersPage({ title, type }) {
     });
 
     return (
-        <div className="min-h-screen bg-slate-50/60 p-6 md:p-8 space-y-7">
+        <div className="min-h-screen bg-slate-50/60 p-6 md:p-8 space-y-7 dark:bg-[#021024]">
 
             {/* ================= HEADER ================= */}
-            <section className="relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm">
+            <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
 
                 {/* Subtle decorative elements */}
-                <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-blue-50 blur-3xl pointer-events-none" />
+                <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-blue-50 blur-3xl pointer-events-none dark:bg-blue-950/40" />
 
-                <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-indigo-50 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-indigo-50 blur-3xl pointer-events-none dark:bg-indigo-950/30" />
 
                 <div className="relative z-10 p-6 md:p-8">
 
@@ -161,24 +161,24 @@ export default function OrdersPage({ title, type }) {
 
                             <div className="mb-3 flex items-center gap-2">
 
-                                <span className="rounded-lg bg-blue-50 p-2">
+                                <span className="rounded-lg bg-blue-50 p-2 dark:bg-blue-950/50">
                                     <Package
                                         size={17}
-                                        className="text-blue-600"
+                                        className="text-blue-600 dark:text-blue-400"
                                     />
                                 </span>
 
-                                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
                                     Logistics Management
                                 </span>
 
                             </div>
 
-                            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
+                            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl dark:text-slate-50">
                                 {title || "Logistics Orders"}
                             </h1>
 
-                            <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-500">
+                            <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-500 dark:text-slate-300">
                                 View, monitor and manage your
                                 active logistics orders and
                                 shipment records.
@@ -187,24 +187,24 @@ export default function OrdersPage({ title, type }) {
                         </div>
 
                         {/* ================= RECORD COUNT ================= */}
-                        <div className="min-w-[190px] rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="min-w-[190px] rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
 
                             <div className="flex items-center gap-3">
 
-                                <div className="rounded-xl bg-blue-50 p-3">
+                                <div className="rounded-xl bg-blue-50 p-3 dark:bg-blue-950/60">
                                     <Package
                                         size={20}
-                                        className="text-blue-600"
+                                        className="text-blue-600 dark:text-blue-400"
                                     />
                                 </div>
 
                                 <div>
 
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                                         Total Records
                                     </p>
 
-                                    <p className="mt-0.5 text-lg font-extrabold text-slate-900">
+                                    <p className="mt-0.5 text-lg font-extrabold text-slate-900 dark:text-white">
                                         {orders.length}
                                     </p>
 
@@ -213,9 +213,9 @@ export default function OrdersPage({ title, type }) {
                             </div>
 
                             {type && (
-                                <div className="mt-3 border-t border-slate-200 pt-3">
+                                <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
 
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                                         {type} Orders
                                     </span>
 
