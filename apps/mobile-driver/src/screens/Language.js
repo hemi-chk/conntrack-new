@@ -36,7 +36,6 @@ export default function Language({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         
-        {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation?.goBack?.()}>
             <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -47,7 +46,6 @@ export default function Language({ navigation }) {
           </Typography>
         </View>
 
-        {/* LANGUAGE OPTIONS */}
         {languages.map((lang) => {
           const isSelected = selectedLang === lang.code;
 
@@ -71,7 +69,6 @@ export default function Language({ navigation }) {
           );
         })}
 
-        {/* CONFIRM BUTTON */}
         <Button 
           title={t("confirm_language")}
           style={styles.confirmButton}

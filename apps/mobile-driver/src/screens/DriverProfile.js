@@ -5,18 +5,20 @@
  */
 
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  View,
-  ActivityIndicator
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
@@ -24,15 +26,12 @@ import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
 import { theme } from "../constants/theme";
+import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function DriverProfile({ route, navigation }) {
-  // Extract user context from navigation route
   const { user } = route.params || {};
 
-  // Manual toggle for driver availability (On Duty vs Off Duty)
   const [isOnDuty, setIsOnDuty] = useState(user?.status === 'active');
-
-  // System-derived availability status (e.g. 'Available', 'On Mission')
   const [workStatus, setWorkStatus] = useState(user?.availability_status || 'Available');
 
   const [isLoading, setIsLoading] = useState(false);
@@ -41,14 +40,10 @@ export default function DriverProfile({ route, navigation }) {
 
   const { t } = useTranslation();
 
-  /**
-   * Toggles the driver's duty status in the backend.
-   * @param {boolean} newValue - True for 'active', False for 'inactive'.
-   */
   const handleToggleDutyStatus = async (newValue) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/driver/update-duty-status`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/update-duty-status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,10 +66,6 @@ export default function DriverProfile({ route, navigation }) {
     }
   };
 
-  /**
-   * Opens the system image gallery to pick a new profile photo.
-   * Compresses and uploads the selected image as a base64 string to the backend.
-   */
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
@@ -89,14 +80,13 @@ export default function DriverProfile({ route, navigation }) {
     });
 
     if (!result.canceled && result.assets[0].base64) {
-      // Optimistic UI update: show local image immediately
       setProfileImage(result.assets[0].uri);
       
       try {
         setIsUploadingPhoto(true);
         const driverId = user?.driver_id || user?.emp_id;
         
-        const response = await fetch(`${API_BASE_URL}/api/driver/upload-profile-photo`, {
+        const response = await authFetch(`${API_BASE_URL}/api/driver/upload-profile-photo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -108,14 +98,10 @@ export default function DriverProfile({ route, navigation }) {
         const uploadResult = await response.json();
         
         if (uploadResult.success) {
-          // Sync state with the permanent public URL from storage
           setProfileImage(uploadResult.url);
-          
-          // Update persistent user object
           if (user) {
             user.profile_photo_url = uploadResult.url;
           }
-          
           Alert.alert("Success", "Profile photo updated successfully!");
         } else {
           Alert.alert("Error", uploadResult.message || "Failed to upload photo.");
@@ -129,9 +115,6 @@ export default function DriverProfile({ route, navigation }) {
     }
   };
 
-  /**
-   * Context menu handler for profile photo interactions.
-   */
   const handleProfileImagePress = () => {
     if (profileImage) {
       Alert.alert(
@@ -148,15 +131,12 @@ export default function DriverProfile({ route, navigation }) {
     }
   };
 
-  /**
-   * Removes the profile photo from both the UI and backend storage.
-   */
   const removeProfileImage = async () => {
     try {
       setIsUploadingPhoto(true);
       const driverId = user?.driver_id || user?.emp_id;
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/remove-profile-photo`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/remove-profile-photo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ driverId }),
@@ -181,9 +161,6 @@ export default function DriverProfile({ route, navigation }) {
     }
   };
 
-  /**
-   * Configuration for the profile settings menu.
-   */
   const menuItems = [
     { icon: "person", label: t("edit_profile"), screen: "EditProfile" },
     { icon: "directions-car", label: t("vehicle_info"), screen: "VehicleInfo" },
@@ -196,7 +173,6 @@ export default function DriverProfile({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* HEADER SECTION */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
@@ -323,7 +299,16 @@ export default function DriverProfile({ route, navigation }) {
         <View style={styles.logoutContainer}>
           <Button
             title={t("logout")}
-            onPress={() => navigation.navigate("Login")}
+            onPress={async () => {
+              await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+              await AsyncStorage.removeItem("saved_user");
+              await AsyncStorage.removeItem("saved_driver_id");
+              await AsyncStorage.removeItem("remember_me");
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Login" }],
+              });
+            }}
           />
         </View>
 

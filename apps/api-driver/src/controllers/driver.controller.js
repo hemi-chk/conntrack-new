@@ -1,8 +1,33 @@
-const supabase = require('../config/supabase'); // Assuming you have a supabase config
+const supabase = require('../config/supabase');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-// 1. Get all orders assigned to a specific driver
+const DRIVER_STATUS_TO_OPERATION_STATUS = {
+    assigned: 'driver_assigned',
+    started: 'driver_assigned',
+    'heading to pickup': 'driver_assigned',
+    picked: 'in_transit',
+    'picked up': 'in_transit',
+    transit: 'in_transit',
+    'in transit': 'in_transit',
+    delivered: 'completed',
+    completed: 'completed'
+};
+
+const getTrackingStatus = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    return DRIVER_STATUS_TO_OPERATION_STATUS[normalizedStatus] || null;
+};
+
+const getCurrentLocation = (description, latitude, longitude) => {
+    const readableDescription = String(description || '').trim();
+    if (readableDescription && readableDescription.toLowerCase() !== 'live gps update') {
+        return readableDescription;
+    }
+
+    return `GPS: ${Number(latitude).toFixed(6)}, ${Number(longitude).toFixed(6)}`;
+};
+
 exports.getAssignedOrders = async (req, res) => {
     try {
         const driverId = req.driver.driver_id;
@@ -19,10 +44,10 @@ exports.getAssignedOrders = async (req, res) => {
                     order_type,
                     cargo_type,
                     cargo_weight,
-                    pickup_country,
-                    pickup_state,
-                    destination_country,
-                    destination_state,
+                    pickup_country:pickup_district,
+                    pickup_state:pickup_location,
+                    destination_country:destination_district,
+                    destination_state:destination_location,
                     special_instructions,
                     current_status
                 )
@@ -44,32 +69,53 @@ exports.getAssignedOrders = async (req, res) => {
 // 2. Update live GPS tracking for a container
 exports.updateTracking = async (req, res) => {
     try {
-        const { orderId, latitude, longitude, status, description } = req.body;
+        const { orderId, assignmentId, latitude, longitude, status, description } = req.body;
         const driverId = req.driver.driver_id;
 
-        const { data, error } = await supabase
+        if (!driverId || !orderId || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+            return res.status(400).json({ success: false, message: 'Missing or invalid tracking data' });
+        }
+
+        if (Number(latitude) < -90 || Number(latitude) > 90 || Number(longitude) < -180 || Number(longitude) > 180) {
+            return res.status(400).json({ success: false, message: 'Coordinates are out of range' });
+        }
+
+        if (assignmentId) {
+            const { data: assignment, error: assignmentError } = await supabase
+                .from('order_assignments')
+                .select('assignment_id')
+                .eq('assignment_id', assignmentId)
+                .eq('order_id', orderId)
+                .eq('driver_id', driverId)
+                .neq('status', 'completed')
+                .neq('status', 'delivered')
+                .maybeSingle();
+
+            if (assignmentError) throw assignmentError;
+            if (!assignment) {
+                return res.status(403).json({ success: false, message: 'Tracking assignment is not owned by this driver' });
+            }
+        }
+
+        const trackingStatus = getTrackingStatus(status);
+        const currentLocation = getCurrentLocation(description, latitude, longitude);
+
+        const { error } = await supabase
             .from('container_tracking')
             .insert([
                 {
                     order_id: orderId,
                     driver_id: driverId,
-                    latitude,
-                    longitude,
-                    status,
+                    latitude: Number(latitude),
+                    longitude: Number(longitude),
+                    status: trackingStatus,
                     description,
+                    current_location: currentLocation,
                     recorded_at: new Date()
                 }
             ]);
 
         if (error) throw error;
-
-        // Also update the main order status if needed
-        if (status) {
-            await supabase
-                .from('orders')
-                .update({ current_status: status })
-                .eq('order_id', orderId);
-        }
 
         res.status(200).json({ success: true, message: 'Tracking updated successfully' });
     } catch (error) {
@@ -152,6 +198,10 @@ exports.loginDriver = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid password' });
         }
 
+        if (!process.env.DRIVER_JWT_SECRET) {
+            return res.status(500).json({ success: false, message: 'Authentication is not configured' });
+        }
+
         console.log('Match Found:', data.first_name, data.last_name);
 
         // Fetch associated vehicle details
@@ -198,6 +248,10 @@ exports.changePassword = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
         }
 
+        if (newPassword.length < 8) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+        }
+
         // 1. Fetch the driver's current password hash
         const { data, error } = await supabase
             .from('drivers')
@@ -213,13 +267,14 @@ exports.changePassword = async (req, res) => {
         if (!data.password_hash) {
             return res.status(400).json({ success: false, message: 'No password set for this account. Contact your administrator.' });
         }
+
         const isMatch = await bcrypt.compare(oldPassword, data.password_hash);
         if (!isMatch) {
             return res.status(400).json({ success: false, message: 'Current password incorrect' });
         }
 
         // 3. Hash New Password
-        const salt = await bcrypt.genSalt(10);
+        const salt = await bcrypt.genSalt(12);
         const hashedNewPassword = await bcrypt.hash(newPassword, salt);
 
         // 4. Update Database
@@ -495,7 +550,7 @@ exports.updateDutyStatus = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
     try {
-        const { first_name, last_name, contact_number } = req.body;
+        const { first_name, last_name, contact_number, emergency_contact } = req.body;
 
         console.log('--- Profile Update Attempt ---');
         console.log('Received Body:', JSON.stringify(req.body, null, 2));
@@ -508,6 +563,7 @@ exports.updateProfile = async (req, res) => {
                 first_name,
                 last_name,
                 contact_number,
+                emergency_contact,
                 updated_at: new Date()
             })
             .eq('driver_id', req.driver.driver_id);
@@ -562,7 +618,7 @@ exports.getDriverIssues = async (req, res) => {
  */
 exports.reportIssue = async (req, res) => {
     try {
-        const { orderId, supplierId, issueType, priority, description } = req.body;
+        const { orderId, assignmentId, supplierId, issueType, priority, description } = req.body;
         const driverId = req.driver.driver_id;
 
         console.log('--- New Issue Report ---');
@@ -575,12 +631,43 @@ exports.reportIssue = async (req, res) => {
             });
         }
 
+        let resolvedOrderId = orderId ? parseInt(orderId) : null;
+        let resolvedSupplierId = supplierId ? parseInt(supplierId) : null;
+
+        if ((!resolvedOrderId || !resolvedSupplierId) && assignmentId) {
+            const { data: assignment, error: assignmentError } = await supabase
+                .from('order_assignments')
+                .select('order_id, orders (supplier_id)')
+                .eq('assignment_id', parseInt(assignmentId))
+                .eq('driver_id', parseInt(driverId))
+                .maybeSingle();
+
+            if (assignmentError) throw assignmentError;
+            resolvedOrderId = resolvedOrderId || assignment?.order_id || null;
+            resolvedSupplierId = resolvedSupplierId || assignment?.orders?.supplier_id || null;
+        }
+
+        if (!resolvedOrderId) {
+            const { data: activeAssignment, error: activeAssignmentError } = await supabase
+                .from('order_assignments')
+                .select('order_id, orders (supplier_id)')
+                .eq('driver_id', parseInt(driverId))
+                .not('status', 'in', '(completed,delivered)')
+                .order('assigned_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (activeAssignmentError) throw activeAssignmentError;
+            resolvedOrderId = activeAssignment?.order_id || null;
+            resolvedSupplierId = resolvedSupplierId || activeAssignment?.orders?.supplier_id || null;
+        }
+
         const { data, error } = await supabase
             .from('issues')
             .insert([{
                 driver_id: parseInt(driverId),
-                order_id: orderId ? parseInt(orderId) : null,
-                supplier_id: supplierId ? parseInt(supplierId) : null,
+                order_id: resolvedOrderId,
+                supplier_id: resolvedSupplierId,
                 reported_by: null,
                 issue_type: issueType,
                 priority: priority || 'major',
@@ -717,10 +804,10 @@ exports.getDriverHistory = async (req, res) => {
                     order_id,
                     order_reference,
                     order_type,
-                    pickup_country,
-                    pickup_state,
-                    destination_country,
-                    destination_state
+                    pickup_country:pickup_district,
+                    pickup_state:pickup_location,
+                    destination_country:destination_district,
+                    destination_state:destination_location
                 )
             `)
             .eq('driver_id', driverId)
@@ -799,14 +886,18 @@ exports.getOrderDocuments = async (req, res) => {
  */
 exports.getTrackingStages = async (req, res) => {
     try {
-        const { type } = req.params; // 'import' or 'export'
+        const normalizedType = String(req.params.type || '').trim().toLowerCase();
+        if (!['import', 'export'].includes(normalizedType)) {
+            return res.status(400).json({ success: false, message: 'Order type must be import or export' });
+        }
+
         console.log(`--- Stage Fetch Start ---`);
-        console.log(`Requesting stages for type: "${type}"`);
+        console.log(`Requesting stages for type: "${normalizedType}"`);
 
         const { data, error } = await supabase
             .from('tracking_stages')
             .select('*')
-            .ilike('order_type', `%${type.trim()}%`)
+            .ilike('order_type', normalizedType)
             .order('sequence_order', { ascending: true });
 
         if (error) {
@@ -814,7 +905,7 @@ exports.getTrackingStages = async (req, res) => {
             throw error;
         }
 
-        console.log(`Successfully found ${data?.length || 0} stages for ${type}`);
+        console.log(`Successfully found ${data?.length || 0} stages for ${normalizedType}`);
         console.log(`--- Stage Fetch Complete ---`);
 
         res.status(200).json({

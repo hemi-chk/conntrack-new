@@ -4,45 +4,39 @@
  * Integrates real-time GPS coordinates and reverse geocoding for accurate reporting.
  */
 
-import React, { useState, useEffect } from "react";
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
-import { Card } from "../components/Card";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { useOrder } from "../context/OrderContext";
+import { authFetch } from "../utils/authFetch";
 
 export default function Tracking({ route, navigation }) {
   const { t } = useTranslation();
   
-  // Get mission context from navigation parameters
   const activeMission = route?.params?.order || {};
-  // Normalize to lowercase to match database values exactly
-  const orderType = (activeMission.orders?.order_type || "import").toLowerCase();
+  const rawOrderType = activeMission.orders?.order_type || activeMission.order_type || "import";
+  const orderType = String(rawOrderType).trim().toLowerCase() === "export" ? "export" : "import";
   const orderId = activeMission.orders?.order_reference || "N/A";
   
-  // Safe IDs for database operations
   const assignmentId = activeMission.assignment_id || activeMission.id;
   const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
+  const { isTracking, lastLocationUpdate, setOrderStatus } = useOrder();
 
-  console.log('--- TRACKING DIAGNOSTIC ---');
-  console.log('Object Keys:', Object.keys(activeMission));
-  console.log('Full Object:', JSON.stringify(activeMission, null, 2));
-
-  const [locationPermission, setLocationPermission] = useState(null);
   const [stages, setStages] = useState([]);
   const [isLoadingStages, setIsLoadingStages] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
-  // Request location permissions and fetch dynamic stages on screen entry
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status === 'granted');
+      await Location.requestForegroundPermissionsAsync();
       fetchStages();
     })();
   }, []);
@@ -56,11 +50,15 @@ export default function Tracking({ route, navigation }) {
       setFetchError(false);
       console.log(`Fetching stages for type: ${orderType}`);
       
-      const response = await fetch(`${API_BASE_URL}/api/driver/tracking-stages/${orderType}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/tracking-stages/${orderType}`);
       const result = await response.json();
       
-      if (result.success && result.data && result.data.length > 0) {
-        setStages(result.data);
+      const matchingStages = (result.data || [])
+        .filter((stage) => String(stage.order_type || "").trim().toLowerCase() === orderType)
+        .sort((firstStage, secondStage) => firstStage.sequence_order - secondStage.sequence_order);
+
+      if (result.success && matchingStages.length > 0) {
+        setStages(matchingStages);
       } else {
         console.warn("No stages found for this order type");
         setFetchError(true);
@@ -79,7 +77,10 @@ export default function Tracking({ route, navigation }) {
   const getInitialStep = () => {
     if (!activeMission.status || stages.length === 0) return 0;
     // Match against stage_name from database
-    const index = stages.findIndex(s => s.stage_name === activeMission.status);
+    const currentStatus = String(activeMission.status || "").trim().toLowerCase();
+    const index = stages.findIndex(
+      (stage) => String(stage.stage_name || "").trim().toLowerCase() === currentStatus,
+    );
     return index === -1 ? 0 : index;
   };
 
@@ -107,7 +108,6 @@ export default function Tracking({ route, navigation }) {
           Alert.alert("Permission Denied", "Location access is required to update status. Please enable it in your phone settings.");
           return;
         }
-        setLocationPermission(true);
       }
 
       if (!assignmentId || !dbOrderId) {
@@ -153,7 +153,7 @@ export default function Tracking({ route, navigation }) {
         };
 
         // Push update to the central server
-        const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+        const response = await authFetch(`${API_BASE_URL}/api/driver/update-status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -162,6 +162,11 @@ export default function Tracking({ route, navigation }) {
         const result = await response.json();
         if (result.success) {
           setCurrentStep(nextIdx);
+          setOrderStatus(nextStageName);
+          navigation.navigate("Map", {
+            order: { ...activeMission, status: nextStageName },
+            autoStartNavigation: true,
+          });
         } else {
           Alert.alert("Error", "Failed to update status on server");
         }
@@ -176,16 +181,7 @@ export default function Tracking({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER: Displays Shipment ID and Back button */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          activeOpacity={0.7}
-          onPress={() => navigation?.goBack?.()}
-          style={styles.backButton}
-        >
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-
         <View style={styles.headerTitleContainer}>
           <Typography variant="subtitle" weight="bold">
             {t("shipment_tracking")}
@@ -202,7 +198,6 @@ export default function Tracking({ route, navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* PROGRESS OVERVIEW: Visual progress bar for overall journey */}
         <Card elevation="md" style={styles.overviewCard}>
           <View style={styles.overviewHeader}>
             <Typography variant="body" color="surface" weight="medium">
@@ -225,12 +220,11 @@ export default function Tracking({ route, navigation }) {
           <View style={styles.statusBadge}>
             <MaterialIcons name="sync" size={14} color={theme.colors.surface} />
             <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface, marginLeft: 4 }}>
-              {t("syncing_with_gps")}
+              {isTracking ? t("syncing_with_gps") : t("waiting_for_gps", "Waiting for GPS")}
             </Typography>
           </View>
         </Card>
 
-        {/* TIMELINE: Vertical list showing journey milestones */}
         <View style={styles.timelineContainer}>
           <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
             {t("journey_timeline")}
@@ -327,7 +321,9 @@ export default function Tracking({ route, navigation }) {
             style={styles.mainButton}
           />
           <Typography variant="tiny" color="textMuted" align="center" style={{ marginTop: 12 }}>
-            {t("data_last_updated")}: <Typography variant="tiny" weight="bold">{t("minutes_ago", { count: 2 })}</Typography>
+            {t("data_last_updated")}: <Typography variant="tiny" weight="bold">
+              {lastLocationUpdate ? lastLocationUpdate.toLocaleTimeString() : t("waiting_for_gps", "Waiting for GPS")}
+            </Typography>
           </Typography>
         </View>
 

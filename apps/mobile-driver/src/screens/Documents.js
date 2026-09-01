@@ -3,24 +3,23 @@
  * Handles fetching, viewing, and downloading clearance documents for a specific order.
  */
 
-import React, { useEffect, useState } from "react";
-import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, ActivityIndicator, RefreshControl, Linking } from "react-native";
-import * as WebBrowser from "expo-web-browser";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { MaterialIcons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
-import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { authFetch } from "../utils/authFetch";
 
 export default function Documents({ route, navigation }) {
   const { t } = useTranslation();
   
-  // Extract order context from navigation parameters
   const activeMission = route?.params?.order || {};
   const orderId = activeMission.order_id;
 
@@ -28,9 +27,6 @@ export default function Documents({ route, navigation }) {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  /**
-   * Fetches the list of clearance documents associated with the current order.
-   */
   const fetchDocuments = async () => {
     try {
       if (!orderId) {
@@ -38,7 +34,7 @@ export default function Documents({ route, navigation }) {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/order-documents/${orderId}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/order-documents/${orderId}`);
       const result = await response.json();
 
       if (result.success) {
@@ -52,23 +48,15 @@ export default function Documents({ route, navigation }) {
     }
   };
 
-  // Fetch documents on initial screen load
   useEffect(() => {
     fetchDocuments();
   }, []);
 
-  /**
-   * Refresh handler for pull-to-refresh functionality.
-   */
   const onRefresh = () => {
     setRefreshing(true);
     fetchDocuments();
   };
 
-  /**
-   * Opens the document URL in an in-app browser for quick viewing.
-   * @param {string} url - The public URL of the document file.
-   */
   const handleView = async (url) => {
     if (url) {
       await WebBrowser.openBrowserAsync(url);
@@ -77,11 +65,6 @@ export default function Documents({ route, navigation }) {
     }
   };
 
-  /**
-   * Downloads the file to the app's cache and opens the system share/save menu.
-   * @param {string} url - The public URL of the document file.
-   * @param {string} fileName - The suggested name for the saved file.
-   */
   const handleDownload = async (url, fileName = "document") => {
     if (!url) {
       Alert.alert("Error", "No file URL available");
@@ -91,19 +74,16 @@ export default function Documents({ route, navigation }) {
     try {
       setIsLoading(true);
       
-      // 1. Prepare file info
       const extension = url.split('.').pop().split(/\#|\?/)[0] || 'pdf';
       const cleanFileName = `${fileName.replace(/[^a-z0-9]/gi, '_')}.${extension}`;
       const fileUri = `${FileSystem.cacheDirectory}${cleanFileName}`;
 
-      // 2. Download the file
       const downloadResult = await FileSystem.downloadAsync(url, fileUri);
       
       if (downloadResult.status !== 200) {
         throw new Error("Download failed");
       }
 
-      // 3. Open the system sharing/saving dialog
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: downloadResult.headers['Content-Type'] || 'application/pdf',
@@ -119,16 +99,6 @@ export default function Documents({ route, navigation }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  /**
-   * Logic for confirming that all required clearance documents are processed.
-   */
-  const handleConfirmAll = () => {
-    Alert.alert(
-      t("clearance_confirmed_title"),
-      t("clearance_confirmed_msg")
-    );
   };
 
   /**
@@ -228,15 +198,6 @@ export default function Documents({ route, navigation }) {
               );
             })
           )}
-
-          {/* SUBMIT/CONFIRM BUTTON */}
-          <Button
-            title={t("confirm_clearance")}
-            onPress={handleConfirmAll}
-            style={styles.confirmButton}
-            variant="primary"
-            disabled={documents.length === 0}
-          />
 
           <View style={{ height: theme.spacing.xl }} />
         </ScrollView>

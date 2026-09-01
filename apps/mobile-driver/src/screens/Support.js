@@ -4,15 +4,16 @@
  * and an issue reporting form that syncs with the management backend.
  */
 
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions, TextInput, ActivityIndicator, Modal, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { authFetch } from "../utils/authFetch";
 
 const { width } = Dimensions.get("window");
 
@@ -29,9 +30,6 @@ const ISSUE_TYPES = [
   { key: "Other", label: "Other", icon: "help-outline", color: "#64748B" },
 ];
 
-/**
- * Priority levels to help the support team triage reports.
- */
 const PRIORITIES = [
   { key: "minor", label: "Minor", color: "#10B981" },
   { key: "major", label: "Major", color: "#F59E0B" },
@@ -50,8 +48,8 @@ function issueStatusMeta(status) {
 }
 
 export default function Support({ route, navigation }) {
-  // User context passed from navigation
   const user = route?.params?.user || {};
+  const activeMission = route?.params?.order || {};
 
   const [showForm, setShowForm] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
@@ -83,14 +81,10 @@ export default function Support({ route, navigation }) {
     fetchMyIssues();
   }, []);
 
-  // Intent handlers for direct communication channels
   const handleCall = () => Linking.openURL("tel:+94712345678");
   const handleEmail = () => Linking.openURL("mailto:logistics@example.com");
   const handleWhatsApp = () => Linking.openURL("whatsapp://send?phone=+94712345678");
 
-  /**
-   * Resets the issue reporting form to its default state.
-   */
   const resetForm = () => {
     setSelectedType(null);
     setSelectedPriority("major");
@@ -98,9 +92,6 @@ export default function Support({ route, navigation }) {
     setShowForm(false);
   };
 
-  /**
-   * Submits the reported issue to the backend database.
-   */
   const handleSubmitIssue = async () => {
     if (!selectedType) {
       Alert.alert("Missing Info", "Please select an issue type.");
@@ -113,11 +104,16 @@ export default function Support({ route, navigation }) {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/driver/report-issue`, {
+      const driverId = user?.driver_id || user?.emp_id;
+      const orderData = activeMission.orders || {};
+      const response = await authFetch(`${API_BASE_URL}/api/driver/report-issue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           driverId,
+          orderId: activeMission.order_id || orderData.order_id,
+          assignmentId: activeMission.assignment_id || activeMission.id,
+          supplierId: activeMission.supplier_id || orderData.supplier_id,
           issueType: selectedType,
           priority: selectedPriority,
           description: description.trim(),
@@ -141,9 +137,6 @@ export default function Support({ route, navigation }) {
     }
   };
 
-  /**
-   * Mock data for Frequently Asked Questions.
-   */
   const faqs = [
     { q: "How to update trip status?", a: "Go to active job and use the bottom action button." },
     { q: "Issues with GPS tracking?", a: "Ensure location services are enabled and app has permission." },
@@ -152,7 +145,6 @@ export default function Support({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-        {/* TOP BRANDING SECTION: Support representative image and overlay */}
         <View style={styles.imageContainer}>
           <Image
             source={require("../../assets/support.jpg")}

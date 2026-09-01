@@ -31,7 +31,8 @@
         "expo-location",
         {
           "locationAlwaysPermission": "Allow ConnTrack to use your location to track shipment progress.",
-          "isAndroidBackgroundLocationEnabled": false
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       [
