@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #1E40AF;
   --color-primary-dark: #1E3A8A;
@@ -15,3 +17,193 @@
   --color-error: #DC2626;
   --color-warning: #EA580C;
 }
+
+/* ───────────────────────────────────────
+   Dark Mode Global Overrides
+   Applies automatically to ALL pages/cards/tables/modals/buttons
+   without needing to edit each component.
+─────────────────────────────────────────*/
+
+/* Card & table panel backgrounds */
+.dark .bg-white {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+/* ── Buttons: secondary / cancel ──
+   These use bg-white on the element itself, not a parent.
+   We need a button-scoped rule with higher specificity. */
+.dark button.bg-white,
+.dark a.bg-white {
+  background-color: #334155 !important; /* slate-700 */
+  color: #e2e8f0 !important;            /* slate-200 */
+  border-color: #475569 !important;     /* slate-600 */
+}
+
+.dark button.bg-white:hover,
+.dark a.bg-white:hover {
+  background-color: #475569 !important; /* slate-600 */
+}
+
+/* Ghost / outline buttons */
+.dark button.bg-transparent,
+.dark button.ghost {
+  color: #cbd5e1 !important;
+}
+
+.dark button.hover\:bg-gray-100:hover,
+.dark button.hover\:bg-gray-50:hover {
+  background-color: #334155 !important;
+}
+
+/* Disabled-state button with bg-gray-100 */
+.dark .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+.dark .text-gray-400.border-gray-200 {
+  border-color: #334155 !important;
+}
+
+
+
+/* Table header / subtle panel */
+.dark .bg-gray-50 {
+  background-color: #0f172a !important; /* slate-950 */
+}
+
+/* Status boxes in DriverViewModal / VehicleViewModal use bg-surface-light */
+.dark .bg-surface-light {
+  background-color: #1e293b !important; /* slate-800 */
+  border-color: #334155 !important;
+}
+
+/* Inline style that uses bg-gray-50 in rounded elements */
+.dark .bg-gray-50.rounded-full,
+.dark .bg-gray-50.p-4 {
+  background-color: #1e293b !important;
+}
+
+/* Modal footer */
+.dark .bg-gray-50\/50 {
+  background-color: rgba(15,23,42,0.5) !important;
+}
+
+/* Alert/reason banners (deactivation, removal) */
+.dark .bg-red-50 {
+  background-color: rgba(127, 29, 29, 0.15) !important; /* dark red tint */
+}
+
+.dark .border-red-100 {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Section dividers inside modals */
+.dark .border-gray-50 {
+  border-color: #1e293b !important;
+}
+
+/* Borders */
+.dark .border-gray-200 {
+  border-color: #334155 !important; /* slate-700 */
+}
+
+.dark .border-gray-100 {
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+.dark .border-gray-300 {
+  border-color: #475569 !important; /* slate-600 */
+}
+
+.dark .divide-gray-200 > * + * {
+  border-color: #334155 !important;
+}
+
+/* ── Text ── */
+.dark .text-dark {
+  color: #f1f5f9 !important; /* slate-100 */
+}
+
+.dark .text-gray-900 {
+  color: #f8fafc !important;
+}
+
+.dark .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+.dark .text-gray-500 {
+  color: #64748b !important; /* slate-500 */
+}
+
+.dark .text-gray-400 {
+  color: #475569 !important; /* slate-600 */
+}
+
+.dark .text-gray-300 {
+  color: #64748b !important;
+}
+
+/* ── Hover row ── */
+.dark .hover\:bg-gray-50:hover {
+  background-color: #334155 !important; /* slate-700 */
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background-color: #334155 !important;
+}
+
+/* ── Stat card icon tray ── */
+.dark .bg-blue-50 {
+  background-color: #1e3a5f !important;
+}
+
+/* ── Form controls ── */
+.dark select,
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="password"],
+.dark input[type="tel"],
+.dark input[type="url"],
+.dark input,
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* ── Scrollbar ── */
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ── Status badges keep their own color, no override needed ── */

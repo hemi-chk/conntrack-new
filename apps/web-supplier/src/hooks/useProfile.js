@@ -3,7 +3,7 @@ import { getSupplierProfile } from '../services/profileService';
 
 // NOTE: TO CHANGE THE LOGGED-IN SUPPLIER ID FOR TESTING:
 // Change the value of 'CURRENT_SUPPLIER_ID' below.
-export const CURRENT_SUPPLIER_ID = 1;
+export const CURRENT_SUPPLIER_ID = 7;
 
 export const useProfile = () => {
   const [profileData, setProfileData] = useState(null);

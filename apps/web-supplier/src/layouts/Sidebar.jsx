@@ -22,7 +22,7 @@ const menuItems = [
 
 export function Sidebar({ isOpen, currentPath }) {
   return (
-    <aside className={`fixed left-0 top-20 h-[calc(100vh-80px)] bg-white border-r border-slate-200 transition-all duration-300 z-40 overflow-hidden ${isOpen ? 'w-64' : 'w-0'}`}>
+    <aside className={`fixed left-0 top-20 h-[calc(100vh-80px)] bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 z-40 overflow-hidden ${isOpen ? 'w-64' : 'w-0'}`}>
       <div className="p-3 pt-6">
 
         <nav className="space-y-1">
@@ -30,7 +30,7 @@ export function Sidebar({ isOpen, currentPath }) {
             <Link
               key={item.path}
               to={item.path}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition group ${currentPath === item.path ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700'}`}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition group ${currentPath === item.path ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400'}`}
             >
               <div className="flex items-center gap-3">
                 <item.icon size={18} />
