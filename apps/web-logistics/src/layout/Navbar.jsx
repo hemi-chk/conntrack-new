@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, X } from "lucide-react";
+import { Bell, LogOut, Menu, MoonStar, SunMedium, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../config/api";
@@ -38,7 +38,7 @@ function LogoutModal({ onConfirm, onCancel }) {
   )
 }
 
-export default function Navbar({ isOpen, onMenuClick }) {
+export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick }) {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -120,11 +120,11 @@ export default function Navbar({ isOpen, onMenuClick }) {
       <nav
         className={`fixed top-0 right-0 h-16 flex items-center justify-between px-5 z-50 transition-all duration-300 ${
           isOpen ? 'left-64' : 'left-0'
-        }`}
+        } ${darkMode ? 'dark' : ''}`}
         style={{
-          background: '#ffffff',
-          borderBottom: '1px solid #C1E8FF',
-          boxShadow: '0 1px 6px rgba(2,16,36,0.08)',
+          background: darkMode ? '#021024' : '#ffffff',
+          borderBottom: darkMode ? '1px solid rgba(84,131,179,0.22)' : '1px solid #C1E8FF',
+          boxShadow: darkMode ? '0 1px 8px rgba(2,16,36,0.35)' : '0 1px 6px rgba(2,16,36,0.08)',
         }}
       >
         {/* Left — hamburger + logo when collapsed */}
@@ -147,8 +147,8 @@ export default function Navbar({ isOpen, onMenuClick }) {
               >
                 <span className="text-white font-extrabold text-xs">C</span>
               </div>
-              <span className="font-bold text-base tracking-tight" style={{ color: '#021024' }}>
-                Con<span style={{ color: '#5483B3' }}>Track</span>
+              <span className="font-bold text-base tracking-tight" style={{ color: darkMode ? '#F8FAFC' : '#021024' }}>
+                Con<span style={{ color: darkMode ? '#8FB3D9' : '#5483B3' }}>Track</span>
               </span>
             </div>
           )}
@@ -156,14 +156,34 @@ export default function Navbar({ isOpen, onMenuClick }) {
 
         {/* Right — Actions */}
         <div className="flex items-center gap-1 relative">
+          {/* Dark mode toggle */}
+          <button
+            type="button"
+            aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={onToggleDarkMode}
+            className="relative p-2 rounded-xl transition-all duration-200"
+            style={{
+              color: darkMode ? '#F8D66D' : '#5483B3',
+              background: darkMode ? 'rgba(84,131,179,0.12)' : 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = darkMode ? 'rgba(84,131,179,0.18)' : '#EBF4FF';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = darkMode ? 'rgba(84,131,179,0.12)' : 'transparent';
+            }}
+          >
+            {darkMode ? <SunMedium size={18} /> : <MoonStar size={18} />}
+          </button>
+
           {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications((prev) => !prev)}
               className="relative p-2 rounded-xl transition-all duration-200"
-              style={{ color: '#5483B3' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#EBF4FF'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              style={{ color: darkMode ? '#D9E8FF' : '#5483B3' }}
+              onMouseEnter={e => e.currentTarget.style.background = darkMode ? 'rgba(84,131,179,0.18)' : '#EBF4FF'}
+              onMouseLeave={e => e.currentTarget.style.background = darkMode ? 'rgba(84,131,179,0.12)' : 'transparent'}
             >
               <Bell size={19} />
               {unreadCount > 0 && (
@@ -253,8 +273,8 @@ export default function Navbar({ isOpen, onMenuClick }) {
             className="flex items-center gap-2.5"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold leading-tight" style={{ color: '#021024' }}>{userName}</p>
-              <p className="text-[11px] leading-tight" style={{ color: '#5483B3' }}>Logistics Handler</p>
+              <p className="text-sm font-semibold leading-tight" style={{ color: darkMode ? '#F8FAFC' : '#021024' }}>{userName}</p>
+              <p className="text-[11px] leading-tight" style={{ color: darkMode ? '#8FB3D9' : '#5483B3' }}>Logistics Handler</p>
             </div>
             <div
               className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shrink-0"
