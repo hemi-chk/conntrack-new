@@ -10,8 +10,8 @@ import {
   MessageSquare,
   PackageCheck,
   Phone,
+  Search,
   Send,
-  SlidersHorizontal,
   Star
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,7 +20,7 @@ function Bidding() {
   const API_BASE_URL =
     import.meta.env.VITE_API_URL ||
     "http://localhost:5000";
-  // Main UI states for tab selection, sorting, shortlisted bids, and logistics submission
+  // Main UI states for bidding, sorting, shortlisted bids, and logistics submission
   const [activeTab, setActiveTab] = useState("Open");
   const [sortBy, setSortBy] = useState("Lowest Price");
   const [shortlistedBidIds, setShortlistedBidIds] = useState([]);
@@ -37,9 +37,17 @@ function Bidding() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [selectedBidForDetails, setSelectedBidForDetails] = useState(null);
 
-  // Stores the final winner selected by Logistics
+  // The supplier currently selected by Logistics. This is NOT treated as a
+  // confirmed winner until the supplier accepts the award.
   const [winningBid, setWinningBid] = useState(null);
   const [showWinnerPopup, setShowWinnerPopup] = useState(false);
+
+  // Persistent supplier-award workflow state from operations_bid_award_state.
+  // React renders this state; it does not invent the award workflow locally.
+  const [awardState, setAwardState] = useState(null);
+  const [awardStateByOrder, setAwardStateByOrder] = useState({});
+  const [awardActionLoading, setAwardActionLoading] = useState(false);
+  const [shortlistDraftLoading, setShortlistDraftLoading] = useState(false);
 
   // Timer form input state for opening/extending bidding time
   const [timerMode, setTimerMode] = useState("open");
@@ -54,6 +62,18 @@ function Bidding() {
   const [bids, setBids] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Order list states used by the three collapsible bidding tables
+  const [orders, setOrders] = useState([]);
+  const [bidCountByOrder, setBidCountByOrder] = useState({});
+  const [winnerByOrder, setWinnerByOrder] = useState({});
+  const [biddingStateByOrder, setBiddingStateByOrder] = useState({});
+  const [logisticsStateByOrder, setLogisticsStateByOrder] = useState({});
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+  const [showCreatedOrders, setShowCreatedOrders] = useState(true);
+  const [showOpenBiddingOrders, setShowOpenBiddingOrders] = useState(true);
+  const [showBidAcceptedOrders, setShowBidAcceptedOrders] = useState(true);
+  const [showBiddingWorkspace, setShowBiddingWorkspace] = useState(false);
 
   // Extract actual order reference like EXP-00042
   const getOrderReference = (order) => {
@@ -102,6 +122,692 @@ function Bidding() {
       .trim()
       .replaceAll(" ", "_")
       .replaceAll("-", "_");
+
+  const bidResultStatuses = new Set([
+    "bid_accepted",
+    "driver_assigned",
+    "in_transit",
+    "at_freezone",
+    "at_port",
+    "completed",
+    "archived",
+  ]);
+
+  const getBidCountKey = (order) => {
+    const reference = getOrderReference(order);
+
+    if (reference) {
+      return `ref:${String(reference).trim().toLowerCase()}`;
+    }
+
+    const databaseId = getOrderDatabaseId(order);
+
+    if (databaseId !== null && databaseId !== undefined) {
+      return `id:${databaseId}`;
+    }
+
+    return "";
+  };
+
+  const getBidCountForOrder = (order) => {
+    const status = getOrderStatus(order);
+
+    // A Created order has not entered bidding yet, so it must not display
+    // any stale bid rows that may exist in the database from test data.
+    if (status === "created") {
+      return 0;
+    }
+
+    const key = getBidCountKey(order);
+    return key ? Number(bidCountByOrder[key] || 0) : 0;
+  };
+
+  const getBiddingStateForOrder = (order) => {
+    const key = getBidCountKey(order);
+    return key ? biddingStateByOrder[key] || null : null;
+  };
+
+  const getLogisticsStateForOrder = (order) => {
+    const key = getBidCountKey(order);
+    return key ? logisticsStateByOrder[key] || null : null;
+  };
+
+  const normalizeWorkflowValue = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .trim()
+      .replaceAll("-", "_")
+      .replaceAll(" ", "_");
+
+  const normalizeAwardStatePayload = (result) => {
+    if (!result || typeof result !== "object") {
+      return null;
+    }
+
+    const source =
+      result.award_state ||
+      result.data ||
+      result.state ||
+      result;
+
+    const workflowState = normalizeWorkflowValue(
+      source.award_workflow_state ||
+        source.workflow_state ||
+        result.award_workflow_state
+    );
+
+    const confirmationStatus = normalizeWorkflowValue(
+      source.supplier_confirmation_status ||
+        source.confirmation_status ||
+        result.supplier_confirmation_status
+    );
+
+    const rawNotifications =
+      source.outcome_notifications ||
+      source.notifications ||
+      result.outcome_notifications ||
+      result.notifications ||
+      [];
+
+    const outcomeNotifications = Array.isArray(rawNotifications)
+      ? rawNotifications.map((item) => ({
+          ...item,
+          notificationId:
+            item.notification_id || item.id || null,
+          bidId: item.bid_id || item.bidId || null,
+          status: normalizeWorkflowValue(
+            item.notification_status || item.status || "pending"
+          ),
+          sentAt: item.sent_at || item.sentAt || null,
+        }))
+      : [];
+
+    const selectedBidIdValue = Number(
+      source.selected_bid_id ||
+        source.winner_bid_id ||
+        source.current_selected_bid_id ||
+        0
+    );
+
+    return {
+      raw: source,
+      awardWorkflowState: workflowState,
+      selectedBidId:
+        !Number.isNaN(selectedBidIdValue) && selectedBidIdValue > 0
+          ? selectedBidIdValue
+          : null,
+      selectedSupplier:
+        source.selected_supplier ||
+        source.selected_supplier_name ||
+        source.supplier_name ||
+        "",
+      selectedBidAmount:
+        source.selected_bid_amount ??
+        source.winning_bid_amount ??
+        source.bid_amount ??
+        null,
+      supplierConfirmationStatus: confirmationStatus,
+      sentToLogistics:
+        source.sent_to_logistics === true ||
+        source.sentToLogistics === true,
+      pendingUnsuccessfulNotices: Number(
+        source.pending_unsuccessful_notices ||
+          source.pending_notifications ||
+          0
+      ),
+      sentUnsuccessfulNotices: Number(
+        source.sent_unsuccessful_notices ||
+          source.sent_notifications ||
+          0
+      ),
+      totalBids: Number(source.total_bids || 0),
+      draftShortlistCount: Number(source.draft_shortlist_count || 0),
+      sentShortlistCount: Number(source.sent_shortlist_count || 0),
+      biddingStatus: normalizeWorkflowValue(source.bidding_status || ""),
+      biddingEndTime: source.bidding_end_time || null,
+      outcomeNotifications,
+      awardAttempts: (Array.isArray(source.award_attempts)
+        ? source.award_attempts
+        : Array.isArray(result.award_attempts)
+        ? result.award_attempts
+        : []
+      ).map((item) => ({
+        ...item,
+        bidId: item.bid_id || item.bidId || null,
+        responseStatus: normalizeWorkflowValue(
+          item.supplier_response ||
+            item.response_status ||
+            item.supplier_confirmation_status ||
+            item.status ||
+            ""
+        ),
+      })),
+    };
+  };
+
+  const getAwardStateForOrder = (order) => {
+    const key = getBidCountKey(order);
+    return key ? awardStateByOrder[key] || null : null;
+  };
+
+  const getAwardStateLabel = (value) => {
+    const state = normalizeWorkflowValue(value);
+
+    const labels = {
+      bidding_closed_no_bids: "No Bids Received",
+      shortlisting_required: "Shortlisting Required",
+      shortlist_ready_to_send: "Shortlist Ready - Send to Logistics",
+      awaiting_logistics_selection: "Awaiting Logistics Selection",
+      selected_supplier_notice_pending: "Selected Supplier Notice Pending",
+      awaiting_supplier_response: "Awaiting Supplier Response",
+      alternate_supplier_selection_required:
+        "Alternate Supplier Selection Required",
+      unsuccessful_supplier_notifications_pending:
+        "Unsuccessful Supplier Notifications Pending",
+      award_completed: "Award Completed",
+    };
+
+    return labels[state] || (state
+      ? state
+          .replaceAll("_", " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      : "Not Started");
+  };
+
+  const getAwardStateClass = (value) => {
+    const state = normalizeWorkflowValue(value);
+
+    if (state === "award_completed") {
+      return "bg-green-100 text-[#16A34A]";
+    }
+
+    if (
+      state === "alternate_supplier_selection_required" ||
+      state === "bidding_closed_no_bids"
+    ) {
+      return "bg-red-100 text-[#DC2626]";
+    }
+
+    if (
+      state === "shortlisting_required" ||
+      state === "shortlist_ready_to_send" ||
+      state === "selected_supplier_notice_pending" ||
+      state === "unsuccessful_supplier_notifications_pending"
+    ) {
+      return "bg-orange-100 text-[#EA580C]";
+    }
+
+    if (
+      state === "awaiting_logistics_selection" ||
+      state === "awaiting_supplier_response"
+    ) {
+      return "bg-blue-100 text-[#1E40AF]";
+    }
+
+    return "bg-slate-100 text-slate-600";
+  };
+
+  const buildAwardStateUrl = (order) => {
+    const databaseId = getOrderDatabaseId(order);
+    const reference = getOrderReference(order);
+
+    if (databaseId) {
+      return `${API_BASE_URL}/api/operations/bids/${encodeURIComponent(
+        databaseId
+      )}/award-state`;
+    }
+
+    if (reference) {
+      return (
+        `${API_BASE_URL}/api/operations/bids/award-state?order_reference=` +
+        encodeURIComponent(reference)
+      );
+    }
+
+    return "";
+  };
+
+  const fetchAwardState = async (
+    order = null,
+    { setCurrent = true, updateMap = true, silent = false } = {}
+  ) => {
+    let currentOrder = order || selectedOrder;
+
+    if (!currentOrder) {
+      if (setCurrent) setAwardState(null);
+      return null;
+    }
+
+    if (getOrderStatus(currentOrder) === "created") {
+      if (setCurrent) setAwardState(null);
+      return null;
+    }
+
+    const url = buildAwardStateUrl(currentOrder);
+
+    if (!url) {
+      if (setCurrent) setAwardState(null);
+      return null;
+    }
+
+    try {
+      const response = await fetch(url);
+      const responseText = await response.text();
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        result = {};
+      }
+
+      if (response.status === 404) {
+        if (setCurrent) setAwardState(null);
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            result.message ||
+            "Failed to load supplier award workflow"
+        );
+      }
+
+      const normalized = normalizeAwardStatePayload(result);
+      const key = getBidCountKey(currentOrder);
+
+      if (setCurrent) {
+        setAwardState(normalized);
+        setSentToLogistics(normalized?.sentToLogistics === true);
+      }
+
+      if (updateMap && key) {
+        setAwardStateByOrder((prev) => ({
+          ...prev,
+          [key]: normalized,
+        }));
+      }
+
+      return normalized;
+    } catch (error) {
+      if (!silent) {
+        console.error("Fetch award state error:", error);
+      }
+      return null;
+    }
+  };
+
+  const getWinnerForOrder = (order) => {
+    const key = getBidCountKey(order);
+    const persistedAwardState = key ? awardStateByOrder[key] : null;
+
+    // The selected supplier shown in Operations comes only from the
+    // Supabase-backed operations_bid_award_state payload.
+    if (!persistedAwardState?.selectedSupplier) {
+      return null;
+    }
+
+    return {
+      bidId: persistedAwardState.selectedBidId,
+      supplier: persistedAwardState.selectedSupplier,
+      amount: persistedAwardState.selectedBidAmount,
+      confirmationStatus: persistedAwardState.supplierConfirmationStatus,
+    };
+  };
+
+  // Loads all Operations orders so the Bidding page can show
+  // every order currently in bidding and every order with a bid result.
+  const fetchBiddingOrders = async () => {
+    try {
+      setIsOrdersLoading(true);
+
+      const ordersResponse = await fetch(
+        `${API_BASE_URL}/api/operations/orders`
+      );
+
+      const ordersText = await ordersResponse.text();
+      let ordersResult = [];
+
+      try {
+        ordersResult = ordersText ? JSON.parse(ordersText) : [];
+      } catch {
+        throw new Error(
+          `Orders API returned invalid response. Status: ${ordersResponse.status}`
+        );
+      }
+
+      if (!ordersResponse.ok) {
+        throw new Error(
+          ordersResult?.error || "Failed to load bidding orders"
+        );
+      }
+
+      if (!Array.isArray(ordersResult)) {
+        throw new Error("Invalid orders response from backend");
+      }
+
+      setOrders(ordersResult);
+
+      let allBids = [];
+
+      try {
+        const bidsResponse = await fetch(
+          `${API_BASE_URL}/api/operations/bids`
+        );
+
+        const bidsText = await bidsResponse.text();
+
+        try {
+          allBids = bidsText ? JSON.parse(bidsText) : [];
+        } catch {
+          allBids = [];
+        }
+
+        if (!bidsResponse.ok || !Array.isArray(allBids)) {
+          allBids = [];
+        }
+      } catch (bidError) {
+        console.error("Could not load all bids:", bidError);
+        allBids = [];
+      }
+
+      const counts = {};
+      const rawWinners = {};
+
+      allBids.forEach((bid) => {
+        const reference =
+          bid.order_reference ||
+          bid.orders?.order_reference ||
+          "";
+
+        const databaseId =
+          bid.order_id ||
+          bid.orders?.order_id ||
+          null;
+
+        const key = reference
+          ? `ref:${String(reference).trim().toLowerCase()}`
+          : databaseId !== null && databaseId !== undefined
+          ? `id:${databaseId}`
+          : "";
+
+        if (!key) {
+          return;
+        }
+
+        counts[key] = Number(counts[key] || 0) + 1;
+
+        const rawBidStatus = String(
+          bid.bid_status ||
+          bid.status ||
+          bid.selection_status ||
+          ""
+        )
+          .trim()
+          .toLowerCase()
+          .replaceAll(" ", "_")
+          .replaceAll("-", "_");
+
+        const isWinner =
+          rawBidStatus === "accepted" ||
+          rawBidStatus === "winner" ||
+          rawBidStatus === "selected" ||
+          bid.selected === true ||
+          bid.is_winner === true;
+
+        if (isWinner) {
+          rawWinners[key] = {
+            bidId: bid.bid_id || bid.id || null,
+            supplier:
+              bid.supplier_name ||
+              bid.suppliers?.company_name ||
+              bid.company_name ||
+              bid.supplier ||
+              `Supplier ${bid.supplier_id || ""}`,
+            amount: Number(
+              bid.bid_amount ||
+              bid.amount ||
+              bid.price ||
+              0
+            ),
+          };
+        }
+      });
+
+      setBidCountByOrder(counts);
+
+      const biddingStates = {};
+      const logisticsStates = {};
+      const awardStates = {};
+      const resolvedWinners = {};
+
+      const workflowOrders = ordersResult.filter(
+        (order) => getOrderStatus(order) !== "created"
+      );
+
+      await Promise.all(
+        workflowOrders.map(async (order) => {
+          const key = getBidCountKey(order);
+
+          if (!key) {
+            return;
+          }
+
+          const reference = getOrderReference(order);
+          const databaseId = getOrderDatabaseId(order);
+
+          if (reference) {
+            try {
+              const statusResponse = await fetch(
+                `${API_BASE_URL}/api/operations/bidding/status?order_reference=${encodeURIComponent(
+                  reference
+                )}`
+              );
+
+              const statusText = await statusResponse.text();
+              let statusResult = {};
+
+              try {
+                statusResult = statusText ? JSON.parse(statusText) : {};
+              } catch {
+                statusResult = {};
+              }
+
+              if (statusResponse.ok && statusResult?.bidding) {
+                const bidding = statusResult.bidding;
+                const backendStatus = String(
+                  bidding.status || ""
+                ).toLowerCase();
+
+                const endTime = bidding.end_time
+                  ? new Date(bidding.end_time).getTime()
+                  : null;
+
+                biddingStates[key] = {
+                  exists: true,
+                  isOpen:
+                    backendStatus === "open" &&
+                    endTime !== null &&
+                    endTime > Date.now(),
+                  status: backendStatus || "unknown",
+                  endTime: bidding.end_time || null,
+                };
+              } else {
+                biddingStates[key] = {
+                  exists: false,
+                  isOpen: false,
+                  status: "not_started",
+                  endTime: null,
+                };
+              }
+            } catch (statusError) {
+              console.error(
+                `Could not load bidding status for ${reference}:`,
+                statusError
+              );
+            }
+          }
+
+          try {
+            let shortlistUrl = "";
+
+            if (reference) {
+              shortlistUrl =
+                `${API_BASE_URL}/api/operations/bids/shortlist-status?order_reference=` +
+                encodeURIComponent(reference);
+            } else if (databaseId) {
+              shortlistUrl =
+                `${API_BASE_URL}/api/operations/bids/shortlist-status?order_id=` +
+                encodeURIComponent(databaseId);
+            }
+
+            if (!shortlistUrl) {
+              return;
+            }
+
+            const shortlistResponse = await fetch(shortlistUrl);
+            const shortlistText = await shortlistResponse.text();
+            let shortlistResult = {};
+
+            try {
+              shortlistResult = shortlistText
+                ? JSON.parse(shortlistText)
+                : {};
+            } catch {
+              shortlistResult = {};
+            }
+
+            if (!shortlistResponse.ok) {
+              return;
+            }
+
+            const savedBidIds = Array.isArray(shortlistResult.bid_ids)
+              ? shortlistResult.bid_ids
+              : Array.isArray(shortlistResult.selections)
+              ? shortlistResult.selections
+                  .map((item) => item?.bid_id)
+                  .filter(Boolean)
+              : [];
+
+            const sentToLogistics = Array.isArray(shortlistResult.selections)
+              ? shortlistResult.selections.some(
+                  (item) => item?.sent_to_logistics === true
+                )
+              : shortlistResult.sent_to_logistics === true;
+
+            const winnerBidId = Number(
+              shortlistResult.winner_bid_id ||
+              shortlistResult.winner_selection?.bid_id ||
+              0
+            );
+
+            const hasWinner =
+              !Number.isNaN(winnerBidId) && winnerBidId > 0;
+
+            logisticsStates[key] = {
+              sentToLogistics,
+              hasWinner,
+              winnerBidId: hasWinner ? winnerBidId : null,
+            };
+
+            if (hasWinner) {
+              const matchedBid = allBids.find(
+                (bid) =>
+                  Number(bid.bid_id || bid.id) === winnerBidId
+              );
+
+              if (matchedBid) {
+                resolvedWinners[key] = {
+                  bidId:
+                    matchedBid.bid_id ||
+                    matchedBid.id ||
+                    winnerBidId,
+                  supplier:
+                    matchedBid.supplier_name ||
+                    matchedBid.suppliers?.company_name ||
+                    matchedBid.company_name ||
+                    matchedBid.supplier ||
+                    `Supplier ${matchedBid.supplier_id || ""}`,
+                  amount: Number(
+                    matchedBid.bid_amount ||
+                    matchedBid.amount ||
+                    matchedBid.price ||
+                    0
+                  ),
+                };
+              } else if (rawWinners[key]) {
+                resolvedWinners[key] = rawWinners[key];
+              }
+            }
+          } catch (shortlistError) {
+            console.error(
+              `Could not load Logistics state for ${
+                reference || databaseId
+              }:` ,
+              shortlistError
+            );
+          }
+
+          try {
+            const currentAwardState = await fetchAwardState(order, {
+              setCurrent: false,
+              updateMap: false,
+              silent: true,
+            });
+
+            if (currentAwardState) {
+              awardStates[key] = currentAwardState;
+
+              if (currentAwardState.selectedSupplier) {
+                resolvedWinners[key] = {
+                  bidId: currentAwardState.selectedBidId,
+                  supplier: currentAwardState.selectedSupplier,
+                  amount: currentAwardState.selectedBidAmount,
+                  confirmationStatus:
+                    currentAwardState.supplierConfirmationStatus,
+                };
+              }
+            }
+          } catch (awardError) {
+            console.error(
+              `Could not load award workflow for ${reference || databaseId}:`,
+              awardError
+            );
+          }
+        })
+      );
+
+      ordersResult.forEach((order) => {
+        const key = getBidCountKey(order);
+        const status = getOrderStatus(order);
+
+        if (
+          key &&
+          bidResultStatuses.has(status) &&
+          !resolvedWinners[key] &&
+          rawWinners[key]
+        ) {
+          resolvedWinners[key] = rawWinners[key];
+        }
+      });
+
+      setWinnerByOrder(resolvedWinners);
+      setBiddingStateByOrder(biddingStates);
+      setLogisticsStateByOrder(logisticsStates);
+      setAwardStateByOrder(awardStates);
+    } catch (error) {
+      console.error("Fetch bidding orders error:", error);
+      setOrders([]);
+      setBidCountByOrder({});
+      setWinnerByOrder({});
+      setBiddingStateByOrder({});
+      setLogisticsStateByOrder({});
+      setAwardStateByOrder({});
+    } finally {
+      setIsOrdersLoading(false);
+    }
+  };
 
   // Converts raw backend bid data into one consistent frontend format
   const normalizeBid = (bid, orderData = selectedOrder) => {
@@ -349,6 +1055,17 @@ function Bidding() {
         return;
       }
 
+      // Once the order has Bid Accepted status (or any later workflow
+      // status), bidding is historical/read-only even if an old bidding
+      // record still contains an open end_time.
+      if (bidResultStatuses.has(getOrderStatus(currentOrder))) {
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setActiveTab("Closed");
+        setBiddingStatusLoaded(true);
+        return;
+      }
+
       const orderReference = getOrderReference(currentOrder);
 
       if (!orderReference) {
@@ -444,7 +1161,7 @@ function Bidding() {
   //
   // This reads bid_selection through the Operations backend.
   // It keeps the exact shortlist after refresh and detects the
-  // winner selected by Logistics without connecting to their PC.
+  // selected supplier chosen by Logistics without connecting to their PC.
   // =========================================================
   const fetchShortlistStatus = async (order = null) => {
     try {
@@ -459,6 +1176,17 @@ function Bidding() {
       }
 
       if (!currentOrder) {
+        return;
+      }
+
+      const currentStatus = getOrderStatus(currentOrder);
+
+      // A Created order has not entered the bidding workflow yet.
+      // Do not restore any stale shortlist/winner rows for it.
+      if (currentStatus === "created") {
+        setShortlistedBidIds([]);
+        setSentToLogistics(false);
+        setWinningBid(null);
         return;
       }
 
@@ -508,12 +1236,11 @@ function Bidding() {
             .filter((id) => !Number.isNaN(id))
         : [];
 
-      const alreadySent =
-        result.sent_to_logistics === true ||
-        result.locked === true ||
-        result.already_sent === true ||
-        result.is_locked === true ||
-        savedBidIds.length > 0;
+      const alreadySent = Array.isArray(result.selections)
+        ? result.selections.some(
+            (item) => item?.sent_to_logistics === true
+          )
+        : result.sent_to_logistics === true;
 
       setShortlistedBidIds(savedBidIds);
       setSentToLogistics(alreadySent);
@@ -536,6 +1263,13 @@ function Bidding() {
           };
 
         setWinningBid(currentWinner);
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setActiveTab("Closed");
+
+        // Logistics has selected a supplier, so refresh the order tables.
+        // The backend may also have advanced the order to bid_accepted.
+        fetchBiddingOrders();
       } else {
         setWinningBid(null);
       }
@@ -555,47 +1289,8 @@ function Bidding() {
         error
       );
 
-      // Session storage is only a local fallback for the same browser.
-      // Supabase remains the real source of truth.
-      const storedOrderReference = sessionStorage.getItem(
-        "shortlistedOrderReferenceForLogistics"
-      );
-
-      const currentOrderReference = getOrderReference(
-        order || selectedOrder
-      );
-
-      if (
-        storedOrderReference &&
-        currentOrderReference &&
-        storedOrderReference === currentOrderReference
-      ) {
-        try {
-          const storedBidIds = JSON.parse(
-            sessionStorage.getItem(
-              "shortlistedBidIdsForLogistics"
-            ) || "[]"
-          );
-
-          if (
-            Array.isArray(storedBidIds) &&
-            storedBidIds.length > 0
-          ) {
-            setShortlistedBidIds(
-              storedBidIds
-                .map((id) => Number(id))
-                .filter((id) => !Number.isNaN(id))
-            );
-
-            setSentToLogistics(true);
-          }
-        } catch (sessionError) {
-          console.error(
-            "Could not restore shortlist from session:",
-            sessionError
-          );
-        }
-      }
+      // Keep the last server-confirmed state on screen if this request fails.
+      // Do not replace it with browser-derived workflow data.
     }
   };
 
@@ -808,8 +1503,58 @@ function Bidding() {
     }
   };
 
+  const selectBiddingOrder = async (order) => {
+    if (!order) {
+      return;
+    }
+
+    setSelectedOrder(order);
+    setShowBiddingWorkspace(true);
+    sessionStorage.setItem("biddingOrder", JSON.stringify(order));
+
+    const status = getOrderStatus(order);
+
+    // Never carry bid/shortlist/winner state from the previously selected order.
+    // The server will restore all persisted workflow data.
+    setBids([]);
+    setShortlistedBidIds([]);
+    setSentToLogistics(false);
+    setWinningBid(null);
+    setAwardState(null);
+    setSelectedBidForDetails(null);
+    setShowWinnerPopup(false);
+    setShowOrderDetails(true);
+    setIsBiddingOpen(false);
+    setTimeLeft(0);
+    setBiddingStatusLoaded(false);
+
+    setActiveTab(status === "open_for_bids" ? "Open" : "Closed");
+
+    await Promise.all([
+      fetchBids(order),
+      fetchBiddingStatus(order),
+      fetchShortlistStatus(order),
+      fetchAwardState(order),
+    ]);
+  };
+
+  // Prevent the page behind the full bidding workspace from scrolling.
+  useEffect(() => {
+    if (!showBiddingWorkspace) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showBiddingWorkspace]);
+
   // Loads selected bidding order when Bidding page opens
   useEffect(() => {
+    fetchBiddingOrders();
     const biddingOrder =
       sessionStorage.getItem(
         "biddingOrder"
@@ -840,9 +1585,10 @@ function Bidding() {
           []
         );
 
-        setSentToLogistics(
-          false
-        );
+        // Do not infer shortlist/winner state from the order status.
+        // Restore it from the Operations API / Supabase instead.
+        setSentToLogistics(false);
+        setWinningBid(null);
 
         fetchBids(
           parsedOrder
@@ -852,9 +1598,10 @@ function Bidding() {
           parsedOrder
         );
 
-        // Restore the exact saved shortlist from bid_selection.
-        // This also detects a winner selected by Logistics.
+        // Restore the exact saved shortlist from bid_selection and load the
+        // persistent supplier-award workflow from the Operations API.
         fetchShortlistStatus(parsedOrder);
+        fetchAwardState(parsedOrder);
       } catch (error) {
         console.error(
           "Invalid biddingOrder:",
@@ -905,9 +1652,8 @@ function Bidding() {
 
   }, []);
 
-  // Once the shortlist is sent to Logistics, the bidding stage is permanently
-  // locked in the Operations UI. Even if an older backend bidding record still
-  // says "open", Operations cannot reopen, close, or extend the bidding.
+  // sentToLogistics is restored from backend/Supabase data.
+  // Once true, the bidding stage is locked in the Operations UI.
   useEffect(() => {
     if (!sentToLogistics) {
       return;
@@ -941,19 +1687,28 @@ function Bidding() {
     showCloseConfirm,
   ]);
 
-  // Poll the shared Supabase decision every 5 seconds after the shortlist
-  // has been sent. No frontend-to-frontend connection is required.
+  // Poll the persistent award workflow while the award is still active.
+  // This lets Operations see a Logistics selection/alternate selection even
+  // after refresh without any frontend-to-frontend connection.
   useEffect(() => {
-    if (!selectedOrder || !sentToLogistics || winningBid) {
+    if (!selectedOrder || !awardState?.awardWorkflowState) {
+      return;
+    }
+
+    if (awardState?.awardWorkflowState === "award_completed") {
       return;
     }
 
     const decisionTimer = setInterval(() => {
       fetchShortlistStatus(selectedOrder);
+      fetchAwardState(selectedOrder);
     }, 5000);
 
     return () => clearInterval(decisionTimer);
-  }, [selectedOrder, sentToLogistics, winningBid]);
+  }, [
+    selectedOrder,
+    awardState?.awardWorkflowState,
+  ]);
 
   useEffect(() => {
     if (
@@ -978,6 +1733,15 @@ function Bidding() {
                 "Closed"
               );
 
+              // Refresh the Supabase-derived workflow state when the timer ends.
+              // React does not create the closed-bidding award status itself.
+              setTimeout(() => {
+                if (selectedOrder) {
+                  fetchAwardState(selectedOrder);
+                  fetchBiddingOrders();
+                }
+              }, 0);
+
               return 0;
             }
 
@@ -997,64 +1761,36 @@ function Bidding() {
     timeLeft,
   ]);
 
-  const sortedBids =
-    useMemo(() => {
-      const data = [
-        ...bids,
-      ];
+  const displayedBids = useMemo(() => {
+    const data = [...bids];
 
-      if (
-        sortBy ===
-        "Lowest Price"
-      ) {
-        return data.sort(
-          (a, b) =>
-            a.amount -
-            b.amount
-        );
-      }
+    if (sortBy === "Lowest Price") {
+      return data.sort((a, b) => a.amount - b.amount);
+    }
 
-      if (
-        sortBy ===
-        "Highest Rating"
-      ) {
-        return data.sort(
-          (a, b) =>
-            b.rating -
-            a.rating
-        );
-      }
+    if (sortBy === "Highest Rating") {
+      return data.sort((a, b) => b.rating - a.rating);
+    }
 
-      if (
-        sortBy ===
-        "Compliance"
-      ) {
-        const rank = {
-          Verified: 1,
-          Completed: 1,
-          Pending: 2,
-          Warning: 3,
-          Blocked: 4,
-        };
+    if (sortBy === "Compliance") {
+      const rank = {
+        Verified: 1,
+        Completed: 1,
+        Pending: 2,
+        Warning: 3,
+        Blocked: 4,
+      };
 
-        return data.sort(
-          (a, b) =>
-            (rank[
-              a.compliance
-            ] ||
-              99) -
-            (rank[
-              b.compliance
-            ] ||
-              99)
-        );
-      }
+      return data.sort(
+        (a, b) =>
+          (rank[a.compliance] || 99) -
+          (rank[b.compliance] || 99)
+      );
+    }
 
-      return data;
-    }, [
-      bids,
-      sortBy,
-    ]);
+    return data;
+  }, [bids, sortBy]);
+
 
   const lowestPriceBid =
     useMemo(() => {
@@ -1147,6 +1883,49 @@ function Bidding() {
     [bids]
   );
 
+  const createdOrders = useMemo(
+    () =>
+      orders.filter((order) =>
+        ["created"].includes(getOrderStatus(order))
+      ),
+    [orders]
+  );
+
+  const openBiddingOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const status = getOrderStatus(order);
+
+        if (status !== "open_for_bids") {
+          return false;
+        }
+
+        const award = getAwardStateForOrder(order);
+        if (award?.awardWorkflowState) {
+          return false;
+        }
+
+        const biddingState = getBiddingStateForOrder(order);
+        return biddingState ? biddingState.isOpen === true : false;
+      }),
+    [orders, biddingStateByOrder, awardStateByOrder]
+  );
+
+  const bidAcceptedOrders = useMemo(
+    () =>
+      orders.filter((order) => {
+        const status = getOrderStatus(order);
+        const award = getAwardStateForOrder(order);
+
+        if (award?.awardWorkflowState) {
+          return true;
+        }
+
+        return bidResultStatuses.has(status);
+      }),
+    [orders, awardStateByOrder]
+  );
+
   const displayOrder = {
     orderReference:
       getOrderReference(
@@ -1163,12 +1942,40 @@ function Bidding() {
         ?.orderType ||
       "-",
 
+    pickupDistrict:
+      selectedOrder?.pickupDistrict ||
+      selectedOrder?.pickup_district ||
+      selectedOrder?.pickup_country ||
+      "-",
+
+    pickupLocation:
+      selectedOrder?.pickupLocation ||
+      selectedOrder?.pickup_location ||
+      selectedOrder?.pickup ||
+      selectedOrder?.pickup_state ||
+      bids[0]?.pickup ||
+      "-",
+
     pickup:
       selectedOrder?.pickupLocation ||
       selectedOrder?.pickup_location ||
       selectedOrder?.pickup ||
       selectedOrder?.pickup_state ||
       bids[0]?.pickup ||
+      "-",
+
+    destinationDistrict:
+      selectedOrder?.destinationDistrict ||
+      selectedOrder?.destination_district ||
+      selectedOrder?.destination_country ||
+      "-",
+
+    destinationLocation:
+      selectedOrder?.destinationLocation ||
+      selectedOrder?.destination_location ||
+      selectedOrder?.destination ||
+      selectedOrder?.destination_state ||
+      bids[0]?.destination ||
       "-",
 
     destination:
@@ -1266,6 +2073,59 @@ function Bidding() {
         month: "short",
         day: "numeric",
       }
+    );
+  };
+
+  const openSupplierResultEmail = (bid, resultType) => {
+    if (!bid?.supplierEmail) {
+      alert(
+        `${bid?.supplier || "Supplier"} does not have an email address.`
+      );
+      return;
+    }
+
+    const orderReference =
+      displayOrder.orderReference && displayOrder.orderReference !== "No order selected"
+        ? displayOrder.orderReference
+        : bid.orderReference || "Order";
+
+    const isSelected = resultType === "selected";
+
+    const subjectText = isSelected
+      ? `Bid Selected - ${orderReference}`
+      : `Bid Result - ${orderReference}`;
+
+    const bodyText = isSelected
+      ? `Dear ${bid.supplier},
+
+Your bid has been selected as the preferred bid for order ${orderReference}.
+
+Bid Amount: ${formatMoney(bid.amount)}
+ETA: ${formatEta(bid.eta)}
+
+Please confirm whether you accept this award. The award will only be finalized after your acceptance.
+
+Thank you.`
+      : `Dear ${bid.supplier},
+
+Thank you for submitting your bid for order ${orderReference}.
+
+After the selected supplier confirmed the award, we regret to inform you that your bid was not selected for this order.
+
+We appreciate your participation and look forward to working with you on future opportunities.
+
+Thank you.`;
+
+    const gmailUrl =
+      `https://mail.google.com/mail/?view=cm&fs=1` +
+      `&to=${encodeURIComponent(bid.supplierEmail)}` +
+      `&su=${encodeURIComponent(subjectText)}` +
+      `&body=${encodeURIComponent(bodyText)}`;
+
+    window.open(
+      gmailUrl,
+      "_blank",
+      "noopener,noreferrer"
     );
   };
 
@@ -1451,6 +2311,8 @@ function Bidding() {
         await fetchBiddingStatus(
           selectedOrder
         );
+        await fetchAwardState(selectedOrder);
+        await fetchBiddingOrders();
       } catch (error) {
         alert(
           error.message
@@ -1602,6 +2464,7 @@ function Bidding() {
         await fetchBiddingStatus(
           selectedOrder
         );
+        await fetchBiddingOrders();
       } catch (error) {
         alert(
           error.message
@@ -1609,13 +2472,74 @@ function Bidding() {
       }
     };
 
-  // LOCAL SHORTLIST BEFORE SENDING TO LOGISTICS
-  // Shortlisting is allowed only after bidding closes.
-  // Operations may shortlist 1 to 5 suppliers.
-  // Once sent to Logistics, the shortlist is permanently locked in this UI.
-  const toggleShortlist = (
-    bidId
-  ) => {
+  // PERSISTENT SHORTLIST DRAFT BEFORE SENDING TO LOGISTICS
+  // Every shortlist change is saved through the Operations API into Supabase.
+  // React does not derive or persist the workflow state locally.
+  const saveShortlistDraft = async (nextBidIds) => {
+    if (!selectedOrder) {
+      alert("Please select an order first.");
+      return false;
+    }
+
+    const databaseId = getOrderDatabaseId(selectedOrder);
+
+    if (!databaseId) {
+      alert("The selected order does not contain its database order ID.");
+      return false;
+    }
+
+    try {
+      setShortlistDraftLoading(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/operations/bids/${encodeURIComponent(
+          databaseId
+        )}/shortlist-draft`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            order_reference: getOrderReference(selectedOrder),
+            bid_ids: nextBidIds,
+          }),
+        }
+      );
+
+      const responseText = await response.text();
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Shortlist draft API returned invalid response. Status: ${response.status}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            result.message ||
+            "Failed to save shortlist draft"
+        );
+      }
+
+      await fetchShortlistStatus(selectedOrder);
+      await fetchAwardState(selectedOrder);
+      await fetchBiddingOrders();
+      return true;
+    } catch (error) {
+      console.error("Save shortlist draft error:", error);
+      alert(error.message);
+      return false;
+    } finally {
+      setShortlistDraftLoading(false);
+    }
+  };
+
+  const toggleShortlist = async (bidId) => {
     if (sentToLogistics) {
       alert(
         "Shortlist has already been sent to Logistics and is locked."
@@ -1630,42 +2554,36 @@ function Bidding() {
       return;
     }
 
-    setShortlistedBidIds(
-      (prev) => {
-        if (
-          prev.some(
-            (item) =>
-              Number(item) ===
-              Number(bidId)
-          )
-        ) {
-          return prev.filter(
-            (item) =>
-              Number(item) !==
-              Number(bidId)
-          );
-        }
+    if (shortlistDraftLoading) {
+      return;
+    }
 
-        if (
-          prev.length >=
-          maxShortlistCount
-        ) {
-          alert(
-            maxShortlistCount < 5
-              ? `Only ${maxShortlistCount} bid${
-                  maxShortlistCount === 1 ? " is" : "s are"
-                } available for this order.`
-              : "You can shortlist maximum 5 suppliers only."
-          );
-          return prev;
-        }
-
-        return [
-          ...prev,
-          bidId,
-        ];
-      }
+    const exists = shortlistedBidIds.some(
+      (item) => Number(item) === Number(bidId)
     );
+
+    let nextBidIds;
+
+    if (exists) {
+      nextBidIds = shortlistedBidIds.filter(
+        (item) => Number(item) !== Number(bidId)
+      );
+    } else {
+      if (shortlistedBidIds.length >= maxShortlistCount) {
+        alert(
+          maxShortlistCount < 5
+            ? `Only ${maxShortlistCount} bid${
+                maxShortlistCount === 1 ? " is" : "s are"
+              } available for this order.`
+            : "You can shortlist maximum 5 suppliers only."
+        );
+        return;
+      }
+
+      nextBidIds = [...shortlistedBidIds, bidId];
+    }
+
+    await saveShortlistDraft(nextBidIds);
   };
 
   const sendShortlistedToLogistics = async () => {
@@ -1780,38 +2698,6 @@ function Bidding() {
         );
       }
 
-      const shortlistedBids =
-        bids.filter((bid) =>
-          shortlistedBidIds.some(
-            (id) =>
-              Number(id) ===
-              Number(bid.id)
-          )
-        );
-
-      // Local session copies are only convenience fallbacks.
-      // Supabase bid_selection remains the source of truth.
-      sessionStorage.setItem(
-        "shortlistedBidsForLogistics",
-        JSON.stringify(
-          shortlistedBids
-        )
-      );
-
-      sessionStorage.setItem(
-        "shortlistedBidIdsForLogistics",
-        JSON.stringify(
-          shortlistedBidIds
-        )
-      );
-
-      sessionStorage.setItem(
-        "shortlistedOrderReferenceForLogistics",
-        orderReference
-      );
-
-      setSentToLogistics(true);
-
       alert(
         `${shortlistedBidIds.length} shortlisted supplier${
           shortlistedBidIds.length === 1 ? "" : "s"
@@ -1820,6 +2706,8 @@ function Bidding() {
 
       await fetchBids(selectedOrder);
       await fetchShortlistStatus(selectedOrder);
+      await fetchAwardState(selectedOrder);
+      await fetchBiddingOrders();
     } catch (error) {
       console.error(
         "Send to Logistics error:",
@@ -1832,65 +2720,255 @@ function Bidding() {
     }
   };
 
-  const getFreshWinningBid =
-    () => {
-      if (
-        !winningBid
-      ) {
-        return null;
+  const postAwardAction = async (action, payload = {}) => {
+    if (!selectedOrder) {
+      alert("Please select an order first.");
+      return null;
+    }
+
+    const databaseId = getOrderDatabaseId(selectedOrder);
+
+    if (!databaseId) {
+      alert(
+        "The selected order does not contain its database order ID. Award actions require order_id."
+      );
+      return null;
+    }
+
+    try {
+      setAwardActionLoading(true);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/operations/bids/${encodeURIComponent(
+          databaseId
+        )}/${action}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            order_reference: getOrderReference(selectedOrder),
+            ...payload,
+          }),
+        }
+      );
+
+      const responseText = await response.text();
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Award API returned invalid response. Status: ${response.status}`
+        );
       }
 
-      return (
-        bids.find(
-          (bid) =>
-            Number(
-              bid.id
-            ) ===
-              Number(
-                winningBid.id
-              ) ||
-            Number(
-              bid.bidId
-            ) ===
-              Number(
-                winningBid.bidId
-              ) ||
-            Number(
-              bid.id
-            ) ===
-              Number(
-                winningBid.bidId
-              ) ||
-            Number(
-              bid.bidId
-            ) ===
-              Number(
-                winningBid.id
-              )
-        ) ||
-        winningBid
+      if (!response.ok) {
+        throw new Error(
+          result.error || result.message || "Award workflow action failed"
+        );
+      }
+
+      const returnedState = normalizeAwardStatePayload(result);
+
+      if (returnedState?.awardWorkflowState) {
+        setAwardState(returnedState);
+        const key = getBidCountKey(selectedOrder);
+        if (key) {
+          setAwardStateByOrder((prev) => ({
+            ...prev,
+            [key]: returnedState,
+          }));
+        }
+      } else {
+        await fetchAwardState(selectedOrder);
+      }
+
+      await fetchShortlistStatus(selectedOrder);
+      await fetchBiddingOrders();
+      return result;
+    } catch (error) {
+      console.error(`Award action ${action} failed:`, error);
+      alert(error.message);
+      return null;
+    } finally {
+      setAwardActionLoading(false);
+    }
+  };
+
+  const markSelectedSupplierNoticeSent = async () => {
+    const selectedBid = getFreshWinningBid();
+
+    if (!selectedBid) {
+      alert("No supplier is currently selected by Logistics.");
+      return;
+    }
+
+    const result = await postAwardAction("selected-notice-sent", {
+      selected_bid_id: selectedBid.id || selectedBid.bidId,
+    });
+
+    if (result) {
+      alert("Selected supplier notice marked as sent.");
+    }
+  };
+
+  const recordSupplierResponse = async (responseValue) => {
+    const normalizedResponse = normalizeWorkflowValue(responseValue);
+
+    if (!["accepted", "rejected"].includes(normalizedResponse)) {
+      return;
+    }
+
+    const selectedBid = getFreshWinningBid();
+
+    if (!selectedBid) {
+      alert("No supplier is currently awaiting a response.");
+      return;
+    }
+
+    const result = await postAwardAction("supplier-response", {
+      selected_bid_id: selectedBid.id || selectedBid.bidId,
+      response: normalizedResponse,
+    });
+
+    if (result) {
+      alert(
+        normalizedResponse === "accepted"
+          ? "Supplier acceptance recorded successfully."
+          : "Supplier rejection recorded. Logistics must select an alternate supplier."
       );
-    };
+    }
+  };
 
-  // Only shortlisted suppliers that were not selected by Logistics
-  // are treated as rejected. Non-shortlisted bids remain "Not Shortlisted".
+  const markOutcomeNoticeSent = async (bid) => {
+    if (!bid) return;
+
+    const notification = getOutcomeNotificationForBid(bid);
+    const result = await postAwardAction("outcome-notice-sent", {
+      bid_id: bid.id || bid.bidId,
+      notification_id: notification?.notificationId || undefined,
+    });
+
+    if (result) {
+      alert(`${bid.supplier} result notification marked as sent.`);
+    }
+  };
+
+  const getFreshWinningBid = () => {
+    const persistedSelectedBidId = Number(awardState?.selectedBidId || 0);
+
+    if (!Number.isNaN(persistedSelectedBidId) && persistedSelectedBidId > 0) {
+      const matchedPersistedBid = bids.find(
+        (bid) =>
+          Number(bid.id) === persistedSelectedBidId ||
+          Number(bid.bidId) === persistedSelectedBidId
+      );
+
+      if (matchedPersistedBid) {
+        return matchedPersistedBid;
+      }
+
+      return {
+        id: persistedSelectedBidId,
+        bidId: persistedSelectedBidId,
+        supplier:
+          awardState?.selectedSupplier ||
+          winningBid?.supplier ||
+          "Selected Supplier",
+        amount:
+          awardState?.selectedBidAmount ??
+          winningBid?.amount ??
+          null,
+      };
+    }
+
+    if (awardState?.selectedSupplier) {
+      return {
+        ...winningBid,
+        supplier: awardState.selectedSupplier,
+        amount: awardState.selectedBidAmount ?? winningBid?.amount ?? null,
+      };
+    }
+
+    if (!winningBid) {
+      return null;
+    }
+
+    return (
+      bids.find(
+        (bid) =>
+          Number(bid.id) === Number(winningBid.id) ||
+          Number(bid.bidId) === Number(winningBid.bidId) ||
+          Number(bid.id) === Number(winningBid.bidId) ||
+          Number(bid.bidId) === Number(winningBid.id)
+      ) || winningBid
+    );
+  };
+
+  const getOutcomeNotificationForBid = (bid) => {
+    if (!bid) return null;
+
+    return (
+      awardState?.outcomeNotifications?.find(
+        (item) => Number(item.bidId) === Number(bid.id || bid.bidId)
+      ) || null
+    );
+  };
+
+  const isOutcomeNoticeSent = (bid) =>
+    getOutcomeNotificationForBid(bid)?.status === "sent";
+
+  const getAwardAttemptForBid = (bid) =>
+    awardState?.awardAttempts?.find(
+      (item) => Number(item.bidId) === Number(bid?.id || bid?.bidId)
+    ) || null;
+
+  const wasSupplierDeclinedEarlier = (bid) =>
+    getAwardAttemptForBid(bid)?.responseStatus === "rejected";
+
+  // Suppliers only become unsuccessful AFTER a supplier accepts.
+  // Before acceptance, the remaining shortlisted suppliers stay available for
+  // an alternate Logistics selection.
   const getUnsuccessfulBids = () => {
-    const freshWinner = getFreshWinningBid();
+    const workflowState = awardState?.awardWorkflowState;
 
-    if (!freshWinner) {
+    if (
+      ![
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
       return [];
     }
 
-    return bids.filter(
-      (bid) =>
-        shortlistedBidIds.some(
-          (id) =>
-            Number(id) ===
-            Number(bid.id)
-        ) &&
-        Number(bid.id) !==
-          Number(freshWinner.id)
+    const selectedBid = getFreshWinningBid();
+    const notificationBidIds = new Set(
+      (awardState?.outcomeNotifications || [])
+        .map((item) => Number(item.bidId))
+        .filter((id) => !Number.isNaN(id) && id > 0)
     );
+
+    const candidateBids = bids.filter((bid) => {
+      if (selectedBid && Number(bid.id) === Number(selectedBid.id)) {
+        return false;
+      }
+
+      if (notificationBidIds.size > 0) {
+        return notificationBidIds.has(Number(bid.id));
+      }
+
+      return shortlistedBidIds.some(
+        (id) => Number(id) === Number(bid.id)
+      );
+    });
+
+    return candidateBids.map((bid) => ({
+      ...bid,
+      outcomeNotification: getOutcomeNotificationForBid(bid),
+    }));
   };
 
   const getComplianceClass =
@@ -1976,25 +3054,72 @@ function Bidding() {
   );
 
   const getBidStatus = (bid) => {
-    const freshWinner = getFreshWinningBid();
-    const isWinner =
-      freshWinner &&
-      Number(freshWinner.id) === Number(bid.id);
+    const selectedBid = getFreshWinningBid();
+    const isSelectedSupplier =
+      selectedBid && Number(selectedBid.id) === Number(bid.id);
 
-    const isShortlisted =
-      shortlistedBidIds.some(
-        (id) => Number(id) === Number(bid.id)
-      );
+    const isShortlisted = shortlistedBidIds.some(
+      (id) => Number(id) === Number(bid.id)
+    );
 
-    if (isWinner) {
-      return "Winner Selected";
+    const workflowState =
+      awardState?.awardWorkflowState || "";
+
+    if (isSelectedSupplier) {
+      if (
+        awardState?.supplierConfirmationStatus === "accepted" ||
+        workflowState === "unsuccessful_supplier_notifications_pending" ||
+        workflowState === "award_completed"
+      ) {
+        return "Confirmed Supplier";
+      }
+
+      if (workflowState === "alternate_supplier_selection_required") {
+        return "Supplier Declined";
+      }
+
+      if (workflowState === "awaiting_supplier_response") {
+        return "Awaiting Response";
+      }
+
+      if (workflowState === "selected_supplier_notice_pending") {
+        return "Selected by Logistics";
+      }
+
+      return "Selected by Logistics";
     }
 
-    if (sentToLogistics && freshWinner && isShortlisted) {
-      return "Rejected";
+    if (
+      isShortlisted &&
+      wasSupplierDeclinedEarlier(bid) &&
+      ![
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
+      return "Declined Earlier";
     }
 
-    if (sentToLogistics && !freshWinner && isShortlisted) {
+    if (
+      isShortlisted &&
+      workflowState === "alternate_supplier_selection_required"
+    ) {
+      return "Available for Alternate";
+    }
+
+    if (
+      isShortlisted &&
+      [
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
+      return isOutcomeNoticeSent(bid)
+        ? "Unsuccessful - Notified"
+        : "Unsuccessful";
+    }
+
+    if (sentToLogistics && isShortlisted) {
       return "Awaiting Logistics";
     }
 
@@ -2002,7 +3127,7 @@ function Bidding() {
       return "Shortlisted";
     }
 
-    if (sentToLogistics && freshWinner && !isShortlisted) {
+    if (sentToLogistics && !isShortlisted) {
       return "Not Shortlisted";
     }
 
@@ -2010,48 +3135,74 @@ function Bidding() {
   };
 
   const getNotificationStatus = (bid) => {
-    const freshWinner = getFreshWinningBid();
+    const selectedBid = getFreshWinningBid();
+    const isSelectedSupplier =
+      selectedBid && Number(selectedBid.id) === Number(bid.id);
+    const isShortlisted = shortlistedBidIds.some(
+      (id) => Number(id) === Number(bid.id)
+    );
+    const workflowState =
+      awardState?.awardWorkflowState || "";
 
-    const isWinner =
-      freshWinner &&
-      Number(freshWinner.id) ===
-        Number(bid.id);
+    if (isSelectedSupplier) {
+      if (workflowState === "selected_supplier_notice_pending") {
+        return "Selected Notice Pending";
+      }
 
-    const isShortlisted =
-      shortlistedBidIds.some(
-        (id) =>
-          Number(id) ===
-          Number(bid.id)
-      );
+      if (workflowState === "awaiting_supplier_response") {
+        return "Selected Notice Sent";
+      }
 
-    if (isWinner) {
-      return "Ready to Notify";
+      if (workflowState === "alternate_supplier_selection_required") {
+        return "Supplier Declined";
+      }
+
+      if (
+        awardState?.supplierConfirmationStatus === "accepted" ||
+        workflowState === "unsuccessful_supplier_notifications_pending" ||
+        workflowState === "award_completed"
+      ) {
+        return "Supplier Confirmed";
+      }
     }
 
     if (
-      sentToLogistics &&
-      freshWinner &&
-      isShortlisted
+      isShortlisted &&
+      [
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
     ) {
-      return "Ready to Notify";
+      return isOutcomeNoticeSent(bid) ? "Result Sent" : "Result Pending";
     }
 
     if (
-      sentToLogistics &&
-      !freshWinner &&
-      isShortlisted
+      isShortlisted &&
+      wasSupplierDeclinedEarlier(bid) &&
+      ![
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
     ) {
-      return "Sent to Logistics";
+      return "Declined - No Final Result";
     }
 
     if (
-      sentToLogistics &&
-      !isShortlisted
+      isShortlisted &&
+      workflowState === "alternate_supplier_selection_required"
     ) {
+      return "No Result Yet";
+    }
+
+    if (sentToLogistics && isShortlisted) {
+      return "Awaiting Logistics";
+    }
+
+    if (sentToLogistics && !isShortlisted) {
       return "Not Shortlisted";
     }
 
-    return bid.notificationStatus || "Pending";
+    return "Pending";
   };
 
   const getRecommendation =
@@ -2257,66 +3408,260 @@ function Bidding() {
       };
     };
 
-  const freshWinningBid =
-    getFreshWinningBid();
+  const freshWinningBid = getFreshWinningBid();
+  const selectedOrderStatus = getOrderStatus();
+
+  // Supabase-backed operations_bid_award_state is the only authority for
+  // the award workflow. React never derives a workflow state from bid counts,
+  // shortlist length, order status, or browser state.
+  const currentAwardWorkflowState =
+    awardState?.awardWorkflowState || "";
+
+  const currentAwardWorkflowLabel = getAwardStateLabel(
+    currentAwardWorkflowState
+  );
+  const isSupplierConfirmed =
+    awardState?.supplierConfirmationStatus === "accepted" ||
+    [
+      "unsuccessful_supplier_notifications_pending",
+      "award_completed",
+    ].includes(currentAwardWorkflowState);
+  const isAwardCompleted = currentAwardWorkflowState === "award_completed";
+
+  const isBidResultOrder = bidResultStatuses.has(selectedOrderStatus);
+  const selectedOrderReference = getOrderReference(selectedOrder);
+
+  const selectedWinnerSummary =
+    freshWinningBid ||
+    (awardState?.selectedSupplier
+      ? {
+          bidId: awardState.selectedBidId,
+          supplier: awardState.selectedSupplier,
+          amount: awardState.selectedBidAmount,
+        }
+      : null);
+
+  const hasSelectedWinner = Boolean(
+    selectedWinnerSummary &&
+      (
+        selectedWinnerSummary.id ||
+        selectedWinnerSummary.bidId ||
+        selectedWinnerSummary.supplier
+      )
+  );
+
+  const isBiddingFinalized =
+    awardState?.sentToLogistics === true ||
+    [
+      "awaiting_logistics_selection",
+      "selected_supplier_notice_pending",
+      "awaiting_supplier_response",
+      "alternate_supplier_selection_required",
+      "unsuccessful_supplier_notifications_pending",
+      "award_completed",
+    ].includes(currentAwardWorkflowState) ||
+    hasSelectedWinner;
+
+  const shouldShowAwardWorkflowPanel = Boolean(
+    currentAwardWorkflowState
+  );
 
   return (
     <div className="bg-[#EBF4FF] p-5 min-h-full">
       <div className="max-w-[1500px] mx-auto space-y-4">
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-[760px]">
+        <BiddingOrdersTable
+          title="Created Orders"
+          subtitle="Orders ready to start supplier bidding"
+          orders={createdOrders}
+          expanded={showCreatedOrders}
+          onToggle={() => setShowCreatedOrders((prev) => !prev)}
+          onSelectOrder={selectBiddingOrder}
+          selectedOrderReference={selectedOrderReference}
+          getOrderReference={getOrderReference}
+          getBidCountForOrder={getBidCountForOrder}
+          getWinnerForOrder={getWinnerForOrder}
+          isLoading={isOrdersLoading}
+          actionLabel="Open Bidding"
+          tableMode="created"
+          searchPlaceholder="Search by order ID, route, cargo, container or type..."
+        />
+
+        <BiddingOrdersTable
+          title="Open Bidding Orders"
+          subtitle="Orders currently in the bidding stage"
+          orders={openBiddingOrders}
+          expanded={showOpenBiddingOrders}
+          onToggle={() => setShowOpenBiddingOrders((prev) => !prev)}
+          onSelectOrder={selectBiddingOrder}
+          selectedOrderReference={selectedOrderReference}
+          getOrderReference={getOrderReference}
+          getBidCountForOrder={getBidCountForOrder}
+          getWinnerForOrder={getWinnerForOrder}
+          isLoading={isOrdersLoading}
+          actionLabel="View Bids"
+          tableMode="open"
+          searchPlaceholder="Search by order ID, route, cargo, container or type..."
+        />
+
+        <BiddingOrdersTable
+          title="Bidding Closed / Result Orders"
+          subtitle="Closed bidding and persistent supplier award workflow states"
+          orders={bidAcceptedOrders}
+          expanded={showBidAcceptedOrders}
+          onToggle={() => setShowBidAcceptedOrders((prev) => !prev)}
+          onSelectOrder={selectBiddingOrder}
+          selectedOrderReference={selectedOrderReference}
+          getOrderReference={getOrderReference}
+          getBidCountForOrder={getBidCountForOrder}
+          getWinnerForOrder={getWinnerForOrder}
+          getLogisticsStateForOrder={getLogisticsStateForOrder}
+          getAwardStateForOrder={getAwardStateForOrder}
+          isLoading={isOrdersLoading}
+          actionLabel="View Bid Result"
+          tableMode="result"
+          searchPlaceholder="Search by order ID, selected supplier, route, container or status..."
+          showWinnerColumns
+        />
+
+        {showBiddingWorkspace && selectedOrder && (
+          <div
+            className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-[1px] flex items-center justify-center p-3 md:p-5"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowBiddingWorkspace(false);
+              }
+            }}
+          >
+            <div
+              className="bg-[#EBF4FF] w-[96vw] max-w-[1580px] h-[92vh] rounded-2xl shadow-2xl border border-white/70 overflow-hidden flex flex-col"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="bg-white border-b border-slate-200 px-5 py-4 flex items-center justify-between gap-4 shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#052659] flex items-center justify-center shrink-0">
+                    <PackageCheck className="text-white" size={20} />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-[#1E293B] truncate">
+                      {isBidResultOrder
+                        ? "Bid Result"
+                        : selectedOrderStatus === "created"
+                        ? "Open Bidding"
+                        : "Bidding Details"}
+                    </h2>
+
+                    <p className="text-xs text-slate-500 truncate">
+                      {displayOrder.orderReference} ·{" "}
+                      {isBidResultOrder
+                        ? "Historical bidding result"
+                        : selectedOrderStatus === "created"
+                        ? "Review this order and start supplier bidding"
+                        : "Supplier bidding workspace"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowBiddingWorkspace(false)}
+                  className="w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-[#052659] hover:bg-[#EBF4FF] transition flex items-center justify-center text-2xl leading-none"
+                  title="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 md:p-5">
+                <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
 
           <MiniStatusCard
             title="Status"
             value={
-              !biddingStatusLoaded
+              !selectedOrder
+                ? "Select Order"
+                : !biddingStatusLoaded
                 ? "Loading..."
-                : sentToLogistics
-                ? "Bidding Locked"
+                : currentAwardWorkflowState
+                ? currentAwardWorkflowLabel
                 : isBiddingOpen
                 ? "Bidding Open"
-                : activeTab ===
-                  "Closed"
+                : activeTab === "Closed"
                 ? "Bidding Closed"
                 : "Not Started"
             }
             type={
-              sentToLogistics
-                ? "neutral"
+              isAwardCompleted
+                ? "success"
+                : [
+                    "alternate_supplier_selection_required",
+                    "bidding_closed_no_bids",
+                  ].includes(currentAwardWorkflowState)
+                ? "danger"
+                : currentAwardWorkflowState
+                ? "primary"
                 : isBiddingOpen
                 ? "success"
-                : activeTab ===
-                  "Closed"
+                : activeTab === "Closed"
                 ? "danger"
                 : "neutral"
             }
           />
 
           <MiniStatusCard
-            title="Closes In"
+            title="Bidding Timer"
             value={
-              !biddingStatusLoaded
+              !selectedOrder
+                ? "-"
+                : !biddingStatusLoaded
                 ? "Loading..."
-                : sentToLogistics
-                ? "Locked"
+                : isBiddingFinalized
+                ? "Closed / Locked"
                 : isBiddingOpen
-                ? formatTime(
-                    timeLeft
-                  )
-                : activeTab ===
-                  "Closed"
+                ? formatTime(timeLeft)
+                : activeTab === "Closed"
                 ? "Closed"
                 : "Not Started"
             }
-            type="danger"
+            type={
+              isBiddingFinalized || activeTab === "Closed"
+                ? "danger"
+                : isBiddingOpen
+                ? "success"
+                : "neutral"
+            }
           />
 
           <MiniStatusCard
             title="Available Bids"
-            value={
-              bids.length
-            }
+            value={bids.length}
             type="primary"
+          />
+
+          <MiniStatusCard
+            title="Selected Supplier"
+            value={
+              selectedWinnerSummary?.supplier
+                ? selectedWinnerSummary.supplier
+                : currentAwardWorkflowState ===
+                  "alternate_supplier_selection_required"
+                ? "Selection Required"
+                : currentAwardWorkflowState ===
+                    "awaiting_logistics_selection"
+                ? "Awaiting Logistics"
+                : currentAwardWorkflowState
+                ? "Not Yet Selected"
+                : "Not Selected"
+            }
+            type={
+              isSupplierConfirmed
+                ? "success"
+                : selectedWinnerSummary?.supplier
+                ? "primary"
+                : "neutral"
+            }
           />
 
         </div>
@@ -2394,34 +3739,14 @@ function Bidding() {
                     />
 
                     <OrderTableCell
-                      label="Pickup"
-                      value={displayOrder.pickup}
-                    />
-
-                    <OrderTableCell
-                      label="Destination"
-                      value={displayOrder.destination}
-                    />
-
-                    <OrderTableCell
-                      label="Container"
-                      value={displayOrder.container}
-                    />
-
-                    <OrderTableCell
                       label="Cargo Type"
                       value={displayOrder.cargoType}
                     />
 
-                  </tr>
-
-                  <tr>
-
                     <OrderTableCell
                       label="Cargo Weight"
                       value={
-                        displayOrder.cargoWeight !==
-                        "-"
+                        displayOrder.cargoWeight !== "-"
                           ? `${displayOrder.cargoWeight} kg`
                           : "-"
                       }
@@ -2433,23 +3758,65 @@ function Bidding() {
                     />
 
                     <OrderTableCell
+                      label="Container No"
+                      value={displayOrder.container}
+                    />
+
+                  </tr>
+
+                  <tr className="border-b border-slate-100">
+
+                    <OrderTableCell
+                      label="Pickup District"
+                      value={displayOrder.pickupDistrict}
+                    />
+
+                    <OrderTableCell
+                      label="Pickup Location"
+                      value={displayOrder.pickupLocation}
+                      colSpan={2}
+                    />
+
+                    <OrderTableCell
+                      label="Destination District"
+                      value={displayOrder.destinationDistrict}
+                    />
+
+                    <OrderTableCell
+                      label="Destination Location"
+                      value={displayOrder.destinationLocation}
+                      colSpan={2}
+                    />
+
+                  </tr>
+
+                  <tr>
+
+                    <OrderTableCell
                       label="Pickup Date"
-                      value={formatEta(
-                        displayOrder.pickupDate
-                      )}
+                      value={formatEta(displayOrder.pickupDate)}
                     />
 
                     <OrderTableCell
                       label="Expected Arrival"
-                      value={formatEta(
-                        displayOrder.expectedArrival
-                      )}
+                      value={formatEta(displayOrder.expectedArrival)}
+                    />
+
+                    <OrderTableCell
+                      label="Current Status"
+                      value={
+                        selectedOrderStatus
+                          ? selectedOrderStatus
+                              .replaceAll("_", " ")
+                              .replace(/\b\w/g, (char) => char.toUpperCase())
+                          : "-"
+                      }
                     />
 
                     <OrderTableCell
                       label="Special Instructions"
                       value={displayOrder.specialInstructions}
-                      colSpan={2}
+                      colSpan={3}
                     />
 
                   </tr>
@@ -2463,109 +3830,114 @@ function Bidding() {
 
         </div>
 
-        <div className="flex justify-between items-center gap-3">
+        {selectedOrder && (
+          <div className="space-y-3">
 
-          <div className="flex gap-2">
+            <div className="flex justify-end items-center gap-2 flex-wrap">
 
-            <button
-              onClick={
-                openTimerPopup
-              }
-              disabled={sentToLogistics}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                sentToLogistics
-                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                  : activeTab ===
-                    "Open"
-                  ? "bg-[#1E40AF] text-white"
+              {selectedOrderStatus === "created" &&
+                !isBiddingOpen &&
+                !isBiddingFinalized && (
+                  <button
+                    onClick={openTimerPopup}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-[#052659] text-white hover:bg-[#5483B3] transition"
+                  >
+                    Start Bidding
+                  </button>
+                )}
 
-                  : "bg-white text-[#1E293B] border border-slate-200"
-              }`}
-            >
-              Open Bidding{" "}
+              {isBiddingOpen && !isBiddingFinalized && (
+                <>
+                  <button
+                    onClick={extendTimerPopup}
+                    className="border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium bg-white text-[#052659] hover:bg-[#EFF6FF]"
+                  >
+                    Extend Timer
+                  </button>
 
-              <span className="ml-2 bg-white/20 px-2 rounded-full">
-                {bids.length}
-              </span>
-            </button>
+                  <button
+                    onClick={closeBidding}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-[#DC2626] text-white hover:bg-red-700"
+                  >
+                    Close Bidding
+                  </button>
+                </>
+              )}
 
-            <button
-              onClick={
-                closeBidding
-              }
-              disabled={sentToLogistics}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                sentToLogistics
-                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                  : activeTab ===
-                    "Closed"
-                  ? "bg-[#1E40AF] text-white"
+              {!isBiddingFinalized &&
+                selectedOrderStatus === "open_for_bids" && (
+                  <button
+                    onClick={sendShortlistedToLogistics}
+                    disabled={
+                      isBiddingOpen ||
+                      bids.length === 0 ||
+                      shortlistedBidIds.length === 0 ||
+                      shortlistedBidIds.length > 5
+                    }
+                    className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                      !isBiddingOpen &&
+                      shortlistedBidIds.length > 0 &&
+                      shortlistedBidIds.length <= 5
+                        ? "bg-[#052659] text-white hover:bg-[#5483B3]"
+                        : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    }`}
+                  >
+                    <Send size={16} />
+                    {`Send Shortlisted to Logistics (${shortlistedBidIds.length}/${maxShortlistCount})`}
+                  </button>
+                )}
 
-                  : "bg-white text-[#1E293B] border border-slate-200"
-              }`}
-            >
-              Closed Bidding
-            </button>
+              {isBiddingFinalized && (
+                <>
+                  <button
+                    type="button"
+                    disabled
+                    className="border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-400 cursor-not-allowed"
+                  >
+                    Timer Locked
+                  </button>
 
-          </div>
+                  <button
+                    type="button"
+                    disabled
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-not-allowed ${
+                      isAwardCompleted
+                        ? "bg-green-100 text-[#16A34A] border border-green-200"
+                        : "bg-blue-50 text-[#052659] border border-blue-100"
+                    }`}
+                  >
+                    {isAwardCompleted ? (
+                      <CircleCheck size={16} />
+                    ) : (
+                      <Send size={16} />
+                    )}
+                    {currentAwardWorkflowLabel}
+                  </button>
+                </>
+              )}
 
-          <div className="flex items-center gap-2">
+            </div>
 
-            <button
-              onClick={
-                extendTimerPopup
-              }
-              disabled={
-                !isBiddingOpen ||
-                sentToLogistics
-              }
-              className={`border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium ${
-                isBiddingOpen &&
-                !sentToLogistics
-                  ? "bg-white text-[#1E40AF]"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
-
-            >
-              Extend Timer
-            </button>
-
-            <button
-              onClick={
-                sendShortlistedToLogistics
-              }
-              disabled={
-                isBiddingOpen ||
-                sentToLogistics ||
-                bids.length === 0 ||
-                shortlistedBidIds.length === 0 ||
-                shortlistedBidIds.length > 5
-              }
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
-                sentToLogistics
-                  ? "bg-green-100 text-[#16A34A]"
-                  : !isBiddingOpen &&
-                    shortlistedBidIds.length > 0 &&
-                    shortlistedBidIds.length <= 5
-                  ? "bg-[#1E40AF] text-white hover:bg-[#1E3A8A]"
-                  : "bg-slate-200 text-slate-500 cursor-not-allowed"
-
-              }`}
-            >
-
-              <Send
-                size={16}
+            {shouldShowAwardWorkflowPanel && (
+              <AwardWorkflowPanel
+                awardState={awardState}
+                workflowState={currentAwardWorkflowState}
+                workflowLabel={currentAwardWorkflowLabel}
+                selectedBid={selectedWinnerSummary}
+                shortlistedCount={awardState?.draftShortlistCount || 0}
+                unsuccessfulBids={getUnsuccessfulBids()}
+                formatMoney={formatMoney}
+                formatEta={formatEta}
+                openSupplierResultEmail={openSupplierResultEmail}
+                onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
+                onRecordSupplierResponse={recordSupplierResponse}
+                onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
+                loading={awardActionLoading}
               />
-
-              {sentToLogistics
-                ? "Shortlist Sent to Logistics"
-                : `Send Shortlisted to Logistics (${shortlistedBidIds.length}/${maxShortlistCount})`}
-
-            </button>
+            )}
 
           </div>
-
-        </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -2658,55 +4030,22 @@ function Bidding() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
 
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center gap-3">
 
             <h3 className="text-lg font-semibold text-[#1E293B]">
               Supplier Bids Comparison
             </h3>
 
-            <div className="flex items-center gap-2">
-
-              <span className="text-sm text-slate-500">
-                Sort by:
-              </span>
-
-              <select
-                value={
-                  sortBy
-                }
-                onChange={(e) =>
-                  setSortBy(
-                    e.target.value
-                  )
-                }
-                className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white"
-              >
-
-                <option>
-                  Lowest Price
-                </option>
-
-                <option>
-                  Highest Rating
-                </option>
-
-                <option>
-                  Compliance
-                </option>
-
-              </select>
-
-              <button className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white flex items-center gap-2">
-
-                <SlidersHorizontal
-                  size={14}
-                />
-
-                Filters
-
-              </button>
-
-            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort supplier bids"
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
+            >
+              <option value="Lowest Price">Lowest Price</option>
+              <option value="Highest Rating">Highest Rating</option>
+              <option value="Compliance">Compliance</option>
+            </select>
 
           </div>
 
@@ -2716,7 +4055,7 @@ function Bidding() {
               <div className="py-10 text-center text-sm text-slate-500">
                 Loading bids...
               </div>
-            ) : sortedBids.length ===
+            ) : displayedBids.length ===
               0 ? (
               <div className="py-10 text-center text-sm text-slate-500">
                 No bids found for this order.
@@ -2775,7 +4114,7 @@ function Bidding() {
 
                 <tbody>
 
-                  {sortedBids.map(
+                  {displayedBids.map(
                     (bid) => {
                       const isLowest =
                         lowestPriceBid?.id ===
@@ -2827,8 +4166,14 @@ function Bidding() {
                               )}
 
                               {isWinner && (
-                                <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-green-100 text-[#16A34A] border border-green-200">
-                                  WINNER
+                                <div
+                                  className={`text-[9px] font-bold px-2 py-1 rounded-md w-[86px] text-center border ${
+                                    isSupplierConfirmed
+                                      ? "bg-green-100 text-[#16A34A] border-green-200"
+                                      : "bg-blue-100 text-[#1E40AF] border-blue-200"
+                                  }`}
+                                >
+                                  {isSupplierConfirmed ? "CONFIRMED" : "SELECTED"}
                                 </div>
                               )}
 
@@ -2950,13 +4295,19 @@ function Bidding() {
 
                             <span
                               className={`px-2.5 py-1 rounded-full text-xs ${
-                                getBidStatus(bid) === "Shortlisted"
+                                getBidStatus(bid) === "Shortlisted" ||
+                                getBidStatus(bid) === "Selected by Logistics" ||
+                                getBidStatus(bid) === "Awaiting Response"
                                   ? "bg-[#EFF6FF] text-[#1E40AF]"
-                                  : getBidStatus(bid) === "Winner Selected"
+                                  : getBidStatus(bid) === "Confirmed Supplier" ||
+                                    getBidStatus(bid) === "Unsuccessful - Notified"
                                   ? "bg-green-100 text-[#16A34A]"
-                                  : getBidStatus(bid) === "Rejected"
+                                  : getBidStatus(bid) === "Supplier Declined" ||
+                                    getBidStatus(bid) === "Declined Earlier" ||
+                                    getBidStatus(bid) === "Unsuccessful"
                                   ? "bg-red-100 text-[#DC2626]"
-                                  : getBidStatus(bid) === "Awaiting Logistics"
+                                  : getBidStatus(bid) === "Awaiting Logistics" ||
+                                    getBidStatus(bid) === "Available for Alternate"
                                   ? "bg-orange-100 text-[#EA580C]"
                                   : "bg-slate-100 text-slate-600"
                               }`}
@@ -2968,10 +4319,35 @@ function Bidding() {
 
                           </td>
 
-                          <td className="px-3 py-3 border-b border-slate-100 text-xs text-slate-600">
-                            {getNotificationStatus(
-                              bid
-                            )}
+                          <td className="px-3 py-3 border-b border-slate-100 text-xs">
+                            {(() => {
+                              const notificationStatus =
+                                getNotificationStatus(bid);
+
+                              const notificationClass =
+                                notificationStatus === "Supplier Confirmed" ||
+                                notificationStatus === "Result Sent"
+                                  ? "bg-green-100 text-[#16A34A]"
+                                  : notificationStatus === "Supplier Declined" ||
+                                    notificationStatus ===
+                                      "Declined - No Final Result"
+                                  ? "bg-red-100 text-[#DC2626]"
+                                  : notificationStatus === "Selected Notice Pending" ||
+                                    notificationStatus === "Result Pending" ||
+                                    notificationStatus === "Awaiting Logistics"
+                                  ? "bg-orange-100 text-[#EA580C]"
+                                  : notificationStatus === "Selected Notice Sent"
+                                  ? "bg-blue-100 text-[#1E40AF]"
+                                  : "bg-slate-100 text-slate-600";
+
+                              return (
+                                <span
+                                  className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${notificationClass}`}
+                                >
+                                  {notificationStatus}
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           <td className="px-3 py-3 border-b border-slate-100 text-center">
@@ -2990,29 +4366,35 @@ function Bidding() {
                               </button>
 
                               {isWinner ? (
-                                <button
-                                  onClick={() => {
-                                    setWinningBid(
-                                      bid
-                                    );
+                                <>
+                                  {currentAwardWorkflowState ===
+                                    "selected_supplier_notice_pending" && (
+                                    <button
+                                      onClick={() =>
+                                        openSupplierResultEmail(bid, "selected")
+                                      }
+                                      className="border border-blue-200 bg-blue-50 text-[#1E40AF] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-100"
+                                    >
+                                      Open Selected Email
+                                    </button>
+                                  )}
 
-                                    setShowWinnerPopup(
-                                      true
-                                    );
-                                  }}
-                                  className="border border-green-200 bg-green-50 text-[#16A34A] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-100"
-                                >
-                                  Notify
-                                </button>
+                                  <button
+                                    onClick={() => {
+                                      setWinningBid(bid);
+                                      setShowWinnerPopup(true);
+                                    }}
+                                    className="border border-[#052659] bg-[#052659] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#5483B3]"
+                                  >
+                                    Award Center
+                                  </button>
+                                </>
                               ) : !sentToLogistics ? (
                                 <button
-                                  onClick={() =>
-                                    toggleShortlist(
-                                      bid.id
-                                    )
-                                  }
+                                  onClick={() => toggleShortlist(bid.id)}
                                   disabled={
                                     isBiddingOpen ||
+                                    shortlistDraftLoading ||
                                     bids.length === 0 ||
                                     (!isShortlisted &&
                                       shortlistedBidIds.length >=
@@ -3024,13 +4406,14 @@ function Bidding() {
                                       : isShortlisted
                                       ? "bg-green-50 text-[#16A34A] border border-green-200 hover:bg-green-100"
                                       : bids.length === 0 ||
-                                        shortlistedBidIds.length >=
-                                          maxShortlistCount
+                                        shortlistedBidIds.length >= maxShortlistCount
                                       ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                                       : "border border-[#1E40AF] text-[#1E40AF] hover:bg-[#EFF6FF]"
                                   }`}
                                 >
-                                  {isBiddingOpen
+                                  {shortlistDraftLoading
+                                    ? "Saving..."
+                                    : isBiddingOpen
                                     ? "Bidding Open"
                                     : isShortlisted
                                     ? "Remove"
@@ -3041,21 +4424,37 @@ function Bidding() {
                                     ? "Limit Reached"
                                     : "Shortlist"}
                                 </button>
-                              ) : isShortlisted && !freshWinningBid ? (
+                              ) :
+                                isShortlisted &&
+                                [
+                                  "unsuccessful_supplier_notifications_pending",
+                                  "award_completed",
+                                ].includes(currentAwardWorkflowState) ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="border border-slate-200 bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
+                                >
+                                  {isOutcomeNoticeSent(bid)
+                                    ? "Result Sent"
+                                    : "Use Award Center"}
+                                </button>
+                              ) : isShortlisted &&
+                                currentAwardWorkflowState ===
+                                  "alternate_supplier_selection_required" ? (
+                                <button
+                                  disabled
+                                  className="border border-orange-200 bg-orange-50 text-[#EA580C] px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
+                                >
+                                  Available for Alternate
+                                </button>
+                              ) : isShortlisted ? (
                                 <button
                                   disabled
                                   className="border border-slate-200 bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
                                 >
-                                  Awaiting Logistics
+                                  Awaiting Award Flow
                                 </button>
-                              ) : isShortlisted && freshWinningBid ? (
-                                <span className="text-xs font-medium text-[#DC2626]">
-                                  Rejected
-                                </span>
-                              ) : freshWinningBid ? (
-                                <span className="text-xs text-slate-500">
-                                  Not shortlisted
-                                </span>
                               ) : (
                                 <span className="text-xs text-slate-400">
                                   Not shortlisted
@@ -3080,6 +4479,13 @@ function Bidding() {
 
         </div>
 
+
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
       {selectedBidForDetails && (
@@ -3098,23 +4504,27 @@ function Bidding() {
         />
       )}
 
-      {showWinnerPopup &&
-        freshWinningBid && (
-          <WinnerNotificationPopup
-            bid={freshWinningBid}
-            unsuccessfulBids={getUnsuccessfulBids()}
-            formatMoney={formatMoney}
-            formatEta={formatEta}
-            onClose={() =>
-              setShowWinnerPopup(
-                false
-              )
-            }
-          />
-        )}
+      {showWinnerPopup && freshWinningBid && (
+        <AwardWorkflowModal
+          bid={freshWinningBid}
+          awardState={awardState}
+          workflowState={currentAwardWorkflowState}
+          workflowLabel={currentAwardWorkflowLabel}
+          unsuccessfulBids={getUnsuccessfulBids()}
+          orderReference={displayOrder.orderReference}
+          formatMoney={formatMoney}
+          formatEta={formatEta}
+          openSupplierResultEmail={openSupplierResultEmail}
+          onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
+          onRecordSupplierResponse={recordSupplierResponse}
+          onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
+          loading={awardActionLoading}
+          onClose={() => setShowWinnerPopup(false)}
+        />
+      )}
 
       {showCloseConfirm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200]">
 
           <div className="bg-white rounded-xl shadow-lg w-[380px] p-6">
 
@@ -3171,7 +4581,7 @@ function Bidding() {
       )}
 
       {showTimerPopup && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200]">
 
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
 
@@ -3266,301 +4676,866 @@ function Bidding() {
   );
 }
 
-function WinnerNotificationPopup({
-  bid,
+function BiddingOrdersTable({
+  title,
+  subtitle,
+  orders,
+  expanded,
+  onToggle,
+  onSelectOrder,
+  selectedOrderReference,
+  getOrderReference,
+  getBidCountForOrder,
+  getWinnerForOrder,
+  getLogisticsStateForOrder,
+  getAwardStateForOrder,
+  isLoading,
+  actionLabel,
+  searchPlaceholder = "Search orders...",
+  showWinnerColumns = false,
+  tableMode = "created",
+}) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Column visibility by workflow stage:
+  // Created Orders: no Bids / no Order Status (both are obvious here).
+  // Open Bidding Orders: keep Bids, hide Order Status (already obvious).
+  // Result Orders: keep Bids and Order Status plus result-specific columns.
+  const showBidsColumn = tableMode !== "created";
+  const showOrderStatusColumn = tableMode === "result";
+
+  const formatStatus = (value) =>
+    String(value || "-")
+      .toLowerCase()
+      .trim()
+      .replaceAll("-", "_")
+      .replaceAll(" ", "_")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const normalizeStatus = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .trim()
+      .replaceAll("-", "_")
+      .replaceAll(" ", "_");
+
+  const formatOrderType = (value) => {
+    if (!value) return "-";
+    const valueText = String(value).toLowerCase();
+    return valueText.charAt(0).toUpperCase() + valueText.slice(1);
+  };
+
+  const formatMoney = (value) => {
+    if (value === null || value === undefined || Number(value) <= 0) {
+      return "-";
+    }
+
+    return `LKR ${Number(value).toLocaleString()}`;
+  };
+
+  const getLogisticsState = (order) => {
+    const award = getAwardStateForOrder?.(order);
+    const workflowState = normalizeStatus(award?.awardWorkflowState);
+
+    const labels = {
+      bidding_closed_no_bids: "No Bids Received",
+      shortlisting_required: "Shortlisting Required",
+      shortlist_ready_to_send: "Shortlist Ready - Send to Logistics",
+      awaiting_logistics_selection: "Awaiting Logistics Selection",
+      selected_supplier_notice_pending: "Selected Notice Pending",
+      awaiting_supplier_response: "Awaiting Supplier Response",
+      alternate_supplier_selection_required: "Alternate Selection Required",
+      unsuccessful_supplier_notifications_pending: "Notifications Pending",
+      award_completed: "Award Completed",
+    };
+
+    if (!workflowState) {
+      return {
+        label: "Workflow State Unavailable",
+        className: "bg-slate-100 text-slate-600",
+      };
+    }
+
+    return {
+      label: labels[workflowState] || formatStatus(workflowState),
+      className:
+        workflowState === "award_completed"
+          ? "bg-green-100 text-[#16A34A]"
+          : [
+              "alternate_supplier_selection_required",
+              "bidding_closed_no_bids",
+            ].includes(workflowState)
+          ? "bg-red-100 text-[#DC2626]"
+          : [
+              "shortlisting_required",
+              "shortlist_ready_to_send",
+              "selected_supplier_notice_pending",
+              "unsuccessful_supplier_notifications_pending",
+            ].includes(workflowState)
+          ? "bg-orange-100 text-[#EA580C]"
+          : "bg-blue-100 text-[#1E40AF]",
+    };
+  };
+
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    if (!query) {
+      return orders;
+    }
+
+    return orders.filter((order) => {
+      const winner = getWinnerForOrder?.(order);
+
+      const searchableValues = [
+        getOrderReference(order),
+        order?.order_type,
+        order?.type,
+        order?.pickup_district,
+        order?.pickupDistrict,
+        order?.pickup_location,
+        order?.pickupLocation,
+        order?.destination_district,
+        order?.destinationDistrict,
+        order?.destination_location,
+        order?.destinationLocation,
+        order?.cargo_type,
+        order?.cargoType,
+        order?.container_no,
+        order?.containerNo,
+        order?.vehicle_type,
+        order?.vehicleType,
+        order?.current_status,
+        order?.status,
+        order?.driver_name,
+        order?.driverName,
+        order?.driver_id,
+        order?.supplier_name,
+        order?.supplier,
+        winner?.supplier,
+        winner?.amount,
+        getBidCountForOrder(order),
+      ];
+
+      return searchableValues
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) =>
+          String(value).toLowerCase().includes(query)
+        );
+    });
+  }, [
+    orders,
+    searchTerm,
+    getOrderReference,
+    getBidCountForOrder,
+    getWinnerForOrder,
+  ]);
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left hover:bg-[#F8FBFF] transition"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-[#EBF4FF] text-[#052659] flex items-center justify-center shrink-0">
+            <PackageCheck size={18} />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-base font-semibold text-[#1E293B]">
+                {title}
+              </h3>
+
+              <span className="min-w-6 h-6 px-2 rounded-full bg-[#052659] text-white text-xs font-semibold flex items-center justify-center">
+                {orders.length}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-0.5">
+              {subtitle}
+            </p>
+          </div>
+        </div>
+
+        <ChevronDown
+          size={20}
+          className={`text-[#052659] shrink-0 transition-transform duration-300 ${
+            expanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-slate-100">
+        <div className="px-4 py-3 border-b border-slate-100 bg-white">
+          <div className="relative max-w-2xl">
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#F8FBFF] text-sm text-[#1E293B] outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
+            />
+          </div>
+
+          {searchTerm.trim() && (
+            <p className="text-xs text-slate-500 mt-2">
+              Showing {filteredOrders.length} of {orders.length} orders
+            </p>
+          )}
+        </div>
+
+        <div className="overflow-x-auto">
+          {isLoading ? (
+            <div className="py-7 text-center text-sm text-slate-500">
+              Loading orders...
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="py-7 text-center text-sm text-slate-500">
+              No orders found in this section.
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-7 text-center text-sm text-slate-500">
+              No orders match your search.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-[#EFF6FF] text-[#1E293B]">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                    Order ID
+                  </th>
+
+                  <th className="text-left px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                    Type
+                  </th>
+
+                  <th className="text-left px-4 py-3 font-semibold text-xs min-w-[220px]">
+                    Pickup
+                  </th>
+
+                  <th className="text-left px-4 py-3 font-semibold text-xs min-w-[220px]">
+                    Destination
+                  </th>
+
+                  {showBidsColumn && (
+                    <th className="text-center px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                      Bids
+                    </th>
+                  )}
+
+                  {tableMode === "result" && (
+                    <th className="text-left px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                      Award Status
+                    </th>
+                  )}
+
+                  {showWinnerColumns && (
+                    <>
+                      <th className="text-left px-4 py-3 font-semibold text-xs min-w-[190px]">
+                        Selected Supplier
+                      </th>
+
+                      <th className="text-left px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                        Selected Bid
+                      </th>
+                    </>
+                  )}
+
+                  {showOrderStatusColumn && (
+                    <th className="text-left px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                      Order Status
+                    </th>
+                  )}
+
+                  <th className="text-center px-4 py-3 font-semibold text-xs whitespace-nowrap">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredOrders.map((order) => {
+                  const reference = getOrderReference(order);
+
+                  const isSelected =
+                    reference &&
+                    selectedOrderReference &&
+                    String(reference).toLowerCase() ===
+                      String(selectedOrderReference).toLowerCase();
+
+                  const winner = getWinnerForOrder?.(order);
+                  const logisticsState = getLogisticsState(order);
+                  const rowAwardState =
+                    getAwardStateForOrder?.(order) || null;
+                  const rowSupplierConfirmed =
+                    rowAwardState?.supplierConfirmationStatus === "accepted" ||
+                    [
+                      "unsuccessful_supplier_notifications_pending",
+                      "award_completed",
+                    ].includes(rowAwardState?.awardWorkflowState);
+
+                  return (
+                    <tr
+                      key={order.order_id || reference}
+                      className={
+                        isSelected
+                          ? "bg-[#EFF6FF]"
+                          : "bg-white hover:bg-slate-50"
+                      }
+                    >
+                      <td className="px-4 py-3 border-t border-slate-100 font-semibold text-[#052659] whitespace-nowrap">
+                        {reference || "-"}
+                      </td>
+
+                      <td className="px-4 py-3 border-t border-slate-100 text-[#1E293B] whitespace-nowrap">
+                        {formatOrderType(order.order_type || order.type)}
+                      </td>
+
+                      <td className="px-4 py-3 border-t border-slate-100">
+                        <p className="font-medium text-[#1E293B]">
+                          {order.pickup_location ||
+                            order.pickupLocation ||
+                            "-"}
+                        </p>
+
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {order.pickup_district ||
+                            order.pickupDistrict ||
+                            "-"}
+                        </p>
+                      </td>
+
+                      <td className="px-4 py-3 border-t border-slate-100">
+                        <p className="font-medium text-[#1E293B]">
+                          {order.destination_location ||
+                            order.destinationLocation ||
+                            "-"}
+                        </p>
+
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {order.destination_district ||
+                            order.destinationDistrict ||
+                            "-"}
+                        </p>
+                      </td>
+
+                      {showBidsColumn && (
+                        <td className="px-4 py-3 border-t border-slate-100 text-center">
+                          <span className="inline-flex min-w-7 h-7 px-2 items-center justify-center rounded-full bg-[#EBF4FF] text-[#052659] text-xs font-semibold">
+                            {getBidCountForOrder(order)}
+                          </span>
+                        </td>
+                      )}
+
+                      {tableMode === "result" && (
+                        <td className="px-4 py-3 border-t border-slate-100 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${logisticsState.className}`}
+                          >
+                            {logisticsState.label}
+                          </span>
+                        </td>
+                      )}
+
+                      {showWinnerColumns && (
+                        <>
+                          <td className="px-4 py-3 border-t border-slate-100">
+                            {winner?.supplier ? (
+                              <div>
+                                <span className="font-semibold text-[#1E293B]">
+                                  {winner.supplier}
+                                </span>
+                                <p
+                                  className={`text-[11px] mt-0.5 font-medium ${
+                                    rowSupplierConfirmed
+                                      ? "text-[#16A34A]"
+                                      : "text-[#1E40AF]"
+                                  }`}
+                                >
+                                  {rowSupplierConfirmed
+                                    ? "Confirmed Supplier"
+                                    : "Selected by Logistics"}
+                                </p>
+                              </div>
+                            ) : normalizeStatus(
+                                rowAwardState?.awardWorkflowState
+                              ) === "awaiting_logistics_selection" ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full bg-orange-50 text-[#EA580C] text-xs font-medium">
+                                Awaiting Logistics
+                              </span>
+                            ) : normalizeStatus(
+                                rowAwardState?.awardWorkflowState
+                              ) === "alternate_supplier_selection_required" ? (
+                              <span className="inline-flex px-2.5 py-1 rounded-full bg-red-50 text-[#DC2626] text-xs font-medium">
+                                Selection Required
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">
+                                -
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 border-t border-slate-100 text-[#16A34A] font-semibold whitespace-nowrap">
+                            {winner ? formatMoney(winner.amount) : "-"}
+                          </td>
+                        </>
+                      )}
+
+                      {showOrderStatusColumn && (
+                        <td className="px-4 py-3 border-t border-slate-100 whitespace-nowrap">
+                          <span className="inline-flex px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                            {formatStatus(order.current_status || order.status)}
+                          </span>
+                        </td>
+                      )}
+
+                      <td className="px-4 py-3 border-t border-slate-100 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => onSelectOrder(order)}
+                          className="px-3 py-1.5 rounded-lg bg-[#052659] text-white text-xs font-semibold hover:bg-[#5483B3] transition"
+                        >
+                          {actionLabel}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AwardWorkflowPanel({
+  awardState,
+  workflowState,
+  workflowLabel,
+  selectedBid,
+  shortlistedCount = 0,
   unsuccessfulBids = [],
   formatMoney,
   formatEta,
-  onClose,
+  openSupplierResultEmail,
+  onMarkSelectedNoticeSent,
+  onRecordSupplierResponse,
+  onMarkOutcomeNoticeSent,
+  loading,
 }) {
-  const winnerMessage = `Dear ${bid.supplier},
+  const state = String(workflowState || "").toLowerCase();
+  const pendingCount = Number(
+    awardState?.pendingUnsuccessfulNotices ||
+      unsuccessfulBids.filter(
+        (bid) => bid.outcomeNotification?.status !== "sent"
+      ).length ||
+      0
+  );
 
-Congratulations! Your bid has been selected for the order.
+  const sentCount = Number(
+    awardState?.sentUnsuccessfulNotices ||
+      unsuccessfulBids.filter(
+        (bid) => bid.outcomeNotification?.status === "sent"
+      ).length ||
+      0
+  );
 
-Bid Amount: ${formatMoney(bid.amount)}
-ETA: ${formatEta(bid.eta)}
+  const selectedSupplierName =
+    selectedBid?.supplier || awardState?.selectedSupplier || "-";
 
-Please confirm your availability and prepare the required vehicle and documents.
+  const selectedAmount =
+    selectedBid?.amount ?? awardState?.selectedBidAmount ?? null;
 
-Thank you.`;
+  const noBidsReceived = state === "bidding_closed_no_bids";
+  const shortlistingRequired = state === "shortlisting_required";
+  const shortlistReady = state === "shortlist_ready_to_send";
+  const selectedNoticePending =
+    state === "selected_supplier_notice_pending";
+  const awaitingResponse = state === "awaiting_supplier_response";
+  const alternateRequired =
+    state === "alternate_supplier_selection_required";
+  const unsuccessfulPending =
+    state === "unsuccessful_supplier_notifications_pending";
+  const completed = state === "award_completed";
 
-  const unsuccessfulMessage = `Dear Supplier,
-
-Thank you for submitting your bid.
-
-After the final review and winner selection, we regret to inform you that your bid was not selected for this order.
-
-We appreciate your participation and look forward to working with you on future opportunities.
-
-Thank you.`;
-
-  const copyText = async (text, successMessage) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert(successMessage);
-    } catch {
-      alert(
-        "Could not copy message. Please copy it manually."
-      );
-    }
-  };
-
-  const openGmailCompose = ({
-    to = "",
-    bcc = "",
-    subjectText,
-    bodyText,
-  }) => {
-    const subject = encodeURIComponent(subjectText);
-    const body = encodeURIComponent(bodyText);
-
-    let gmailUrl =
-      `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
-
-    if (to) {
-      gmailUrl += `&to=${encodeURIComponent(to)}`;
-    }
-
-    if (bcc) {
-      gmailUrl += `&bcc=${encodeURIComponent(bcc)}`;
-    }
-
-    window.open(
-      gmailUrl,
-      "_blank",
-      "noopener,noreferrer"
+  if (noBidsReceived) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="text-[#DC2626] mt-0.5" size={20} />
+          <div>
+            <h3 className="text-base font-semibold text-[#1E293B]">
+              No Bids Received
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Bidding has closed, but no supplier bids were received for this
+              order. There is nothing to shortlist or send to Logistics yet.
+            </p>
+          </div>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const getValidEmails = (supplierList) => {
-    return [
-      ...new Set(
-        supplierList
-          .map((item) => item.supplierEmail)
-          .filter(
-            (email) =>
-              email &&
-              email.includes("@")
-          )
-      ),
-    ];
-  };
-
-  const getValidPhones = (supplierList) => {
-    return [
-      ...new Set(
-        supplierList
-          .map((item) => item.supplierPhone)
-          .filter(
-            (phone) =>
-              phone &&
-              String(phone).trim() !== ""
-          )
-      ),
-    ];
-  };
-
-  const openWinnerEmail = () => {
-    if (!bid.supplierEmail) {
-      alert(
-        "Winning supplier email address is missing."
-      );
-      return;
-    }
-
-    openGmailCompose({
-      to: bid.supplierEmail,
-      subjectText:
-        "Bid Selected - Confirmation Required",
-      bodyText: winnerMessage,
-    });
-  };
-
-  const sendBulkUnsuccessfulEmail = () => {
-    const emails =
-      getValidEmails(unsuccessfulBids);
-
-    if (emails.length === 0) {
-      alert(
-        "Unsuccessful suppliers do not have email addresses."
-      );
-      return;
-    }
-
-    openGmailCompose({
-      bcc: emails.join(","),
-      subjectText:
-        "Bid Result Update",
-      bodyText:
-        unsuccessfulMessage,
-    });
-  };
-
-  const copyUnsuccessfulPhones = () => {
-    const phones =
-      getValidPhones(unsuccessfulBids);
-
-    if (phones.length === 0) {
-      alert(
-        "Unsuccessful suppliers do not have phone numbers."
-      );
-      return;
-    }
-
-    copyText(
-      phones.join("\n"),
-      "Unsuccessful supplier phone numbers copied."
+  if (shortlistingRequired) {
+    return (
+      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <CircleAlert className="text-[#EA580C] mt-0.5" size={20} />
+          <div>
+            <h3 className="text-base font-semibold text-[#1E293B]">
+              Shortlisting Required
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Bidding is closed. Operations must now review the supplier bids
+              below and shortlist between 1 and 5 suppliers before anything can
+              be sent to Logistics.
+            </p>
+          </div>
+        </div>
+      </div>
     );
-  };
+  }
+
+  if (shortlistReady) {
+    return (
+      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <Send className="text-[#EA580C] mt-0.5" size={20} />
+          <div>
+            <h3 className="text-base font-semibold text-[#1E293B]">
+              Shortlist Ready - Send to Logistics
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              {Number(shortlistedCount || 0)} supplier
+              {Number(shortlistedCount || 0) === 1 ? "" : "s"} shortlisted.
+              The next Operations action is to send this shortlist to Logistics
+              using the "Send Shortlisted to Logistics" button above.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!state || state === "awaiting_logistics_selection") {
+    return (
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+        <div className="flex items-start gap-3">
+          <Clock3 className="text-[#1E40AF] mt-0.5" size={20} />
+          <div>
+            <h3 className="text-base font-semibold text-[#1E293B]">
+              Awaiting Logistics Selection
+            </h3>
+            <p className="text-sm text-slate-600 mt-1">
+              The shortlist is locked. Operations must wait for Logistics to
+              choose the supplier. No unsuccessful supplier messages can be
+              sent at this stage.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
-      <div className="bg-white rounded-2xl shadow-lg w-[880px] max-w-[94vw] max-h-[90vh] overflow-y-auto p-6">
-
-        <div className="flex justify-between items-start gap-4 mb-5">
-
-          <div>
-
-            <h3 className="text-lg font-bold text-[#1E293B]">
-              Supplier Notification Center
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-1">
-              Notify the winner directly and send one BCC email to all unsuccessful suppliers.
+    <div
+      className={`rounded-2xl border p-4 ${
+        completed
+          ? "bg-green-50 border-green-200"
+          : alternateRequired
+          ? "bg-red-50 border-red-200"
+          : "bg-white border-slate-200"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            Award Workflow
+          </p>
+          <h3 className="text-lg font-bold text-[#1E293B] mt-1">
+            {workflowLabel}
+          </h3>
+          {selectedSupplierName !== "-" && (
+            <p className="text-sm text-slate-600 mt-1">
+              Selected supplier: {selectedSupplierName}
             </p>
+          )}
+        </div>
 
+        <span
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+            completed
+              ? "bg-green-100 text-[#16A34A]"
+              : alternateRequired
+              ? "bg-red-100 text-[#DC2626]"
+              : selectedNoticePending || unsuccessfulPending
+              ? "bg-orange-100 text-[#EA580C]"
+              : "bg-blue-100 text-[#1E40AF]"
+          }`}
+        >
+          {completed ? <CircleCheck size={14} /> : <Clock3 size={14} />}
+          {workflowLabel}
+        </span>
+      </div>
+
+      {selectedBid && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-white/70 border border-slate-100 rounded-xl p-4">
+          <InfoMini label="Supplier" value={selectedSupplierName} />
+          <InfoMini
+            label="Bid Amount"
+            value={
+              selectedAmount !== null && selectedAmount !== undefined
+                ? formatMoney(selectedAmount)
+                : "-"
+            }
+            green={completed || unsuccessfulPending}
+          />
+          <InfoMini label="ETA" value={formatEta(selectedBid?.eta || "-")} />
+          <InfoMini
+            label="Supplier Response"
+            value={
+              awardState?.supplierConfirmationStatus
+                ? awardState.supplierConfirmationStatus
+                    .replaceAll("_", " ")
+                    .replace(/\b\w/g, (char) => char.toUpperCase())
+                : awaitingResponse
+                ? "Pending"
+                : "-"
+            }
+          />
+        </div>
+      )}
+
+      {selectedNoticePending && selectedBid && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <p className="text-sm font-semibold text-[#1E293B]">
+            Operations action required
+          </p>
+          <p className="text-sm text-slate-600 mt-1">
+            Send the selected-supplier notice first. Opening Gmail alone does
+            not mark the notice as sent.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              type="button"
+              onClick={() => openSupplierResultEmail(selectedBid, "selected")}
+              className="px-4 py-2 rounded-lg border border-[#1E40AF] text-[#1E40AF] bg-white text-sm font-semibold hover:bg-[#EFF6FF]"
+            >
+              <Mail size={15} className="inline mr-2" />
+              Open Email
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onMarkSelectedNoticeSent}
+              className="px-4 py-2 rounded-lg bg-[#052659] text-white text-sm font-semibold disabled:opacity-50"
+            >
+              <CircleCheck size={15} className="inline mr-2" />
+              {loading ? "Saving..." : "Mark Selected Notice as Sent"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {awaitingResponse && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <p className="text-sm font-semibold text-[#1E293B]">
+            Awaiting supplier response
+          </p>
+          <p className="text-sm text-slate-600 mt-1">
+            Record the response only after the supplier actually accepts or
+            rejects. Do not notify the other shortlisted suppliers yet.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onRecordSupplierResponse("accepted")}
+              className="px-4 py-2 rounded-lg bg-[#16A34A] text-white text-sm font-semibold disabled:opacity-50"
+            >
+              Record Accepted
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onRecordSupplierResponse("rejected")}
+              className="px-4 py-2 rounded-lg bg-[#DC2626] text-white text-sm font-semibold disabled:opacity-50"
+            >
+              Record Rejected
+            </button>
+          </div>
+        </div>
+      )}
+
+      {alternateRequired && (
+        <div className="mt-4 bg-white border border-red-100 rounded-xl p-4">
+          <div className="flex gap-3 items-start">
+            <AlertTriangle className="text-[#DC2626] mt-0.5" size={20} />
+            <div>
+              <p className="text-sm font-semibold text-[#DC2626]">
+                Supplier declined
+              </p>
+              <p className="text-sm text-slate-600 mt-1">
+                Operations must not choose the next supplier and must not send
+                unsuccessful-result messages. Logistics must select another
+                supplier from the remaining shortlist.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(unsuccessfulPending || completed) && (
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-[#1E293B]">
+                Unsuccessful supplier notifications
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {completed
+                  ? "All required result notifications have been completed."
+                  : `${pendingCount} notification${
+                      pendingCount === 1 ? "" : "s"
+                    } remaining · ${sentCount} sent`}
+              </p>
+            </div>
           </div>
 
+          <div className="mt-3 space-y-2">
+            {unsuccessfulBids.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No unsuccessful supplier notification records were returned by
+                the backend.
+              </p>
+            ) : (
+              unsuccessfulBids.map((bid) => {
+                const sent = bid.outcomeNotification?.status === "sent";
+
+                return (
+                  <div
+                    key={bid.id}
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-3 flex items-center justify-between gap-3 flex-wrap"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[#1E293B]">
+                        {bid.supplier}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {bid.supplierEmail || "No email"}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          sent
+                            ? "bg-green-100 text-[#16A34A]"
+                            : "bg-orange-100 text-[#EA580C]"
+                        }`}
+                      >
+                        {sent ? "Sent" : "Pending"}
+                      </span>
+
+                      {!sent && !completed && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openSupplierResultEmail(bid, "rejected")
+                            }
+                            className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-[#DC2626] text-xs font-semibold hover:bg-red-100"
+                          >
+                            Open Email
+                          </button>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => onMarkOutcomeNoticeSent(bid)}
+                            className="px-3 py-1.5 rounded-lg bg-[#052659] text-white text-xs font-semibold disabled:opacity-50"
+                          >
+                            Mark as Sent
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AwardWorkflowModal({
+  bid,
+  awardState,
+  workflowState,
+  workflowLabel,
+  unsuccessfulBids,
+  orderReference,
+  formatMoney,
+  formatEta,
+  openSupplierResultEmail,
+  onMarkSelectedNoticeSent,
+  onRecordSupplierResponse,
+  onMarkOutcomeNoticeSent,
+  loading,
+  onClose,
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200]">
+      <div className="bg-white rounded-2xl shadow-lg w-[900px] max-w-[94vw] max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex justify-between items-start gap-4 mb-5">
+          <div>
+            <h3 className="text-lg font-bold text-[#1E293B]">
+              Supplier Award Center
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              {orderReference} · {workflowLabel}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
           >
             ×
           </button>
-
         </div>
 
-        <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5">
-
-          <p className="text-xs text-[#16A34A] font-semibold">
-            Selected Supplier
-          </p>
-
-          <h4 className="text-lg font-bold text-[#1E293B] mt-1">
-            {bid.supplier}
-          </h4>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-
-            <InfoMini
-              label="Bid Amount"
-              value={formatMoney(bid.amount)}
-              green
-            />
-
-            <InfoMini
-              label="ETA"
-              value={formatEta(bid.eta)}
-            />
-
-            <InfoMini
-              label="Rating"
-              value={`${Number(
-                bid.rating || 0
-              ).toFixed(1)} / 5`}
-            />
-
-            <InfoMini
-              label="Compliance"
-              value={bid.compliance}
-            />
-
-            <InfoMini
-              label="Email"
-              value={
-                bid.supplierEmail ||
-                "No email"
-              }
-            />
-
-            <InfoMini
-              label="Phone"
-              value={
-                bid.supplierPhone ||
-                "No phone"
-              }
-            />
-
-          </div>
-
-        </div>
-
-        <MessageBox
-          title="Winning Supplier Message"
-          value={winnerMessage}
-          color="blue"
-          emailButtonText="Gmail Winner"
-          onCopy={() =>
-            copyText(
-              winnerMessage,
-              "Winning supplier message copied."
-            )
-          }
-          onEmail={openWinnerEmail}
-          onMessage={() =>
-            copyText(
-              winnerMessage,
-              "Winning supplier message copied."
-            )
-          }
-          onPhone={() =>
-            bid.supplierPhone
-              ? copyText(
-                  bid.supplierPhone,
-                  "Winning supplier phone copied."
-                )
-              : alert(
-                  "Winning supplier phone number is missing."
-                )
-          }
-        />
-
-        <SupplierGroupBox
-          title="Unsuccessful Suppliers"
-          count={unsuccessfulBids.length}
-          suppliers={unsuccessfulBids}
-          label="Unsuccessful"
-          color="red"
+        <AwardWorkflowPanel
+          awardState={awardState}
+          workflowState={workflowState}
+          workflowLabel={workflowLabel}
+          selectedBid={bid}
+          unsuccessfulBids={unsuccessfulBids}
           formatMoney={formatMoney}
           formatEta={formatEta}
+          openSupplierResultEmail={openSupplierResultEmail}
+          onMarkSelectedNoticeSent={onMarkSelectedNoticeSent}
+          onRecordSupplierResponse={onRecordSupplierResponse}
+          onMarkOutcomeNoticeSent={onMarkOutcomeNoticeSent}
+          loading={loading}
         />
-
-        <MessageBox
-          title="Unsuccessful Supplier Message"
-          value={unsuccessfulMessage}
-          color="red"
-          emailButtonText="Gmail All Unsuccessful"
-          messageButtonText="Copy Message"
-          phoneButtonText="Copy Phones"
-          onCopy={() =>
-            copyText(
-              unsuccessfulMessage,
-              "Unsuccessful supplier message copied."
-            )
-          }
-          onEmail={sendBulkUnsuccessfulEmail}
-          onMessage={() =>
-            copyText(
-              unsuccessfulMessage,
-              "Unsuccessful supplier message copied."
-            )
-          }
-          onPhone={copyUnsuccessfulPhones}
-        />
-
       </div>
-
     </div>
   );
 }
@@ -3785,7 +5760,7 @@ function ScoreDetailsModal({
   onClose,
 }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200]">
 
       <div className="bg-white rounded-2xl shadow-lg w-[520px] max-w-[92vw] p-6">
 

@@ -291,6 +291,555 @@ const getSentShortlist = async (orderId) => {
   )
 }
 
+
+const getAllBidSelections = async (orderId) => {
+  const { data, error } = await supabase
+    .from('bid_selection')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('selection_id', {
+      ascending: true,
+    })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data || []
+}
+
+const getLogisticsSelectedSelection = (selections = []) => {
+  const selectedRows = (selections || []).filter((item) => {
+    const status = normalizeDbStatus(item?.selection_status)
+
+    return (
+      item?.selected === true ||
+      ['selected', 'winner', 'accepted'].includes(status)
+    )
+  })
+
+  if (selectedRows.length === 0) {
+    return null
+  }
+
+  return (
+    selectedRows
+      .slice()
+      .sort((a, b) => {
+        const aTime = new Date(
+          a.selected_at || a.updated_at || a.created_at || 0
+        ).getTime()
+        const bTime = new Date(
+          b.selected_at || b.updated_at || b.created_at || 0
+        ).getTime()
+
+        if (aTime !== bTime) {
+          return bTime - aTime
+        }
+
+        return Number(b.selection_id || 0) - Number(a.selection_id || 0)
+      })[0] || null
+  )
+}
+
+const getAwardAttemptRows = async (orderId) => {
+  const { data, error } = await supabase
+    .from('bid_award_attempts')
+    .select('*')
+    .eq('order_id', orderId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data || []).sort(
+    (a, b) =>
+      Number(a.attempt_id || a.id || 0) -
+      Number(b.attempt_id || b.id || 0)
+  )
+}
+
+const getOutcomeNotificationRows = async (orderId) => {
+  const { data, error } = await supabase
+    .from('bid_outcome_notifications')
+    .select('*')
+    .eq('order_id', orderId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data || []).sort(
+    (a, b) =>
+      Number(a.notification_id || a.id || 0) -
+      Number(b.notification_id || b.id || 0)
+  )
+}
+
+const getAwardStateViewRow = async (orderId) => {
+  const { data, error } = await supabase
+    .from('operations_bid_award_state')
+    .select('*')
+    .eq('order_id', orderId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data || null
+}
+
+const getBidWithSupplier = async (bidId) => {
+  const numericBidId = Number(bidId)
+
+  if (!numericBidId || Number.isNaN(numericBidId)) {
+    return null
+  }
+
+  const { data: bid, error: bidError } = await supabase
+    .from('bids')
+    .select('*')
+    .eq('bid_id', numericBidId)
+    .maybeSingle()
+
+  if (bidError) {
+    throw new Error(bidError.message)
+  }
+
+  if (!bid) {
+    return null
+  }
+
+  let supplier = null
+
+  if (bid.supplier_id !== null && bid.supplier_id !== undefined) {
+    const { data: supplierRow, error: supplierError } = await supabase
+      .from('suppliers')
+      .select('supplier_id, company_name, email, contact_number')
+      .eq('supplier_id', bid.supplier_id)
+      .maybeSingle()
+
+    if (supplierError) {
+      throw new Error(supplierError.message)
+    }
+
+    supplier = supplierRow || null
+  }
+
+  return {
+    ...bid,
+    supplier_name:
+      supplier?.company_name ||
+      bid.supplier_name ||
+      bid.company_name ||
+      '',
+    supplier_email:
+      supplier?.email ||
+      bid.supplier_email ||
+      '',
+    supplier_phone:
+      supplier?.contact_number ||
+      bid.supplier_phone ||
+      '',
+    suppliers: supplier
+      ? {
+          supplier_id: supplier.supplier_id,
+          company_name: supplier.company_name,
+          email: supplier.email,
+          contact_number: supplier.contact_number,
+          phone: supplier.contact_number,
+        }
+      : undefined,
+  }
+}
+
+const getAttemptResponseStatus = (attempt) => {
+  if (!attempt) {
+    return ''
+  }
+
+  return normalizeDbStatus(
+    attempt.supplier_confirmation_status ||
+      attempt.supplier_response ||
+      attempt.supplier_response_status ||
+      attempt.response_status ||
+      attempt.status ||
+      ''
+  )
+}
+
+const getLatestAttemptForBid = async (orderId, bidId) => {
+  const attempts = await getAwardAttemptRows(orderId)
+
+  const matching = attempts.filter(
+    (attempt) => Number(attempt.bid_id) === Number(bidId)
+  )
+
+  return matching.length > 0
+    ? matching[matching.length - 1]
+    : null
+}
+
+const createAwardAttemptForSelection = async (
+  order,
+  selection
+) => {
+  if (!order || !selection?.bid_id) {
+    return null
+  }
+
+  const existingAttempt = await getLatestAttemptForBid(
+    order.order_id,
+    selection.bid_id
+  )
+
+  const existingResponse = getAttemptResponseStatus(existingAttempt)
+
+  if (
+    existingAttempt &&
+    !['rejected', 'declined'].includes(existingResponse)
+  ) {
+    return existingAttempt
+  }
+
+  const bid = await getBidWithSupplier(selection.bid_id)
+
+  if (!bid) {
+    throw new Error(
+      'The supplier bid selected by Logistics could not be found.'
+    )
+  }
+
+  const attempts = await getAwardAttemptRows(order.order_id)
+  const nextAttemptNumber =
+    attempts.reduce((max, item) => {
+      const value = Number(
+        item.attempt_number ||
+          item.attempt_no ||
+          item.sequence_no ||
+          0
+      )
+
+      return Number.isNaN(value)
+        ? max
+        : Math.max(max, value)
+    }, 0) + 1
+
+  const now = new Date().toISOString()
+
+  const basePayload = {
+    order_id: order.order_id,
+    bid_id: Number(selection.bid_id),
+    supplier_id:
+      selection.supplier_id ||
+      bid.supplier_id ||
+      null,
+  }
+
+  const payloadCandidates = [
+    {
+      ...basePayload,
+      selection_id: selection.selection_id || null,
+      attempt_number: nextAttemptNumber,
+      selected_at: selection.selected_at || now,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      ...basePayload,
+      attempt_number: nextAttemptNumber,
+      selected_at: selection.selected_at || now,
+      created_at: now,
+      updated_at: now,
+    },
+    {
+      ...basePayload,
+      selected_at: selection.selected_at || now,
+    },
+    {
+      ...basePayload,
+    },
+  ]
+
+  let lastError = null
+
+  for (const payload of payloadCandidates) {
+    const { data, error } = await supabase
+      .from('bid_award_attempts')
+      .insert([payload])
+      .select()
+      .maybeSingle()
+
+    if (!error && data) {
+      return data
+    }
+
+    lastError = error
+  }
+
+  throw new Error(
+    lastError?.message ||
+      'Could not create the supplier award attempt.'
+  )
+}
+
+const ensureAwardAttemptFromLogisticsSelection = async (order) => {
+  if (!order) {
+    return null
+  }
+
+  const selections = await getAllBidSelections(order.order_id)
+  const selectedSelection =
+    getLogisticsSelectedSelection(selections)
+
+  if (!selectedSelection) {
+    return null
+  }
+
+  return createAwardAttemptForSelection(
+    order,
+    selectedSelection
+  )
+}
+
+const getCurrentAwardAttempt = async (order, awardState = null) => {
+  const selectedBidId = Number(
+    awardState?.selected_bid_id ||
+      awardState?.winner_bid_id ||
+      0
+  )
+
+  if (selectedBidId > 0) {
+    const attempt = await getLatestAttemptForBid(
+      order.order_id,
+      selectedBidId
+    )
+
+    if (attempt) {
+      return attempt
+    }
+  }
+
+  const ensuredAttempt =
+    await ensureAwardAttemptFromLogisticsSelection(order)
+
+  if (ensuredAttempt) {
+    return ensuredAttempt
+  }
+
+  const attempts = await getAwardAttemptRows(order.order_id)
+
+  if (attempts.length === 0) {
+    return null
+  }
+
+  const activeAttempts = attempts.filter((attempt) => {
+    const responseStatus = getAttemptResponseStatus(attempt)
+
+    return !['rejected', 'declined'].includes(responseStatus)
+  })
+
+  return activeAttempts.length > 0
+    ? activeAttempts[activeAttempts.length - 1]
+    : attempts[attempts.length - 1]
+}
+
+const buildExistingFieldPatch = (
+  row,
+  candidateValues = {}
+) => {
+  const patch = {}
+
+  Object.entries(candidateValues).forEach(
+    ([fieldName, fieldValue]) => {
+      if (
+        row &&
+        Object.prototype.hasOwnProperty.call(
+          row,
+          fieldName
+        )
+      ) {
+        patch[fieldName] = fieldValue
+      }
+    }
+  )
+
+  return patch
+}
+
+const updateAwardAttemptByRow = async (
+  attempt,
+  patch
+) => {
+  const attemptId =
+    attempt?.attempt_id ||
+    attempt?.id ||
+    null
+
+  if (!attemptId) {
+    throw new Error(
+      'Award attempt identifier is missing.'
+    )
+  }
+
+  const primaryKey = Object.prototype.hasOwnProperty.call(
+    attempt,
+    'attempt_id'
+  )
+    ? 'attempt_id'
+    : 'id'
+
+  const { data, error } = await supabase
+    .from('bid_award_attempts')
+    .update(patch)
+    .eq(primaryKey, attemptId)
+    .select()
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data || null
+}
+
+const getAwardWorkflowPayload = async (order) => {
+  if (!order) {
+    return null
+  }
+
+  let awardState = await getAwardStateViewRow(
+    order.order_id
+  )
+
+  const selections = await getAllBidSelections(
+    order.order_id
+  )
+
+  const sentToLogistics =
+    selections.some(
+      (item) => item.sent_to_logistics === true
+    ) ||
+    selections.length > 0
+
+  const selectedSelection =
+    getLogisticsSelectedSelection(selections)
+
+  if (
+    selectedSelection &&
+    (!awardState?.selected_bid_id ||
+      normalizeDbStatus(
+        awardState?.award_workflow_state
+      ) === 'awaiting_logistics_selection')
+  ) {
+    try {
+      await createAwardAttemptForSelection(
+        order,
+        selectedSelection
+      )
+
+      awardState = await getAwardStateViewRow(
+        order.order_id
+      )
+    } catch (syncError) {
+      console.error(
+        'AWARD ATTEMPT SYNC ERROR:',
+        syncError.message
+      )
+    }
+  }
+
+  const attempts = await getAwardAttemptRows(
+    order.order_id
+  )
+
+  const outcomeNotifications =
+    await getOutcomeNotificationRows(
+      order.order_id
+    )
+
+  let selectedBidId = Number(
+    awardState?.selected_bid_id ||
+      selectedSelection?.bid_id ||
+      0
+  )
+
+  if (Number.isNaN(selectedBidId)) {
+    selectedBidId = 0
+  }
+
+  let selectedBid = null
+
+  if (selectedBidId > 0) {
+    selectedBid = await getBidWithSupplier(
+      selectedBidId
+    )
+  }
+
+  const fallbackWorkflowState = !sentToLogistics
+    ? ''
+    : selectedBidId > 0
+    ? 'selected_supplier_notice_pending'
+    : 'awaiting_logistics_selection'
+
+  const safeAwardState = {
+    order_id: order.order_id,
+    order_reference: order.order_reference,
+    current_status: order.current_status,
+    ...(awardState || {}),
+    selected_bid_id:
+      awardState?.selected_bid_id ||
+      (selectedBidId > 0 ? selectedBidId : null),
+    selected_supplier:
+      awardState?.selected_supplier ||
+      selectedBid?.supplier_name ||
+      '',
+    selected_bid_amount:
+      awardState?.selected_bid_amount ??
+      selectedBid?.bid_amount ??
+      null,
+    supplier_confirmation_status:
+      awardState?.supplier_confirmation_status ||
+      '',
+    sent_to_logistics:
+      awardState?.sent_to_logistics === true ||
+      sentToLogistics,
+    pending_unsuccessful_notices:
+      Number(
+        awardState?.pending_unsuccessful_notices ||
+          outcomeNotifications.filter(
+            (item) =>
+              normalizeDbStatus(
+                item.notification_status
+              ) !== 'sent'
+          ).length
+      ),
+    sent_unsuccessful_notices:
+      Number(
+        awardState?.sent_unsuccessful_notices ||
+          outcomeNotifications.filter(
+            (item) =>
+              normalizeDbStatus(
+                item.notification_status
+              ) === 'sent'
+          ).length
+      ),
+    award_workflow_state:
+      awardState?.award_workflow_state ||
+      fallbackWorkflowState,
+    outcome_notifications: outcomeNotifications,
+    award_attempts: attempts,
+  }
+
+  return {
+    success: true,
+    award_state: safeAwardState,
+    outcome_notifications: outcomeNotifications,
+    award_attempts: attempts,
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Orders
 // -----------------------------------------------------------------------------
@@ -1601,121 +2150,125 @@ router.get('/bids/shortlist-status', async (req, res) => {
       })
     }
 
-    const { data: selections, error: selectionError } = await supabase
-      .from('bid_selection')
-      .select('*')
-      .eq('order_id', order.order_id)
-      .order('selection_id', {
-        ascending: true,
-      })
+    const selections = await getAllBidSelections(
+      order.order_id
+    )
 
-    if (selectionError) {
-      return res.status(500).json({
-        success: false,
-        error: selectionError.message,
-      })
-    }
+    const normalizedSelections = selections.map(
+      (item) => {
+        const rawStatus = normalizeDbStatus(
+          item?.selection_status
+        )
 
-    const savedSelections = selections || []
+        let displayStatus = 'shortlisted'
 
-    const normalizeSelectionStatus = (item) => {
-      const rawStatus = String(
-        item?.selection_status || ''
-      )
-        .trim()
-        .toLowerCase()
+        if (
+          item?.selected === true ||
+          ['selected', 'winner', 'accepted'].includes(
+            rawStatus
+          )
+        ) {
+          displayStatus = 'selected'
+        } else if (
+          ['rejected', 'not_selected'].includes(
+            rawStatus
+          )
+        ) {
+          displayStatus = 'rejected'
+        }
 
-      if (
-        ['winner', 'accepted', 'selected'].includes(rawStatus) ||
-        item?.selected === true
-      ) {
-        return 'accepted'
+        return {
+          ...item,
+          selection_status: displayStatus,
+        }
       }
-
-      if (
-        ['rejected', 'not_selected', 'not selected'].includes(rawStatus)
-      ) {
-        return 'rejected'
-      }
-
-      return 'shortlisted'
-    }
-
-    const normalizedSelections = savedSelections.map((item) => ({
-      ...item,
-      selection_status: normalizeSelectionStatus(item),
-    }))
+    )
 
     const bidIds = normalizedSelections
       .map((item) => Number(item.bid_id))
       .filter((id) => !Number.isNaN(id))
 
-    const winnerSelection =
-      normalizedSelections.find(
-        (item) => item.selection_status === 'accepted'
-      ) || null
+    const selectedSelection =
+      getLogisticsSelectedSelection(selections)
 
     const sentToLogistics =
       normalizedSelections.some(
         (item) => item.sent_to_logistics === true
       ) ||
-      normalizedSelections.some((item) =>
-        ['accepted', 'rejected'].includes(item.selection_status)
-      )
+      normalizedSelections.length > 0
 
-    const currentOrderStatus = normalizeDbStatus(
-      order.current_status
-    )
-
-    let syncedOrderStatus = order.current_status || null
-
-    const preWinnerStatuses = [
-      '',
-      'created',
-      'open_for_bids',
-      'bidding_open',
-    ]
-
-    if (
-      winnerSelection &&
-      preWinnerStatuses.includes(currentOrderStatus)
-    ) {
-      const { error: winnerOrderStatusError } = await supabase
-        .from('orders')
-        .update({
-          current_status: 'bid_accepted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', order.order_id)
-
-      if (winnerOrderStatusError) {
-        return res.status(500).json({
-          success: false,
-          error: winnerOrderStatusError.message,
-        })
+    // IMPORTANT:
+    // Logistics selecting a supplier does NOT mean the supplier has accepted.
+    // Therefore this route must NEVER move the order to bid_accepted.
+    // Supplier acceptance is recorded only through the award workflow endpoint.
+    if (selectedSelection) {
+      try {
+        await createAwardAttemptForSelection(
+          order,
+          selectedSelection
+        )
+      } catch (attemptSyncError) {
+        console.error(
+          'SHORTLIST AWARD ATTEMPT SYNC ERROR:',
+          attemptSyncError.message
+        )
       }
-
-      syncedOrderStatus = 'bid_accepted'
     }
+
+    let awardPayload = null
+
+    try {
+      awardPayload = await getAwardWorkflowPayload(
+        order
+      )
+    } catch (awardStateError) {
+      console.error(
+        'SHORTLIST AWARD STATE ERROR:',
+        awardStateError.message
+      )
+    }
+
+    const authoritativeSelectedBidId = Number(
+      awardPayload?.award_state?.selected_bid_id ||
+        selectedSelection?.bid_id ||
+        0
+    )
 
     return res.json({
       success: true,
       order_id: order.order_id,
       order_reference: order.order_reference,
-      order_status: syncedOrderStatus,
+      order_status: order.current_status,
       bid_ids: bidIds,
       count: bidIds.length,
       selections: normalizedSelections,
       sent_to_logistics: sentToLogistics,
       locked: sentToLogistics,
-      winner_bid_id: winnerSelection
-        ? Number(winnerSelection.bid_id)
-        : null,
-      winner_selection: winnerSelection,
-      decision_finalized: Boolean(winnerSelection),
+      winner_bid_id:
+        authoritativeSelectedBidId > 0
+          ? authoritativeSelectedBidId
+          : null,
+      winner_selection:
+        selectedSelection || null,
+      logistics_selection_made:
+        authoritativeSelectedBidId > 0,
+      decision_finalized:
+        normalizeDbStatus(
+          awardPayload?.award_state
+            ?.supplier_confirmation_status
+        ) === 'accepted',
+      award_workflow_state:
+        awardPayload?.award_state
+          ?.award_workflow_state ||
+        (sentToLogistics
+          ? 'awaiting_logistics_selection'
+          : ''),
     })
   } catch (error) {
-    console.error('GET SHORTLIST STATUS ERROR:', error.message)
+    console.error(
+      'GET SHORTLIST STATUS ERROR:',
+      error.message
+    )
 
     return res.status(500).json({
       success: false,
@@ -1723,6 +2276,870 @@ router.get('/bids/shortlist-status', async (req, res) => {
     })
   }
 })
+
+// -----------------------------------------------------------------------------
+// Supplier Award Workflow
+// -----------------------------------------------------------------------------
+//
+// Frontend flow:
+//   GET  /bids/:orderId/award-state
+//   POST /bids/:orderId/selected-notice-sent
+//   POST /bids/:orderId/supplier-response
+//   POST /bids/:orderId/outcome-notice-sent
+//
+// The database view `operations_bid_award_state` remains the authoritative
+// workflow state. Operations does not choose the winner here.
+
+router.get('/bids/award-state', async (req, res) => {
+  try {
+    const { order_reference, order_id } = req.query
+
+    if (!order_reference && !order_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'order_reference or order_id is required',
+      })
+    }
+
+    const order = order_reference
+      ? await getOrderByReference(order_reference)
+      : await getOrderById(order_id)
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      })
+    }
+
+    const payload = await getAwardWorkflowPayload(
+      order
+    )
+
+    return res.json(payload)
+  } catch (error) {
+    console.error(
+      'GET AWARD STATE ERROR:',
+      error.message
+    )
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    })
+  }
+})
+
+router.get('/bids/:orderId/award-state', async (req, res) => {
+  try {
+    const order = await getOrderById(
+      req.params.orderId
+    )
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      })
+    }
+
+    const payload = await getAwardWorkflowPayload(
+      order
+    )
+
+    return res.json(payload)
+  } catch (error) {
+    console.error(
+      'GET AWARD STATE BY ORDER ERROR:',
+      error.message
+    )
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    })
+  }
+})
+
+router.post(
+  '/bids/:orderId/selected-notice-sent',
+  async (req, res) => {
+    try {
+      const order = await getOrderById(
+        req.params.orderId
+      )
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+        })
+      }
+
+      let awardPayload =
+        await getAwardWorkflowPayload(order)
+
+      const workflowState = normalizeDbStatus(
+        awardPayload?.award_state
+          ?.award_workflow_state
+      )
+
+      if (
+        workflowState !==
+        'selected_supplier_notice_pending'
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The selected supplier notice can be marked sent only while the workflow is in Selected Supplier Notice Pending state.',
+          award_state: awardPayload?.award_state || null,
+        })
+      }
+
+      const selectedBidId = Number(
+        awardPayload?.award_state
+          ?.selected_bid_id ||
+          req.body?.selected_bid_id ||
+          0
+      )
+
+      if (
+        !selectedBidId ||
+        Number.isNaN(selectedBidId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'No supplier is currently selected by Logistics.',
+        })
+      }
+
+      if (
+        req.body?.selected_bid_id &&
+        Number(req.body.selected_bid_id) !==
+          selectedBidId
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The selected bid has changed. Refresh the page and try again.',
+        })
+      }
+
+      const attempt =
+        await getCurrentAwardAttempt(
+          order,
+          awardPayload?.award_state
+        )
+
+      if (!attempt) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'No award attempt exists for the supplier selected by Logistics.',
+        })
+      }
+
+      if (
+        Number(attempt.bid_id) !==
+        selectedBidId
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The current award attempt does not match the supplier selected by Logistics.',
+        })
+      }
+
+      const now = new Date().toISOString()
+
+      const patch = buildExistingFieldPatch(
+        attempt,
+        {
+          selected_notice_sent: true,
+          selected_supplier_notice_sent: true,
+          selected_notice_status: 'sent',
+          selected_supplier_notice_status: 'sent',
+          notification_status: 'sent',
+          selected_notice_sent_at: now,
+          selected_supplier_notice_sent_at: now,
+          notice_sent_at: now,
+          notification_sent_at: now,
+          updated_at: now,
+        }
+      )
+
+      const meaningfulFields = Object.keys(
+        patch
+      ).filter(
+        (key) => key !== 'updated_at'
+      )
+
+      if (meaningfulFields.length === 0) {
+        return res.status(500).json({
+          success: false,
+          error:
+            'bid_award_attempts does not contain a supported selected-notice field. Check the SQL workflow schema.',
+        })
+      }
+
+      await updateAwardAttemptByRow(
+        attempt,
+        patch
+      )
+
+      awardPayload =
+        await getAwardWorkflowPayload(order)
+
+      return res.json({
+        ...awardPayload,
+        message:
+          'Selected supplier notice marked as sent. Awaiting supplier response.',
+      })
+    } catch (error) {
+      console.error(
+        'MARK SELECTED NOTICE SENT ERROR:',
+        error.message
+      )
+
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+      })
+    }
+  }
+)
+
+router.post(
+  '/bids/:orderId/supplier-response',
+  async (req, res) => {
+    try {
+      const order = await getOrderById(
+        req.params.orderId
+      )
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+        })
+      }
+
+      const responseValue = normalizeDbStatus(
+        req.body?.response
+      )
+
+      if (
+        !['accepted', 'rejected'].includes(
+          responseValue
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'response must be accepted or rejected',
+        })
+      }
+
+      let awardPayload =
+        await getAwardWorkflowPayload(order)
+
+      const workflowState = normalizeDbStatus(
+        awardPayload?.award_state
+          ?.award_workflow_state
+      )
+
+      if (
+        workflowState !==
+        'awaiting_supplier_response'
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Supplier response can be recorded only while the workflow is Awaiting Supplier Response.',
+          award_state: awardPayload?.award_state || null,
+        })
+      }
+
+      const selectedBidId = Number(
+        awardPayload?.award_state
+          ?.selected_bid_id ||
+          req.body?.selected_bid_id ||
+          0
+      )
+
+      if (
+        !selectedBidId ||
+        Number.isNaN(selectedBidId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'No selected supplier is awaiting a response.',
+        })
+      }
+
+      if (
+        req.body?.selected_bid_id &&
+        Number(req.body.selected_bid_id) !==
+          selectedBidId
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The selected bid has changed. Refresh the page and try again.',
+        })
+      }
+
+      const attempt =
+        await getCurrentAwardAttempt(
+          order,
+          awardPayload?.award_state
+        )
+
+      if (
+        !attempt ||
+        Number(attempt.bid_id) !==
+          selectedBidId
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'The current award attempt could not be resolved.',
+        })
+      }
+
+      const now = new Date().toISOString()
+
+      const responsePatch =
+        buildExistingFieldPatch(
+          attempt,
+          {
+            supplier_confirmation_status:
+              responseValue,
+            supplier_response: responseValue,
+            supplier_response_status:
+              responseValue,
+            response_status: responseValue,
+            responded_at: now,
+            response_at: now,
+            supplier_responded_at: now,
+            supplier_response_at: now,
+            updated_at: now,
+          }
+        )
+
+      const responseFields = Object.keys(
+        responsePatch
+      ).filter(
+        (key) => key !== 'updated_at'
+      )
+
+      if (responseFields.length === 0) {
+        return res.status(500).json({
+          success: false,
+          error:
+            'bid_award_attempts does not contain a supported supplier-response field. Check the SQL workflow schema.',
+        })
+      }
+
+      await updateAwardAttemptByRow(
+        attempt,
+        responsePatch
+      )
+
+      const selections = await getAllBidSelections(
+        order.order_id
+      )
+
+      const selectedSelection =
+        selections.find(
+          (item) =>
+            Number(item.bid_id) ===
+            selectedBidId
+        ) || null
+
+      const otherShortlistedSelections =
+        selections.filter(
+          (item) =>
+            Number(item.bid_id) !==
+            selectedBidId
+        )
+
+      if (responseValue === 'rejected') {
+        if (selectedSelection) {
+          const selectedPatch = {
+            selected: false,
+            selection_status: 'rejected',
+          }
+
+          if (
+            Object.prototype.hasOwnProperty.call(
+              selectedSelection,
+              'reason'
+            )
+          ) {
+            selectedPatch.reason =
+              'Selected supplier declined the award'
+          }
+
+          if (
+            Object.prototype.hasOwnProperty.call(
+              selectedSelection,
+              'updated_at'
+            )
+          ) {
+            selectedPatch.updated_at = now
+          }
+
+          const { error: selectedRejectError } =
+            await supabase
+              .from('bid_selection')
+              .update(selectedPatch)
+              .eq(
+                'selection_id',
+                selectedSelection.selection_id
+              )
+
+          if (selectedRejectError) {
+            throw new Error(
+              selectedRejectError.message
+            )
+          }
+        }
+
+        const remainingSelectionIds =
+          otherShortlistedSelections
+            .map((item) => item.selection_id)
+            .filter(Boolean)
+
+        if (
+          remainingSelectionIds.length > 0
+        ) {
+          const { error: restoreSelectionsError } =
+            await supabase
+              .from('bid_selection')
+              .update({
+                selection_status: 'shortlisted',
+                selected: false,
+              })
+              .in(
+                'selection_id',
+                remainingSelectionIds
+              )
+
+          if (restoreSelectionsError) {
+            throw new Error(
+              restoreSelectionsError.message
+            )
+          }
+        }
+
+        const { error: rejectBidError } =
+          await supabase
+            .from('bids')
+            .update({
+              bid_status: 'rejected',
+              updated_at: now,
+            })
+            .eq('bid_id', selectedBidId)
+
+        if (rejectBidError) {
+          throw new Error(
+            rejectBidError.message
+          )
+        }
+
+        const remainingBidIds =
+          otherShortlistedSelections
+            .map((item) => Number(item.bid_id))
+            .filter(
+              (id) =>
+                id > 0 && !Number.isNaN(id)
+            )
+
+        if (remainingBidIds.length > 0) {
+          const { error: restoreBidError } =
+            await supabase
+              .from('bids')
+              .update({
+                bid_status: 'shortlisted',
+                updated_at: now,
+              })
+              .in('bid_id', remainingBidIds)
+
+          if (restoreBidError) {
+            throw new Error(
+              restoreBidError.message
+            )
+          }
+        }
+
+        // IMPORTANT:
+        // Do not move the order to bid_accepted.
+        // Do not create unsuccessful notifications.
+        // Logistics must select another shortlisted supplier.
+
+        awardPayload =
+          await getAwardWorkflowPayload(order)
+
+        return res.json({
+          ...awardPayload,
+          message:
+            'Supplier rejection recorded. Logistics must select an alternate shortlisted supplier.',
+        })
+      }
+
+      // Supplier accepted.
+      // NOW the selected supplier is confirmed and the other shortlisted
+      // suppliers may be treated as unsuccessful.
+
+      if (selectedSelection) {
+        const acceptedSelectionPatch = {
+          selected: true,
+          selection_status: 'accepted',
+        }
+
+        if (
+          Object.prototype.hasOwnProperty.call(
+            selectedSelection,
+            'updated_at'
+          )
+        ) {
+          acceptedSelectionPatch.updated_at = now
+        }
+
+        const { error: acceptSelectionError } =
+          await supabase
+            .from('bid_selection')
+            .update(acceptedSelectionPatch)
+            .eq(
+              'selection_id',
+              selectedSelection.selection_id
+            )
+
+        if (acceptSelectionError) {
+          throw new Error(
+            acceptSelectionError.message
+          )
+        }
+      }
+
+      const unsuccessfulSelectionIds =
+        otherShortlistedSelections
+          .map((item) => item.selection_id)
+          .filter(Boolean)
+
+      if (
+        unsuccessfulSelectionIds.length > 0
+      ) {
+        const { error: rejectOthersError } =
+          await supabase
+            .from('bid_selection')
+            .update({
+              selection_status: 'rejected',
+              selected: false,
+            })
+            .in(
+              'selection_id',
+              unsuccessfulSelectionIds
+            )
+
+        if (rejectOthersError) {
+          throw new Error(
+            rejectOthersError.message
+          )
+        }
+      }
+
+      const { error: acceptBidError } =
+        await supabase
+          .from('bids')
+          .update({
+            bid_status: 'accepted',
+            updated_at: now,
+          })
+          .eq('bid_id', selectedBidId)
+
+      if (acceptBidError) {
+        throw new Error(
+          acceptBidError.message
+        )
+      }
+
+      const unsuccessfulBidIds =
+        otherShortlistedSelections
+          .map((item) => Number(item.bid_id))
+          .filter(
+            (id) =>
+              id > 0 && !Number.isNaN(id)
+          )
+
+      if (unsuccessfulBidIds.length > 0) {
+        const { error: rejectOtherBidsError } =
+          await supabase
+            .from('bids')
+            .update({
+              bid_status: 'rejected',
+              updated_at: now,
+            })
+            .in(
+              'bid_id',
+              unsuccessfulBidIds
+            )
+
+        if (rejectOtherBidsError) {
+          throw new Error(
+            rejectOtherBidsError.message
+          )
+        }
+      }
+
+      const { error: updateOrderError } =
+        await supabase
+          .from('orders')
+          .update({
+            current_status: 'bid_accepted',
+            updated_at: now,
+          })
+          .eq('order_id', order.order_id)
+
+      if (updateOrderError) {
+        throw new Error(
+          updateOrderError.message
+        )
+      }
+
+      const existingOutcomeNotifications =
+        await getOutcomeNotificationRows(
+          order.order_id
+        )
+
+      const existingBidIds = new Set(
+        existingOutcomeNotifications.map(
+          (item) => Number(item.bid_id)
+        )
+      )
+
+      const notificationsToInsert =
+        otherShortlistedSelections
+          .filter(
+            (item) =>
+              !existingBidIds.has(
+                Number(item.bid_id)
+              )
+          )
+          .map((item) => ({
+            order_id: order.order_id,
+            bid_id: Number(item.bid_id),
+            supplier_id:
+              item.supplier_id || null,
+            notification_status: 'pending',
+            sent_at: null,
+            updated_at: now,
+          }))
+
+      if (
+        notificationsToInsert.length > 0
+      ) {
+        const {
+          error: insertOutcomeNotificationsError,
+        } = await supabase
+          .from('bid_outcome_notifications')
+          .insert(notificationsToInsert)
+
+        if (insertOutcomeNotificationsError) {
+          throw new Error(
+            insertOutcomeNotificationsError.message
+          )
+        }
+      }
+
+      const refreshedOrder =
+        await getOrderById(order.order_id)
+
+      awardPayload =
+        await getAwardWorkflowPayload(
+          refreshedOrder || {
+            ...order,
+            current_status: 'bid_accepted',
+          }
+        )
+
+      return res.json({
+        ...awardPayload,
+        message:
+          notificationsToInsert.length > 0 ||
+          otherShortlistedSelections.length > 0
+            ? 'Supplier acceptance recorded. Unsuccessful supplier notifications are now pending.'
+            : 'Supplier acceptance recorded. Award completed because there are no other shortlisted suppliers to notify.',
+      })
+    } catch (error) {
+      console.error(
+        'RECORD SUPPLIER RESPONSE ERROR:',
+        error.message
+      )
+
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+      })
+    }
+  }
+)
+
+router.post(
+  '/bids/:orderId/outcome-notice-sent',
+  async (req, res) => {
+    try {
+      const order = await getOrderById(
+        req.params.orderId
+      )
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found',
+        })
+      }
+
+      let awardPayload =
+        await getAwardWorkflowPayload(order)
+
+      const workflowState = normalizeDbStatus(
+        awardPayload?.award_state
+          ?.award_workflow_state
+      )
+
+      if (
+        ![
+          'unsuccessful_supplier_notifications_pending',
+          'award_completed',
+        ].includes(workflowState)
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Unsuccessful supplier notifications can be marked sent only after the selected supplier has accepted.',
+          award_state: awardPayload?.award_state || null,
+        })
+      }
+
+      const notificationId = Number(
+        req.body?.notification_id || 0
+      )
+
+      const bidId = Number(
+        req.body?.bid_id || 0
+      )
+
+      if (
+        (!notificationId ||
+          Number.isNaN(notificationId)) &&
+        (!bidId || Number.isNaN(bidId))
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'notification_id or bid_id is required',
+        })
+      }
+
+      let query = supabase
+        .from('bid_outcome_notifications')
+        .select('*')
+        .eq('order_id', order.order_id)
+
+      if (
+        notificationId &&
+        !Number.isNaN(notificationId)
+      ) {
+        query = query.eq(
+          'notification_id',
+          notificationId
+        )
+      } else {
+        query = query.eq('bid_id', bidId)
+      }
+
+      const {
+        data: notification,
+        error: notificationError,
+      } = await query.maybeSingle()
+
+      if (notificationError) {
+        throw new Error(
+          notificationError.message
+        )
+      }
+
+      if (!notification) {
+        return res.status(404).json({
+          success: false,
+          error:
+            'The unsuccessful supplier notification was not found.',
+        })
+      }
+
+      if (
+        normalizeDbStatus(
+          notification.notification_status
+        ) !== 'sent'
+      ) {
+        const now = new Date().toISOString()
+
+        const { error: markSentError } =
+          await supabase
+            .from('bid_outcome_notifications')
+            .update({
+              notification_status: 'sent',
+              sent_at:
+                notification.sent_at || now,
+              updated_at: now,
+            })
+            .eq(
+              'notification_id',
+              notification.notification_id
+            )
+
+        if (markSentError) {
+          throw new Error(
+            markSentError.message
+          )
+        }
+      }
+
+      const refreshedOrder =
+        await getOrderById(order.order_id)
+
+      awardPayload =
+        await getAwardWorkflowPayload(
+          refreshedOrder || order
+        )
+
+      return res.json({
+        ...awardPayload,
+        message:
+          normalizeDbStatus(
+            awardPayload?.award_state
+              ?.award_workflow_state
+          ) === 'award_completed'
+            ? 'Supplier result marked as sent. Award workflow is complete.'
+            : 'Supplier result notification marked as sent.',
+      })
+    } catch (error) {
+      console.error(
+        'MARK OUTCOME NOTICE SENT ERROR:',
+        error.message
+      )
+
+      return res.status(500).json({
+        success: false,
+        error: error.message,
+      })
+    }
+  }
+)
 
 router.post('/bids/send-to-logistics', async (req, res) => {
   try {
