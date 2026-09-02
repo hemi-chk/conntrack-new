@@ -47,7 +47,7 @@ function Bidding() {
   const [awardState, setAwardState] = useState(null);
   const [awardStateByOrder, setAwardStateByOrder] = useState({});
   const [awardActionLoading, setAwardActionLoading] = useState(false);
-  const [shortlistDraftLoading, setShortlistDraftLoading] = useState(false);
+  const [savingShortlistBidId, setSavingShortlistBidId] = useState(null);
 
   // Timer form input state for opening/extending bidding time
   const [timerMode, setTimerMode] = useState("open");
@@ -275,7 +275,8 @@ function Bidding() {
         ...item,
         bidId: item.bid_id || item.bidId || null,
         responseStatus: normalizeWorkflowValue(
-          item.supplier_response ||
+          item.workflow_status ||
+            item.supplier_response ||
             item.response_status ||
             item.supplier_confirmation_status ||
             item.status ||
@@ -1267,9 +1268,8 @@ function Bidding() {
         setTimeLeft(0);
         setActiveTab("Closed");
 
-        // Logistics has selected a supplier, so refresh the order tables.
-        // The backend may also have advanced the order to bid_accepted.
-        fetchBiddingOrders();
+        // Logistics has selected a supplier.
+        // Keep polling silent so the full orders table does not reload.
       } else {
         setWinningBid(null);
       }
@@ -2464,6 +2464,7 @@ Thank you.`;
         await fetchBiddingStatus(
           selectedOrder
         );
+        await fetchAwardState(selectedOrder);
         await fetchBiddingOrders();
       } catch (error) {
         alert(
@@ -2475,7 +2476,7 @@ Thank you.`;
   // PERSISTENT SHORTLIST DRAFT BEFORE SENDING TO LOGISTICS
   // Every shortlist change is saved through the Operations API into Supabase.
   // React does not derive or persist the workflow state locally.
-  const saveShortlistDraft = async (nextBidIds) => {
+  const saveShortlistDraft = async (nextBidIds, bidIdBeingSaved) => {
     if (!selectedOrder) {
       alert("Please select an order first.");
       return false;
@@ -2489,7 +2490,7 @@ Thank you.`;
     }
 
     try {
-      setShortlistDraftLoading(true);
+      setSavingShortlistBidId(bidIdBeingSaved);
 
       const response = await fetch(
         `${API_BASE_URL}/api/operations/bids/${encodeURIComponent(
@@ -2526,16 +2527,17 @@ Thank you.`;
         );
       }
 
+      // Refresh only the selected order's persisted shortlist and award state.
+      // This keeps the workflow authoritative without reloading every order.
       await fetchShortlistStatus(selectedOrder);
       await fetchAwardState(selectedOrder);
-      await fetchBiddingOrders();
       return true;
     } catch (error) {
       console.error("Save shortlist draft error:", error);
       alert(error.message);
       return false;
     } finally {
-      setShortlistDraftLoading(false);
+      setSavingShortlistBidId(null);
     }
   };
 
@@ -2554,7 +2556,7 @@ Thank you.`;
       return;
     }
 
-    if (shortlistDraftLoading) {
+    if (savingShortlistBidId !== null) {
       return;
     }
 
@@ -2583,7 +2585,7 @@ Thank you.`;
       nextBidIds = [...shortlistedBidIds, bidId];
     }
 
-    await saveShortlistDraft(nextBidIds);
+    await saveShortlistDraft(nextBidIds, bidId);
   };
 
   const sendShortlistedToLogistics = async () => {
@@ -2927,7 +2929,13 @@ Thank you.`;
     ) || null;
 
   const wasSupplierDeclinedEarlier = (bid) =>
-    getAwardAttemptForBid(bid)?.responseStatus === "rejected";
+    [
+      "rejected",
+      "declined",
+      "supplier_rejected",
+    ].includes(
+      getAwardAttemptForBid(bid)?.responseStatus
+    );
 
   // Suppliers only become unsuccessful AFTER a supplier accepts.
   // Before acceptance, the remaining shortlisted suppliers stay available for
@@ -3864,6 +3872,17 @@ Thank you.`;
                 </>
               )}
 
+              {currentAwardWorkflowState === "bidding_closed_no_bids" &&
+                !isBiddingOpen &&
+                !sentToLogistics && (
+                  <button
+                    onClick={extendTimerPopup}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-[#052659] text-white hover:bg-[#5483B3] transition"
+                  >
+                    Extend Bidding Timer
+                  </button>
+                )}
+
               {!isBiddingFinalized &&
                 selectedOrderStatus === "open_for_bids" && (
                   <button
@@ -4394,7 +4413,7 @@ Thank you.`;
                                   onClick={() => toggleShortlist(bid.id)}
                                   disabled={
                                     isBiddingOpen ||
-                                    shortlistDraftLoading ||
+                                    savingShortlistBidId !== null ||
                                     bids.length === 0 ||
                                     (!isShortlisted &&
                                       shortlistedBidIds.length >=
@@ -4411,7 +4430,7 @@ Thank you.`;
                                       : "border border-[#1E40AF] text-[#1E40AF] hover:bg-[#EFF6FF]"
                                   }`}
                                 >
-                                  {shortlistDraftLoading
+                                  {Number(savingShortlistBidId) === Number(bid.id)
                                     ? "Saving..."
                                     : isBiddingOpen
                                     ? "Bidding Open"
@@ -4984,6 +5003,14 @@ function BiddingOrdersTable({
                       "award_completed",
                     ].includes(rowAwardState?.awardWorkflowState);
 
+                  const rowWorkflowState = normalizeStatus(
+                    rowAwardState?.awardWorkflowState
+                  );
+
+                  const rowPreviousSelectionDeclined =
+                    rowWorkflowState ===
+                    "alternate_supplier_selection_required";
+
                   return (
                     <tr
                       key={order.order_id || reference}
@@ -5057,12 +5084,16 @@ function BiddingOrdersTable({
                                 </span>
                                 <p
                                   className={`text-[11px] mt-0.5 font-medium ${
-                                    rowSupplierConfirmed
+                                    rowPreviousSelectionDeclined
+                                      ? "text-[#DC2626]"
+                                      : rowSupplierConfirmed
                                       ? "text-[#16A34A]"
                                       : "text-[#1E40AF]"
                                   }`}
                                 >
-                                  {rowSupplierConfirmed
+                                  {rowPreviousSelectionDeclined
+                                    ? "Previous Selection - Declined"
+                                    : rowSupplierConfirmed
                                     ? "Confirmed Supplier"
                                     : "Selected by Logistics"}
                                 </p>

@@ -15,6 +15,124 @@ const normalizeDbStatus = (value = '') =>
     .replaceAll(' ', '_')
     .replaceAll('-', '_')
 
+// Supported Sri Lankan container ports for the Operations import/export flow.
+// Import  = Port -> Inland/Warehouse
+// Export  = Inland/Warehouse -> Port
+const containerPortByDistrict = {
+  colombo_district: 'colombo_port',
+  galle_district: 'galle_port',
+  hambantota_district: 'hambantota_port',
+  trincomalee_district: 'trincomalee_port',
+  jaffna_district: 'kankesanthurai_port',
+  ampara_district: 'oluvil_port',
+}
+
+const containerPortLocations = new Set(
+  Object.values(containerPortByDistrict)
+)
+
+const isContainerPortLocation = (location) =>
+  containerPortLocations.has(
+    normalizeDbStatus(location)
+  )
+
+const isValidContainerPortEndpoint = (
+  district,
+  location
+) => {
+  const expectedPort =
+    containerPortByDistrict[
+      normalizeDbStatus(district)
+    ]
+
+  if (!expectedPort) {
+    return false
+  }
+
+  return (
+    expectedPort ===
+    normalizeDbStatus(location)
+  )
+}
+
+const validateOrderRoute = ({
+  orderType,
+  pickupDistrict,
+  pickupLocation,
+  destinationDistrict,
+  destinationLocation,
+}) => {
+  const normalizedOrderType =
+    normalizeDbStatus(orderType)
+
+  if (normalizedOrderType === 'import') {
+    if (
+      !isValidContainerPortEndpoint(
+        pickupDistrict,
+        pickupLocation
+      )
+    ) {
+      return {
+        valid: false,
+        error:
+          'Import pickup must be a supported Sri Lankan container port with the correct port district.',
+      }
+    }
+
+    if (
+      isContainerPortLocation(
+        destinationLocation
+      )
+    ) {
+      return {
+        valid: false,
+        error:
+          'Import destination must be an inland warehouse/location, not a container port.',
+      }
+    }
+
+    return {
+      valid: true,
+    }
+  }
+
+  if (normalizedOrderType === 'export') {
+    if (
+      isContainerPortLocation(
+        pickupLocation
+      )
+    ) {
+      return {
+        valid: false,
+        error:
+          'Export pickup must be an inland warehouse/location, not a container port.',
+      }
+    }
+
+    if (
+      !isValidContainerPortEndpoint(
+        destinationDistrict,
+        destinationLocation
+      )
+    ) {
+      return {
+        valid: false,
+        error:
+          'Export destination must be a supported Sri Lankan container port with the correct port district.',
+      }
+    }
+
+    return {
+      valid: true,
+    }
+  }
+
+  return {
+    valid: false,
+    error: 'Order type must be import or export',
+  }
+}
+
 const isValidUuid = (value) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     String(value || '')
@@ -371,8 +489,18 @@ const getOutcomeNotificationRows = async (orderId) => {
 
   return (data || []).sort(
     (a, b) =>
-      Number(a.notification_id || a.id || 0) -
-      Number(b.notification_id || b.id || 0)
+      Number(
+        a.outcome_notification_id ||
+          a.notification_id ||
+          a.id ||
+          0
+      ) -
+      Number(
+        b.outcome_notification_id ||
+          b.notification_id ||
+          b.id ||
+          0
+      )
   )
 }
 
@@ -460,7 +588,8 @@ const getAttemptResponseStatus = (attempt) => {
   }
 
   return normalizeDbStatus(
-    attempt.supplier_confirmation_status ||
+    attempt.workflow_status ||
+      attempt.supplier_confirmation_status ||
       attempt.supplier_response ||
       attempt.supplier_response_status ||
       attempt.response_status ||
@@ -498,7 +627,11 @@ const createAwardAttemptForSelection = async (
 
   if (
     existingAttempt &&
-    !['rejected', 'declined'].includes(existingResponse)
+    ![
+      'rejected',
+      'declined',
+      'supplier_rejected',
+    ].includes(existingResponse)
   ) {
     return existingAttempt
   }
@@ -512,11 +645,12 @@ const createAwardAttemptForSelection = async (
   }
 
   const attempts = await getAwardAttemptRows(order.order_id)
+
   const nextAttemptNumber =
     attempts.reduce((max, item) => {
       const value = Number(
-        item.attempt_number ||
-          item.attempt_no ||
+        item.attempt_no ||
+          item.attempt_number ||
           item.sequence_no ||
           0
       )
@@ -528,60 +662,31 @@ const createAwardAttemptForSelection = async (
 
   const now = new Date().toISOString()
 
-  const basePayload = {
-    order_id: order.order_id,
-    bid_id: Number(selection.bid_id),
-    supplier_id:
-      selection.supplier_id ||
-      bid.supplier_id ||
-      null,
+  const { data, error } = await supabase
+    .from('bid_award_attempts')
+    .insert([
+      {
+        order_id: order.order_id,
+        bid_id: Number(selection.bid_id),
+        supplier_id:
+          selection.supplier_id ||
+          bid.supplier_id ||
+          null,
+        attempt_no: nextAttemptNumber,
+        workflow_status:
+          'selected_supplier_notice_pending',
+        created_at: now,
+        updated_at: now,
+      },
+    ])
+    .select()
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
   }
 
-  const payloadCandidates = [
-    {
-      ...basePayload,
-      selection_id: selection.selection_id || null,
-      attempt_number: nextAttemptNumber,
-      selected_at: selection.selected_at || now,
-      created_at: now,
-      updated_at: now,
-    },
-    {
-      ...basePayload,
-      attempt_number: nextAttemptNumber,
-      selected_at: selection.selected_at || now,
-      created_at: now,
-      updated_at: now,
-    },
-    {
-      ...basePayload,
-      selected_at: selection.selected_at || now,
-    },
-    {
-      ...basePayload,
-    },
-  ]
-
-  let lastError = null
-
-  for (const payload of payloadCandidates) {
-    const { data, error } = await supabase
-      .from('bid_award_attempts')
-      .insert([payload])
-      .select()
-      .maybeSingle()
-
-    if (!error && data) {
-      return data
-    }
-
-    lastError = error
-  }
-
-  throw new Error(
-    lastError?.message ||
-      'Could not create the supplier award attempt.'
-  )
+  return data || null
 }
 
 const ensureAwardAttemptFromLogisticsSelection = async (order) => {
@@ -637,7 +742,11 @@ const getCurrentAwardAttempt = async (order, awardState = null) => {
   const activeAttempts = attempts.filter((attempt) => {
     const responseStatus = getAttemptResponseStatus(attempt)
 
-    return !['rejected', 'declined'].includes(responseStatus)
+    return ![
+      'rejected',
+      'declined',
+      'supplier_rejected',
+    ].includes(responseStatus)
   })
 
   return activeAttempts.length > 0
@@ -720,8 +829,7 @@ const getAwardWorkflowPayload = async (order) => {
   const sentToLogistics =
     selections.some(
       (item) => item.sent_to_logistics === true
-    ) ||
-    selections.length > 0
+    )
 
   const selectedSelection =
     getLogisticsSelectedSelection(selections)
@@ -1152,6 +1260,20 @@ router.post('/orders', async (req, res) => {
     ) {
       return res.status(400).json({
         error: 'Missing or invalid required order fields',
+      })
+    }
+
+    const routeValidation = validateOrderRoute({
+      orderType: normalizedOrderType,
+      pickupDistrict: pickup_district,
+      pickupLocation: pickup_location,
+      destinationDistrict: destination_district,
+      destinationLocation: destination_location,
+    })
+
+    if (!routeValidation.valid) {
+      return res.status(400).json({
+        error: routeValidation.error,
       })
     }
 
@@ -2194,8 +2316,7 @@ router.get('/bids/shortlist-status', async (req, res) => {
     const sentToLogistics =
       normalizedSelections.some(
         (item) => item.sent_to_logistics === true
-      ) ||
-      normalizedSelections.length > 0
+      )
 
     // IMPORTANT:
     // Logistics selecting a supplier does NOT mean the supplier has accepted.
@@ -2253,10 +2374,15 @@ router.get('/bids/shortlist-status', async (req, res) => {
       logistics_selection_made:
         authoritativeSelectedBidId > 0,
       decision_finalized:
-        normalizeDbStatus(
-          awardPayload?.award_state
-            ?.supplier_confirmation_status
-        ) === 'accepted',
+        [
+          'accepted',
+          'supplier_accepted',
+        ].includes(
+          normalizeDbStatus(
+            awardPayload?.award_state
+              ?.supplier_confirmation_status
+          )
+        ),
       award_workflow_state:
         awardPayload?.award_state
           ?.award_workflow_state ||
@@ -2465,6 +2591,8 @@ router.post(
           selected_supplier_notice_sent_at: now,
           notice_sent_at: now,
           notification_sent_at: now,
+          workflow_status:
+            'awaiting_supplier_response',
           updated_at: now,
         }
       )
@@ -2625,6 +2753,14 @@ router.post(
             response_at: now,
             supplier_responded_at: now,
             supplier_response_at: now,
+            workflow_status:
+              responseValue === 'accepted'
+                ? 'supplier_accepted'
+                : 'supplier_rejected',
+            response_note:
+              req.body?.note ||
+              req.body?.response_note ||
+              null,
             updated_at: now,
           }
         )
@@ -2777,8 +2913,68 @@ router.post(
 
         // IMPORTANT:
         // Do not move the order to bid_accepted.
-        // Do not create unsuccessful notifications.
-        // Logistics must select another shortlisted supplier.
+        // Do not create unsuccessful supplier notifications yet.
+        // The remaining shortlist is already with Logistics because
+        // sent_to_logistics remains true on those bid_selection rows.
+        // Notify Logistics that an alternate supplier must now be selected.
+
+        const {
+          data: existingAlternateNotifications,
+          error: existingAlternateNotificationError,
+        } = await supabase
+          .from('notifications')
+          .select('order_id, type, is_read')
+          .eq('order_id', order.order_id)
+          .eq('type', 'alternate_supplier_required')
+          .eq('is_read', false)
+
+        if (existingAlternateNotificationError) {
+          console.error(
+            'ALTERNATE SUPPLIER NOTIFICATION LOOKUP ERROR:',
+            existingAlternateNotificationError.message
+          )
+        }
+
+        if (
+          !existingAlternateNotificationError &&
+          (existingAlternateNotifications || []).length === 0
+        ) {
+          const { error: alternateNotificationError } =
+            await supabase
+              .from('notifications')
+              .insert([
+                {
+                  order_id: order.order_id,
+                  message: `Selected supplier declined order ${order.order_reference}. Please select an alternate supplier from the remaining shortlisted bids.`,
+                  type: 'alternate_supplier_required',
+                  is_read: false,
+                  created_at: now,
+                },
+              ])
+
+          if (alternateNotificationError) {
+            console.error(
+              'ALTERNATE SUPPLIER NOTIFICATION ERROR:',
+              alternateNotificationError.message
+            )
+          }
+        }
+
+        try {
+          await publish('order.bidding.alternate_supplier_required', {
+            order_id: order.order_id,
+            order_reference: order.order_reference,
+            rejected_bid_id: selectedBidId,
+            rejected_supplier_id:
+              selectedSelection?.supplier_id || null,
+            remaining_bid_ids: remainingBidIds,
+          })
+        } catch (publishError) {
+          console.error(
+            'ALTERNATE SUPPLIER EVENT PUBLISH ERROR:',
+            publishError.message
+          )
+        }
 
         awardPayload =
           await getAwardWorkflowPayload(order)
@@ -2786,7 +2982,7 @@ router.post(
         return res.json({
           ...awardPayload,
           message:
-            'Supplier rejection recorded. Logistics must select an alternate shortlisted supplier.',
+            'Supplier rejection recorded. Logistics has been notified to select an alternate shortlisted supplier.',
         })
       }
 
@@ -3055,7 +3251,7 @@ router.post(
         !Number.isNaN(notificationId)
       ) {
         query = query.eq(
-          'notification_id',
+          'outcome_notification_id',
           notificationId
         )
       } else {
@@ -3098,8 +3294,9 @@ router.post(
               updated_at: now,
             })
             .eq(
-              'notification_id',
-              notification.notification_id
+              'outcome_notification_id',
+              notification.outcome_notification_id ||
+                notification.notification_id
             )
 
         if (markSentError) {
@@ -3140,6 +3337,358 @@ router.post(
     }
   }
 )
+
+
+router.post('/bids/:orderId/shortlist-draft', async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId)
+
+    if (!orderId || Number.isNaN(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'A valid order ID is required',
+      })
+    }
+
+    const order = await getOrderById(orderId)
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      })
+    }
+
+    if (
+      req.body?.order_reference &&
+      String(req.body.order_reference).trim().toLowerCase() !==
+        String(order.order_reference || '').trim().toLowerCase()
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: 'Order reference does not match the requested order ID.',
+      })
+    }
+
+    if (
+      normalizeDbStatus(order.current_status) !==
+      'open_for_bids'
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'A shortlist draft can be edited only while the order is in Open for Bids stage.',
+      })
+    }
+
+    const { bid_ids } = req.body
+
+    if (!Array.isArray(bid_ids)) {
+      return res.status(400).json({
+        success: false,
+        error: 'bid_ids must be an array',
+      })
+    }
+
+    const convertedBidIds = bid_ids.map((id) => Number(id))
+
+    if (
+      convertedBidIds.some(
+        (id) => !id || Number.isNaN(id)
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'One or more Bid IDs are invalid',
+      })
+    }
+
+    const uniqueBidIds = [
+      ...new Set(convertedBidIds),
+    ]
+
+    if (
+      uniqueBidIds.length !== convertedBidIds.length
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Duplicate Bid IDs are not allowed',
+      })
+    }
+
+    if (uniqueBidIds.length > 5) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'You can shortlist a maximum of 5 suppliers.',
+      })
+    }
+
+    const sentShortlist =
+      await getSentShortlist(order.order_id)
+
+    if (sentShortlist.length > 0) {
+      return res.status(409).json({
+        success: false,
+        error:
+          'The shortlist has already been sent to Logistics and is locked.',
+      })
+    }
+
+    const { data: bidding, error: biddingError } =
+      await supabase
+        .from('bidding')
+        .select('bidding_id, status, end_time')
+        .eq('order_id', order.order_id)
+        .maybeSingle()
+
+    if (biddingError) {
+      return res.status(500).json({
+        success: false,
+        error: biddingError.message,
+      })
+    }
+
+    if (!bidding) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'No bidding session exists for this order.',
+      })
+    }
+
+    const biddingStillOpen =
+      normalizeDbStatus(bidding.status) === 'open' &&
+      (
+        !bidding.end_time ||
+        new Date(bidding.end_time).getTime() >
+          Date.now()
+      )
+
+    if (biddingStillOpen) {
+      return res.status(409).json({
+        success: false,
+        error:
+          'Bidding is still open. Close bidding before shortlisting suppliers.',
+      })
+    }
+
+    const { data: availableBids, error: availableBidsError } =
+      await supabase
+        .from('bids')
+        .select(
+          'bid_id, bidding_id, order_id, supplier_id, bid_status'
+        )
+        .eq('order_id', order.order_id)
+
+    if (availableBidsError) {
+      return res.status(500).json({
+        success: false,
+        error: availableBidsError.message,
+      })
+    }
+
+    const allOrderBids = availableBids || []
+    const totalAvailableBids = allOrderBids.length
+    const maximumAllowed = Math.min(
+      5,
+      totalAvailableBids
+    )
+
+    if (uniqueBidIds.length > maximumAllowed) {
+      return res.status(400).json({
+        success: false,
+        error: `You can shortlist a maximum of ${maximumAllowed} supplier${
+          maximumAllowed === 1 ? '' : 's'
+        } for this order.`,
+        maximum_shortlist_count: maximumAllowed,
+        total_available_bids: totalAvailableBids,
+      })
+    }
+
+    const requestedBidIdSet = new Set(
+      uniqueBidIds
+    )
+
+    const selectedBids = allOrderBids.filter(
+      (bid) =>
+        requestedBidIdSet.has(
+          Number(bid.bid_id)
+        )
+    )
+
+    if (
+      selectedBids.length !== uniqueBidIds.length
+    ) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'One or more selected bids do not belong to this order.',
+      })
+    }
+
+    const { data: existingDraftRows, error: existingDraftError } =
+      await supabase
+        .from('bid_selection')
+        .select(
+          'selection_id, bid_id, selection_status, sent_to_logistics, selected'
+        )
+        .eq('order_id', order.order_id)
+        .eq('sent_to_logistics', false)
+        .eq('selected', false)
+        .eq('selection_status', 'shortlisted')
+
+    if (existingDraftError) {
+      return res.status(500).json({
+        success: false,
+        error: existingDraftError.message,
+      })
+    }
+
+    const previousDraftBidIds = (
+      existingDraftRows || []
+    )
+      .map((item) => Number(item.bid_id))
+      .filter(
+        (id) => id > 0 && !Number.isNaN(id)
+      )
+
+    const { error: deleteDraftError } =
+      await supabase
+        .from('bid_selection')
+        .delete()
+        .eq('order_id', order.order_id)
+        .eq('sent_to_logistics', false)
+        .eq('selected', false)
+        .eq('selection_status', 'shortlisted')
+
+    if (deleteDraftError) {
+      return res.status(500).json({
+        success: false,
+        error: deleteDraftError.message,
+      })
+    }
+
+    const now = new Date().toISOString()
+
+    if (previousDraftBidIds.length > 0) {
+      const { error: resetPreviousBidError } =
+        await supabase
+          .from('bids')
+          .update({
+            bid_status: 'under_review',
+            updated_at: now,
+          })
+          .in('bid_id', previousDraftBidIds)
+
+      if (resetPreviousBidError) {
+        return res.status(500).json({
+          success: false,
+          error: resetPreviousBidError.message,
+        })
+      }
+    }
+
+    let insertedSelections = []
+
+    if (selectedBids.length > 0) {
+      const selectionRows = selectedBids.map(
+        (bid) => ({
+          bid_id: bid.bid_id,
+          bidding_id:
+            bid.bidding_id ||
+            bidding.bidding_id,
+          order_id: order.order_id,
+          supplier_id: bid.supplier_id,
+          selection_status: 'shortlisted',
+          sent_to_logistics: false,
+          selected: false,
+          selected_by: null,
+          reason: null,
+          selected_at: now,
+        })
+      )
+
+      const {
+        data: createdSelections,
+        error: insertDraftError,
+      } = await supabase
+        .from('bid_selection')
+        .insert(selectionRows)
+        .select()
+
+      if (insertDraftError) {
+        return res.status(500).json({
+          success: false,
+          error: insertDraftError.message,
+        })
+      }
+
+      insertedSelections =
+        createdSelections || []
+
+      const { error: updateDraftBidError } =
+        await supabase
+          .from('bids')
+          .update({
+            bid_status: 'shortlisted',
+            updated_at: now,
+          })
+          .eq('order_id', order.order_id)
+          .in('bid_id', uniqueBidIds)
+
+      if (updateDraftBidError) {
+        return res.status(500).json({
+          success: false,
+          error: updateDraftBidError.message,
+        })
+      }
+    }
+
+    let awardPayload = null
+
+    try {
+      awardPayload =
+        await getAwardWorkflowPayload(order)
+    } catch (awardStateError) {
+      console.error(
+        'SHORTLIST DRAFT AWARD STATE ERROR:',
+        awardStateError.message
+      )
+    }
+
+    return res.json({
+      success: true,
+      message:
+        uniqueBidIds.length > 0
+          ? `${uniqueBidIds.length} supplier${
+              uniqueBidIds.length === 1 ? '' : 's'
+            } saved in the shortlist draft.`
+          : 'Shortlist draft cleared.',
+      order_id: order.order_id,
+      order_reference: order.order_reference,
+      bid_ids: uniqueBidIds,
+      count: uniqueBidIds.length,
+      sent_to_logistics: false,
+      locked: false,
+      maximum_shortlist_count: maximumAllowed,
+      total_available_bids: totalAvailableBids,
+      selections: insertedSelections,
+      award_state:
+        awardPayload?.award_state || null,
+    })
+  } catch (error) {
+    console.error(
+      'SAVE SHORTLIST DRAFT ERROR:',
+      error.message
+    )
+
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+    })
+  }
+})
 
 router.post('/bids/send-to-logistics', async (req, res) => {
   try {
