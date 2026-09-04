@@ -1,6 +1,6 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-
+import { useTheme } from "../constants/theme";
 
 import ChangePassword from "../screens/ChangePassword";
 import Dashboard from "../screens/Dashboard";
@@ -19,12 +19,25 @@ import Support from "../screens/Support";
 import Tracking from "../screens/Tracking";
 import VehicleInfo from "../screens/VehicleInfo";
 
-
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
+  const { isDarkMode, theme: activeTheme } = useTheme();
+
+  const navigationTheme = {
+    ...(isDarkMode ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(isDarkMode ? DarkTheme.colors : DefaultTheme.colors),
+      background: activeTheme.colors.background,
+      card: activeTheme.colors.surface,
+      text: activeTheme.colors.text,
+      border: activeTheme.colors.border,
+      primary: activeTheme.colors.primary,
+    },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Intro" component={IntroScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -42,8 +55,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Language" component={Language} />
         <Stack.Screen name="History" component={History} />
         <Stack.Screen name="ChangePassword" component={ChangePassword} />
-
       </Stack.Navigator>
     </NavigationContainer>
   );
-}
+}

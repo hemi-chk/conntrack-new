@@ -1,6 +1,7 @@
+import { publish } from '@conntrack/messaging'
 import express from 'express'
 import { supabase } from '../config/supabase.js'
-import { publish } from '@conntrack/messaging'
+import { sendDriverPush } from '../services/push.service.js'
 
 const router = express.Router()
 
@@ -1039,7 +1040,7 @@ router.post('/orders/:orderId/assign-driver', async (req, res) => {
     const { data: order } = await supabase.from('orders').select('order_reference').eq('order_id', orderId).single()
 
     // Notify the driver (mobile app polls this)
-    await supabase.from('notifications').insert([{
+    const notification = {
       driver_id,
       order_id: Number(orderId),
       title: 'New Job Assigned',
@@ -1047,7 +1048,18 @@ router.post('/orders/:orderId/assign-driver', async (req, res) => {
       type: 'driver_assigned',
       is_read: false,
       created_at: new Date().toISOString(),
-    }])
+    }
+    const { error: notificationError } = await supabase.from('notifications').insert([notification])
+    if (notificationError) return res.status(500).json({ error: notificationError.message })
+
+    try {
+      await sendDriverPush(driver_id, notification.title, notification.message, {
+        type: notification.type,
+        orderId: Number(orderId),
+      })
+    } catch (pushError) {
+      console.error('Driver push registration or delivery failed:', pushError.message)
+    }
 
     // Mark vehicle as unavailable
     await supabase.from('vehicles').update({ availability_status: 'assigned' }).eq('vehicle_id', vehicle_id)

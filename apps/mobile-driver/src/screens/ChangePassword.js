@@ -6,12 +6,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { authFetch } from "../utils/authFetch";
 
 export default function ChangePassword({ route, navigation }) {
   const { user } = route.params || {};
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
 
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -20,6 +21,61 @@ export default function ChangePassword({ route, navigation }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    scrollContainer: {
+      paddingHorizontal: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.sm,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    description: {
+      marginBottom: activeTheme.spacing.xl,
+    },
+    form: {
+      flex: 1,
+    },
+    label: {
+      marginBottom: activeTheme.spacing.xs,
+    },
+    passwordInputContainer: {
+      position: "relative",
+      marginBottom: activeTheme.spacing.lg,
+    },
+    input: {
+      backgroundColor: activeTheme.colors.surface,
+      padding: activeTheme.spacing.md,
+      borderRadius: activeTheme.roundness.md,
+      color: activeTheme.colors.text,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+    },
+    passwordInput: {
+      paddingRight: 48,
+    },
+    showPasswordButton: {
+      position: "absolute",
+      right: activeTheme.spacing.md,
+      top: 0,
+      bottom: 0,
+      justifyContent: "center",
+      alignItems: "center",
+      width: 32,
+    },
+    button: {
+      marginTop: activeTheme.spacing.lg,
+    },
+  });
 
   const handleUpdate = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
@@ -73,7 +129,7 @@ export default function ChangePassword({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+              <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
             </TouchableOpacity>
             <Typography variant="h3" style={styles.headerTitle}>
               {t("change_password")}
@@ -93,7 +149,7 @@ export default function ChangePassword({ route, navigation }) {
                 onChangeText={setOldPassword}
                 style={[styles.input, styles.passwordInput]}
                 placeholder="••••••••"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={activeTheme.colors.textMuted}
               />
               <TouchableOpacity
                 style={styles.showPasswordButton}
@@ -103,7 +159,7 @@ export default function ChangePassword({ route, navigation }) {
                 <MaterialIcons
                   name={showOldPassword ? "visibility-off" : "visibility"}
                   size={22}
-                  color={theme.colors.textMuted}
+                  color={activeTheme.colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -116,7 +172,7 @@ export default function ChangePassword({ route, navigation }) {
                 onChangeText={setNewPassword}
                 style={[styles.input, styles.passwordInput]}
                 placeholder="••••••••"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={activeTheme.colors.textMuted}
               />
               <TouchableOpacity
                 style={styles.showPasswordButton}
@@ -126,7 +182,7 @@ export default function ChangePassword({ route, navigation }) {
                 <MaterialIcons
                   name={showNewPassword ? "visibility-off" : "visibility"}
                   size={22}
-                  color={theme.colors.textMuted}
+                  color={activeTheme.colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -139,7 +195,7 @@ export default function ChangePassword({ route, navigation }) {
                 onChangeText={setConfirmPassword}
                 style={[styles.input, styles.passwordInput]}
                 placeholder="••••••••"
-                placeholderTextColor={theme.colors.textMuted}
+                placeholderTextColor={activeTheme.colors.textMuted}
               />
               <TouchableOpacity
                 style={styles.showPasswordButton}
@@ -149,7 +205,7 @@ export default function ChangePassword({ route, navigation }) {
                 <MaterialIcons
                   name={showConfirmPassword ? "visibility-off" : "visibility"}
                   size={22}
-                  color={theme.colors.textMuted}
+                  color={activeTheme.colors.textMuted}
                 />
               </TouchableOpacity>
             </View>
@@ -167,57 +223,3 @@ export default function ChangePassword({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  description: {
-    marginBottom: theme.spacing.xl,
-  },
-  form: {
-    flex: 1,
-  },
-  label: {
-    marginBottom: theme.spacing.xs,
-  },
-  passwordInputContainer: {
-    position: "relative",
-    marginBottom: theme.spacing.lg,
-  },
-  input: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
-    color: theme.colors.text,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  passwordInput: {
-    paddingRight: 48,
-  },
-  showPasswordButton: {
-    position: "absolute",
-    right: theme.spacing.md,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-    width: 32,
-  },
-  button: {
-    marginTop: theme.spacing.lg,
-  },
-});

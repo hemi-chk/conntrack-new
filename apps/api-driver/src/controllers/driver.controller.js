@@ -1,7 +1,7 @@
 const supabase = require('../config/supabase');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const { Expo } = require('expo-server-sdk');
 const DRIVER_STATUS_TO_OPERATION_STATUS = {
     assigned: 'driver_assigned',
     started: 'driver_assigned',
@@ -13,7 +13,6 @@ const DRIVER_STATUS_TO_OPERATION_STATUS = {
     delivered: 'completed',
     completed: 'completed'
 };
-
 const getTrackingStatus = (status) => {
     const normalizedStatus = String(status || '').trim().toLowerCase();
     return DRIVER_STATUS_TO_OPERATION_STATUS[normalizedStatus] || null;
@@ -285,10 +284,7 @@ exports.changePassword = async (req, res) => {
                 updated_at: new Date()
             })
             .eq('driver_id', driverId);
-
         if (updateError) throw updateError;
-
-        res.status(200).json({ success: true, message: 'Password updated successfully' });
     } catch (error) {
         console.error('Change Password Error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -613,6 +609,69 @@ exports.getDriverIssues = async (req, res) => {
     }
 };
 
+exports.getDriverNotifications = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select(`
+                id,
+                driver_id,
+                order_id,
+                title,
+                message,
+                type,
+                is_read,
+                created_at,
+                orders (order_reference)
+            `)
+            .eq('driver_id', req.driver.driver_id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        res.status(200).json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('Fetch Driver Notifications Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+    }
+};
+
+exports.registerPushToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token || !Expo.isExpoPushToken(token)) {
+            return res.status(400).json({ success: false, message: 'Invalid Expo push token' });
+        }
+
+        const { error } = await supabase
+            .from('drivers')
+            .update({ expo_push_token: token, updated_at: new Date() })
+            .eq('driver_id', req.driver.driver_id);
+
+        if (error) throw error;
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Register Push Token Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to register notifications' });
+    }
+};
+
+exports.clearPushToken = async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('drivers')
+            .update({ expo_push_token: null, updated_at: new Date() })
+            .eq('driver_id', req.driver.driver_id);
+
+        if (error) throw error;
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Clear Push Token Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to clear notifications' });
+    }
+};
+
 /**
  * 11. Report a New Issue
  */
@@ -631,15 +690,30 @@ exports.reportIssue = async (req, res) => {
             });
         }
 
-        let resolvedOrderId = orderId ? parseInt(orderId) : null;
-        let resolvedSupplierId = supplierId ? parseInt(supplierId) : null;
+        const toIntegerOrNull = (value) => {
+            if (value === null || value === undefined || value === '') return null;
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) ? parsed : null;
+        };
 
-        if ((!resolvedOrderId || !resolvedSupplierId) && assignmentId) {
+        let resolvedOrderId = toIntegerOrNull(orderId);
+        let resolvedSupplierId = toIntegerOrNull(supplierId);
+        const resolvedAssignmentId = toIntegerOrNull(assignmentId);
+        const resolvedDriverId = toIntegerOrNull(driverId);
+
+        if (!resolvedDriverId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Could not identify the logged-in driver'
+            });
+        }
+
+        if ((!resolvedOrderId || !resolvedSupplierId) && resolvedAssignmentId && resolvedDriverId) {
             const { data: assignment, error: assignmentError } = await supabase
                 .from('order_assignments')
                 .select('order_id, orders (supplier_id)')
-                .eq('assignment_id', parseInt(assignmentId))
-                .eq('driver_id', parseInt(driverId))
+                .eq('assignment_id', resolvedAssignmentId)
+                .eq('driver_id', resolvedDriverId)
                 .maybeSingle();
 
             if (assignmentError) throw assignmentError;
@@ -647,12 +721,12 @@ exports.reportIssue = async (req, res) => {
             resolvedSupplierId = resolvedSupplierId || assignment?.orders?.supplier_id || null;
         }
 
-        if (!resolvedOrderId) {
+        if (!resolvedOrderId && resolvedDriverId) {
             const { data: activeAssignment, error: activeAssignmentError } = await supabase
                 .from('order_assignments')
                 .select('order_id, orders (supplier_id)')
-                .eq('driver_id', parseInt(driverId))
-                .not('status', 'in', '(completed,delivered)')
+            .eq('driver_id', resolvedDriverId)
+            .not('status', 'in', '(completed,delivered)')
                 .order('assigned_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -665,12 +739,12 @@ exports.reportIssue = async (req, res) => {
         const { data, error } = await supabase
             .from('issues')
             .insert([{
-                driver_id: parseInt(driverId),
+                driver_id: resolvedDriverId,
                 order_id: resolvedOrderId,
                 supplier_id: resolvedSupplierId,
                 reported_by: null,
                 issue_type: issueType,
-                priority: priority || 'major',
+                priority: priority || 'medium',
                 description: description,
                 status: 'open',
                 created_at: new Date(),
@@ -687,7 +761,7 @@ exports.reportIssue = async (req, res) => {
         });
     } catch (error) {
         console.error('Report Issue Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to report issue' });
+        res.status(500).json({ success: false, message: `Failed to report issue: ${error.message}` });
     }
 };
 
@@ -955,3 +1029,4 @@ exports.getAssignedVehicle = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+

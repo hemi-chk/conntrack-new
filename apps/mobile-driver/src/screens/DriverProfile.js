@@ -8,11 +8,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     Image,
     ScrollView,
     StyleSheet,
@@ -25,11 +26,12 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function DriverProfile({ route, navigation }) {
   const { user } = route.params || {};
+  const { theme: activeTheme } = useTheme();
 
   const [isOnDuty, setIsOnDuty] = useState(user?.status === 'active');
   const [workStatus, setWorkStatus] = useState(user?.availability_status || 'Available');
@@ -39,6 +41,94 @@ export default function DriverProfile({ route, navigation }) {
   const [profileImage, setProfileImage] = useState(user?.profile_photo_url || null);
 
   const { t } = useTranslation();
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: activeTheme.spacing.lg,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    profileSection: {
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.lg,
+    },
+    profileImage: {
+      width: 90,
+      height: 90,
+      borderRadius: activeTheme.roundness.full,
+    },
+    profilePlaceholder: {
+      width: 90,
+      height: 90,
+      borderRadius: activeTheme.roundness.full,
+      backgroundColor: activeTheme.colors.primary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    imageWrapper: {
+      position: "relative",
+      borderRadius: activeTheme.roundness.full,
+      overflow: "hidden",
+    },
+    uploadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    driverName: {
+      marginTop: activeTheme.spacing.sm,
+    },
+    availabilityCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.lg,
+    },
+    availabilityRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: activeTheme.spacing.sm,
+      alignItems: "center",
+    },
+    workStatusCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.lg,
+      backgroundColor: activeTheme.colors.surface,
+    },
+    statusBadge: {
+      paddingHorizontal: activeTheme.spacing.md,
+      paddingVertical: 4,
+      borderRadius: activeTheme.roundness.full,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    menuCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      padding: 0, 
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: activeTheme.spacing.md,
+    },
+    menuItemBorder: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: activeTheme.colors.border,
+    },
+    menuLabel: {
+      marginLeft: activeTheme.spacing.md,
+      flex: 1,
+    },
+    logoutContainer: {
+      margin: activeTheme.spacing.lg,
+    }
+  });
 
   const handleToggleDutyStatus = async (newValue) => {
     try {
@@ -161,6 +251,23 @@ export default function DriverProfile({ route, navigation }) {
     }
   };
 
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("Dashboard", { user });
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [navigation, user]);
+
   const menuItems = [
     { icon: "person", label: t("edit_profile"), screen: "EditProfile" },
     { icon: "directions-car", label: t("vehicle_info"), screen: "VehicleInfo" },
@@ -174,8 +281,8 @@ export default function DriverProfile({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <TouchableOpacity onPress={handleBack}>
+            <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
           </TouchableOpacity>
 
           <Typography variant="h3" style={styles.headerTitle}>
@@ -193,7 +300,7 @@ export default function DriverProfile({ route, navigation }) {
               />
             ) : (
               <View style={styles.profilePlaceholder}>
-                <MaterialIcons name="person" size={50} color={theme.colors.surface} />
+                <MaterialIcons name="person" size={50} color={activeTheme.colors.surface} />
               </View>
             )}
             
@@ -230,7 +337,7 @@ export default function DriverProfile({ route, navigation }) {
               <Typography
                 variant="subtitle"
                 weight="semiBold"
-                style={{ color: isOnDuty ? theme.colors.success : theme.colors.error, marginBottom: 4 }}
+                style={{ color: isOnDuty ? activeTheme.colors.success : activeTheme.colors.error, marginBottom: 4 }}
               >
                 {isOnDuty ? "ON DUTY" : "OFF DUTY"}
               </Typography>
@@ -239,8 +346,8 @@ export default function DriverProfile({ route, navigation }) {
                 value={isOnDuty}
                 onValueChange={handleToggleDutyStatus}
                 disabled={isLoading}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.success}80` }}
-                thumbColor={isOnDuty ? theme.colors.success : theme.colors.surface}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.success}80` }}
+                thumbColor={isOnDuty ? activeTheme.colors.success : activeTheme.colors.surface}
               />
             </View>
           </View>
@@ -260,12 +367,12 @@ export default function DriverProfile({ route, navigation }) {
 
             <View style={[
               styles.statusBadge,
-              { backgroundColor: workStatus === 'Available' ? `${theme.colors.success}20` : `${theme.colors.warning}20` }
+              { backgroundColor: workStatus === 'Available' ? `${activeTheme.colors.success}20` : `${activeTheme.colors.warning}20` }
             ]}>
               <Typography
                 variant="caption"
                 weight="bold"
-                style={{ color: workStatus === 'Available' ? theme.colors.success : theme.colors.warning }}
+                style={{ color: workStatus === 'Available' ? activeTheme.colors.success : activeTheme.colors.warning }}
               >
                 {workStatus.toUpperCase()}
               </Typography>
@@ -284,13 +391,13 @@ export default function DriverProfile({ route, navigation }) {
                 index !== menuItems.length - 1 && styles.menuItemBorder
               ]}
             >
-              <MaterialIcons name={item.icon} size={22} color={theme.colors.primary} />
+              <MaterialIcons name={item.icon} size={22} color={activeTheme.colors.primary} />
 
               <Typography variant="body" style={styles.menuLabel}>
                 {item.label}
               </Typography>
 
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.textMuted} />
+              <MaterialIcons name="chevron-right" size={20} color={activeTheme.colors.textMuted} />
             </TouchableOpacity>
           ))}
         </Card>
@@ -312,96 +419,9 @@ export default function DriverProfile({ route, navigation }) {
           />
         </View>
 
-        <View style={{ height: theme.spacing.xl }} />
+        <View style={{ height: activeTheme.spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing.lg,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  profileSection: {
-    alignItems: "center",
-    marginBottom: theme.spacing.lg,
-  },
-  profileImage: {
-    width: 90,
-    height: 90,
-    borderRadius: theme.roundness.full,
-  },
-  profilePlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: theme.roundness.full,
-    backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  imageWrapper: {
-    position: "relative",
-    borderRadius: theme.roundness.full,
-    overflow: "hidden",
-  },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  driverName: {
-    marginTop: theme.spacing.sm,
-  },
-  availabilityCard: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-  },
-  availabilityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: theme.spacing.sm,
-    alignItems: "center",
-  },
-  workStatusCard: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 4,
-    borderRadius: theme.roundness.full,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  menuCard: {
-    marginHorizontal: theme.spacing.lg,
-    padding: 0, 
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing.md,
-  },
-  menuItemBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  menuLabel: {
-    marginLeft: theme.spacing.md,
-    flex: 1,
-  },
-  logoutContainer: {
-    margin: theme.spacing.lg,
-  }
-});

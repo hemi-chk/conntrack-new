@@ -1,5 +1,5 @@
-const bcrypt = require('bcrypt');
-const supabase = require('../src/config/supabase');
+import bcrypt from 'bcryptjs';
+import { supabase } from '../../../packages/api-core/src/supabase.js';
 
 async function resetDriverPassword() {
     const [, , target, temporaryPassword] = process.argv;

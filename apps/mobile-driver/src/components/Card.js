@@ -1,18 +1,41 @@
-import { StyleSheet, View } from "react-native";
-import { theme } from "../constants/theme";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { useTheme } from "../constants/theme";
 
-export const Card = ({ children, style, elevation = "md", ...props }) => {
-  return (
-    <View style={[styles.card, theme.shadows[elevation], style]} {...props}>
+export const Card = ({
+  children,
+  style,
+  elevation = "md",
+  bordered = true,
+  onPress,
+  activeOpacity = 0.85,
+  ...props
+}) => {
+  const { theme: activeTheme } = useTheme();
+  const shadowStyle = activeTheme.shadows[elevation] || activeTheme.shadows.md;
+
+  const styles = StyleSheet.create({
+    card: {
+      backgroundColor: activeTheme.colors.surface,
+      borderRadius: activeTheme.roundness.lg,
+      padding: activeTheme.spacing.md,
+      borderWidth: bordered ? 1 : 0,
+      borderColor: activeTheme.colors.border,
+    },
+  });
+
+  const cardContent = (
+    <View style={[styles.card, shadowStyle, style]} {...props}>
       {children}
     </View>
   );
-};
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.roundness.lg,
-    padding: theme.spacing.md,
-  },
-});
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={activeOpacity}>
+        {cardContent}
+      </TouchableOpacity>
+    );
+  }
+
+  return cardContent;
+};

@@ -7,9 +7,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 
 export default function MapScreen({ route, navigation }) {
+  const { theme: activeTheme } = useTheme();
   const activeMission = route?.params?.order || {};
   const orderData = activeMission.orders || {};
   const status = (activeMission.status || "").toLowerCase();
@@ -17,6 +18,68 @@ export default function MapScreen({ route, navigation }) {
 
   const mapRef = useRef(null);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    map: {
+      flex: 1,
+    },
+    markerContainer: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: activeTheme.colors.surface,
+      ...activeTheme.shadows.md,
+    },
+    markerDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    backButtonContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      padding: activeTheme.spacing.lg,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      ...activeTheme.shadows.md,
+    },
+    bottomCard: {
+      position: "absolute",
+      bottom: activeTheme.spacing.xl,
+      left: activeTheme.spacing.lg,
+      right: activeTheme.spacing.lg,
+      padding: activeTheme.spacing.lg,
+      backgroundColor: activeTheme.colors.surface,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    navButton: {
+      marginTop: activeTheme.spacing.md,
+      height: 48,
+      borderRadius: 12,
+    },
+    navButtonText: {
+      fontSize: 16,
+    }
+  });
 
   useEffect(() => {
     (async () => {
@@ -131,11 +194,6 @@ export default function MapScreen({ route, navigation }) {
 
   useEffect(() => {
     if (mapRef.current && order.pickup.latitude && order.drop.latitude) {
-      const stops = currentLocation
-        ? isHeadingToPickup
-          ? [currentLocation, order.pickup, order.drop]
-          : [currentLocation, order.drop]
-        : [order.pickup, order.drop];
       const timer = setTimeout(() => {
         mapRef.current.fitToCoordinates(
           [
@@ -203,13 +261,13 @@ export default function MapScreen({ route, navigation }) {
       >
         <Marker coordinate={order.pickup}>
           <View style={styles.markerContainer}>
-            <View style={[styles.markerDot, { backgroundColor: theme.colors.primary }]} />
+            <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.primary }]} />
           </View>
         </Marker>
 
         <Marker coordinate={order.drop}>
           <View style={styles.markerContainer}>
-            <View style={[styles.markerDot, { backgroundColor: theme.colors.accent }]} />
+            <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.accent }]} />
           </View>
         </Marker>
 
@@ -226,7 +284,7 @@ export default function MapScreen({ route, navigation }) {
           <Polyline
             coordinates={routeLegs.toDelivery}
             strokeWidth={5}
-            strokeColor={theme.colors.primary}
+            strokeColor={activeTheme.colors.primary}
             lineCap="round"
             lineJoin="round"
           />
@@ -238,7 +296,7 @@ export default function MapScreen({ route, navigation }) {
           style={styles.backButton}
           onPress={() => navigation?.goBack?.()}
         >
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -269,64 +327,4 @@ export default function MapScreen({ route, navigation }) {
       </Card>
     </View>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  map: {
-    flex: 1,
-  },
-  markerContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "white",
-    ...theme.shadows.md,
-  },
-  markerDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  backButtonContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    padding: theme.spacing.lg,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surface,
-    justifyContent: "center",
-    alignItems: "center",
-    ...theme.shadows.md,
-  },
-  bottomCard: {
-    position: "absolute",
-    bottom: theme.spacing.xl,
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
-    padding: theme.spacing.lg,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  navButton: {
-    marginTop: theme.spacing.md,
-    height: 48,
-    borderRadius: 12,
-  },
-  navButtonText: {
-    fontSize: 16,
-  }
-});
+}

@@ -6,11 +6,12 @@ import { useTranslation } from "react-i18next";
 import { Alert, Animated, Dimensions, Linking, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { useOrder } from "../context/OrderContext";
 import { authFetch } from "../utils/authFetch";
 
@@ -19,6 +20,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 export default function OrderDetails({ route: navRoute, navigation }) {
   const { orderStatus, setOrderStatus, registerTrackingMission } = useOrder();
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
   
   // Get real order data from Dashboard
   const activeMission = navRoute?.params?.order || {};
@@ -28,6 +30,215 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const sheetHeight = useRef(new Animated.Value(SCREEN_HEIGHT * 0.6)).current;
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    map: {
+      width: "100%",
+      height: "100%",
+    },
+    markerContainer: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2.5,
+      borderColor: activeTheme.colors.surface,
+      ...activeTheme.shadows.md,
+    },
+    markerDot: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+    },
+    header: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: activeTheme.spacing.lg,
+      paddingVertical: activeTheme.spacing.md,
+    },
+    circleButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+      ...activeTheme.shadows.md,
+    },
+    bottomSheet: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: activeTheme.colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: activeTheme.spacing.lg,
+      paddingBottom: 20,
+      ...activeTheme.shadows.lg,
+      overflow: "hidden",
+      borderTopWidth: 1,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: activeTheme.colors.border,
+    },
+    sheetHandleContainer: {
+      width: "100%",
+      paddingVertical: 12,
+      alignItems: "center",
+    },
+    sheetHandle: {
+      width: 44,
+      height: 4,
+      backgroundColor: activeTheme.colors.border,
+      borderRadius: 2,
+    },
+    orderSummary: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 4,
+      paddingBottom: 10,
+    },
+    etaContainer: {
+      alignItems: "flex-end",
+    },
+    divider: {
+      height: 1,
+      backgroundColor: activeTheme.colors.border,
+      marginVertical: 16,
+    },
+    routeBox: {
+      flexDirection: "row",
+      paddingLeft: 4,
+    },
+    routeIcons: {
+      alignItems: "center",
+      width: 24,
+    },
+    routeLine: {
+      width: 2,
+      height: 38,
+      backgroundColor: activeTheme.colors.border,
+      marginVertical: 4,
+    },
+    routeDetails: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    locationInfo: {
+      justifyContent: "center",
+    },
+    infoGrid: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: 24,
+    },
+    infoTile: {
+      width: "31%",
+      padding: 12,
+      alignItems: "center",
+      borderRadius: activeTheme.roundness.md,
+    },
+    footer: {
+      paddingTop: 12,
+      paddingBottom: 24,
+      paddingHorizontal: 20,
+      backgroundColor: activeTheme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: activeTheme.colors.border,
+    },
+    actionButton: {
+      borderRadius: activeTheme.roundness.md,
+      height: 54,
+    },
+    completedBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: `${activeTheme.colors.success}15`,
+      padding: 16,
+      borderRadius: activeTheme.roundness.md,
+      borderWidth: 1,
+      borderColor: `${activeTheme.colors.success}30`,
+    },
+    supportActions: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+      marginTop: 24,
+    },
+    supportButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: activeTheme.roundness.md,
+      backgroundColor: `${activeTheme.colors.primary}10`,
+    },
+    instructionsSection: {
+      marginTop: 24,
+    },
+    instructionsBanner: {
+      flexDirection: "row",
+      backgroundColor: `${activeTheme.colors.warning}12`,
+      borderRadius: activeTheme.roundness.md,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: `${activeTheme.colors.warning}30`,
+    },
+    instructionsAccent: {
+      width: 4,
+      backgroundColor: activeTheme.colors.warning,
+    },
+    instructionsBody: {
+      flex: 1,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
+    },
+    instructionsHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    instructionsIconBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: `${activeTheme.colors.warning}25`,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: 8,
+    },
+    floatingButtonsContainer: {
+      position: "absolute",
+      right: activeTheme.spacing.lg,
+      top: 120,
+      zIndex: 100,
+    },
+    floatingCircleButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+      ...activeTheme.shadows.md,
+    },
+  });
 
   useEffect(() => {
     Animated.spring(sheetHeight, {
@@ -142,17 +353,31 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     }
   }, [order.pickup.latitude, order.drop.latitude]);
 
+  const getStatusBadgeVariant = () => {
+    switch (orderStatus) {
+      case "assigned": return "secondary";
+      case "started": 
+      case "heading to pickup": return "secondary";
+      case "picked": 
+      case "picked up": return "warning";
+      case "transit": 
+      case "in transit": return "primary";
+      case "delivered": return "success";
+      default: return "secondary";
+    }
+  };
+
   const getStatusInfo = () => {
     switch (orderStatus) {
-      case "assigned": return { label: t("assigned"), color: theme.colors.secondary, icon: "assignment" };
+      case "assigned": return { label: t("assigned"), color: activeTheme.colors.secondary, icon: "assignment" };
       case "started": 
-      case "heading to pickup": return { label: t("heading_to_pickup"), color: theme.colors.secondary, icon: "directions-car" };
+      case "heading to pickup": return { label: t("heading_to_pickup"), color: activeTheme.colors.secondary, icon: "directions-car" };
       case "picked": 
-      case "picked up": return { label: t("picked_up"), color: theme.colors.warning, icon: "local-shipping" };
+      case "picked up": return { label: t("picked_up"), color: activeTheme.colors.warning, icon: "local-shipping" };
       case "transit": 
-      case "in transit": return { label: t("in_transit"), color: theme.colors.primary, icon: "navigation" };
-      case "delivered": return { label: t("delivered"), color: theme.colors.success, icon: "check-circle" };
-      default: return { label: t("unknown"), color: theme.colors.textMuted, icon: "help" };
+      case "in transit": return { label: t("in_transit"), color: activeTheme.colors.primary, icon: "navigation" };
+      case "delivered": return { label: t("delivered"), color: activeTheme.colors.success, icon: "check-circle" };
+      default: return { label: t("unknown"), color: activeTheme.colors.textMuted, icon: "help" };
     }
   };
 
@@ -179,10 +404,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
       });
   };
 
-  /**
-   * Syncs the mission stage with the backend database.
-   * Captures GPS location and reports it along with the new status.
-   */
   const syncStatusWithDb = async (nextStatus) => {
     const assignmentId = activeMission.assignment_id || activeMission.id;
     const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
@@ -225,7 +446,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
         console.warn("Could not retrieve GPS coordinates:", err);
       }
 
-      // Send to backend
       const response = await authFetch(`${API_BASE_URL}/api/driver/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,7 +464,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
         setOrderStatus(nextStatus);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
-        // 🚀 Automatically navigate to Tracking stage after update
         navigation.navigate("Tracking", { 
           order: { ...activeMission, status: nextStatus } 
         });
@@ -275,38 +494,36 @@ export default function OrderDetails({ route: navRoute, navigation }) {
       >
         <Marker coordinate={order.pickup}>
           <View style={styles.markerContainer}>
-            <View style={[styles.markerDot, { backgroundColor: theme.colors.primary }]} />
+            <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.primary }]} />
           </View>
         </Marker>
 
         <Marker coordinate={order.drop}>
           <View style={styles.markerContainer}>
-            <View style={[styles.markerDot, { backgroundColor: theme.colors.accent }]} />
+            <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.accent }]} />
           </View>
         </Marker>
 
         <Polyline
           coordinates={route}
           strokeWidth={5}
-          strokeColor={theme.colors.primary}
+          strokeColor={activeTheme.colors.primary}
           lineDashPattern={[0]}
         />
       </MapView>
 
       {/* FLOATING ACTION BUTTONS */}
       <View style={styles.floatingButtonsContainer}>
-        {/* Fullscreen Map Button */}
         <TouchableOpacity
           style={styles.floatingCircleButton}
           activeOpacity={0.8}
           onPress={() => navigation.navigate("Map", { order: activeMission })}
         >
-          <MaterialIcons name="fullscreen" size={24} color={theme.colors.text} />
+          <MaterialIcons name="fullscreen" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
 
-        {/* Open the in-app route view */}
         <TouchableOpacity
-          style={[styles.floatingCircleButton, { marginTop: 12, backgroundColor: theme.colors.primary }]}
+          style={[styles.floatingCircleButton, { marginTop: 12, backgroundColor: activeTheme.colors.primary, borderColor: activeTheme.colors.primary }]}
           activeOpacity={0.8}
           onPress={handleOpenNavigation}
         >
@@ -320,16 +537,17 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           style={styles.circleButton}
           onPress={() => navigation?.goBack?.()}
         >
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
 
-        <View style={styles.headerStatus}>
-          <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
-          <Typography variant="caption" weight="bold">{statusInfo.label}</Typography>
-        </View>
+        <Badge
+          label={statusInfo.label}
+          variant={getStatusBadgeVariant()}
+          showDot={true}
+        />
 
         <TouchableOpacity style={styles.circleButton}>
-          <MaterialIcons name="more-vert" size={24} color={theme.colors.text} />
+          <MaterialIcons name="more-vert" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -341,7 +559,6 @@ export default function OrderDetails({ route: navRoute, navigation }) {
         <TouchableOpacity
           activeOpacity={1}
           onPress={() => {
-            console.log("Toggle Sheet:", !isExpanded);
             setIsExpanded(!isExpanded);
           }}
           style={styles.sheetHandleContainer}
@@ -372,16 +589,16 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               {/* ROUTE INFO */}
               <View style={styles.routeBox}>
                 <View style={styles.routeIcons}>
-                  <Ionicons name="location" size={20} color={theme.colors.primary} />
+                  <Ionicons name="location" size={20} color={activeTheme.colors.primary} />
                   <View style={styles.routeLine} />
-                  <Ionicons name="flag" size={20} color={theme.colors.accent} />
+                  <Ionicons name="flag" size={20} color={activeTheme.colors.accent} />
                 </View>
                 <View style={styles.routeDetails}>
                   <View style={styles.locationInfo}>
                     <Typography variant="body" weight="bold">{order.pickup.name}</Typography>
                     <Typography variant="tiny" color="textMuted">{order.pickup.address}</Typography>
                   </View>
-                  <View style={[styles.locationInfo, { marginTop: 20 }]}>
+                  <View style={[styles.locationInfo, { marginTop: 22 }]}>
                     <Typography variant="body" weight="bold">{order.drop.name}</Typography>
                     <Typography variant="tiny" color="textMuted">{order.drop.address}</Typography>
                   </View>
@@ -390,18 +607,18 @@ export default function OrderDetails({ route: navRoute, navigation }) {
 
               {/* INFO TILES */}
               <View style={styles.infoGrid}>
-                <Card style={styles.infoTile}>
-                  <MaterialIcons name="inventory" size={20} color={theme.colors.primary} />
+                <Card elevation="sm" style={styles.infoTile}>
+                  <MaterialIcons name="inventory" size={20} color={activeTheme.colors.primary} />
                   <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("type")}</Typography>
                   <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.type}</Typography>
                 </Card>
-                <Card style={styles.infoTile}>
-                  <MaterialIcons name="fitness-center" size={20} color={theme.colors.primary} />
+                <Card elevation="sm" style={styles.infoTile}>
+                  <MaterialIcons name="fitness-center" size={20} color={activeTheme.colors.primary} />
                   <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("weight")}</Typography>
                   <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.weight}</Typography>
                 </Card>
-                <Card style={styles.infoTile}>
-                  <MaterialIcons name="category" size={20} color={theme.colors.warning} />
+                <Card elevation="sm" style={styles.infoTile}>
+                  <MaterialIcons name="category" size={20} color={activeTheme.colors.warning} />
                   <Typography variant="tiny" weight="bold" style={{ marginTop: 4 }}>{t("cargo")}</Typography>
                   <Typography variant="tiny" color="textMuted" numberOfLines={1}>{order.cargoType}</Typography>
                 </Card>
@@ -415,13 +632,13 @@ export default function OrderDetails({ route: navRoute, navigation }) {
                     <View style={styles.instructionsBody}>
                       <View style={styles.instructionsHeader}>
                         <View style={styles.instructionsIconBadge}>
-                          <MaterialIcons name="priority-high" size={16} color="#D97706" />
+                          <MaterialIcons name="priority-high" size={16} color={activeTheme.colors.warning} />
                         </View>
-                        <Typography variant="caption" weight="bold" style={{ color: "#92400E" }}>
+                        <Typography variant="caption" weight="bold" style={{ color: activeTheme.colors.warning }}>
                           {t("special_instructions", "Special Instructions")}
                         </Typography>
                       </View>
-                      <Typography variant="caption" style={{ color: "#78350F", lineHeight: 20, marginTop: 6 }}>
+                      <Typography variant="caption" style={{ color: activeTheme.colors.text, lineHeight: 20, marginTop: 6 }}>
                         {order.instructions}
                       </Typography>
                     </View>
@@ -432,17 +649,21 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               <View style={styles.supportActions}>
                 <TouchableOpacity
                   style={styles.supportButton}
-                  onPress={() => navigation.navigate("Support", { order: activeMission })}
+                  onPress={() => navigation.navigate("Support", { order: activeMission, user: navRoute?.params?.user })}
                 >
-                  <MaterialIcons name="call" size={20} color={theme.colors.primary} />
-                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("call_help")}</Typography>
+                  <MaterialIcons name="call" size={20} color={activeTheme.colors.primary} />
+                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 6, color: activeTheme.colors.primary }}>
+                    {t("call_help")}
+                  </Typography>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.supportButton}
-                  onPress={() => navigation.navigate("Support", { order: activeMission })}
+                  onPress={() => navigation.navigate("Support", { order: activeMission, user: navRoute?.params?.user })}
                 >
-                  <MaterialIcons name="message" size={20} color={theme.colors.primary} />
-                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 4 }}>{t("messages")}</Typography>
+                  <MaterialIcons name="message" size={20} color={activeTheme.colors.primary} />
+                  <Typography variant="caption" weight="semiBold" style={{ marginLeft: 6, color: activeTheme.colors.primary }}>
+                    {t("messages")}
+                  </Typography>
                 </TouchableOpacity>
               </View>
             </>
@@ -454,6 +675,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           {(!orderStatus || orderStatus === "assigned" || orderStatus === "Assigned") ? (
             <Button
               title={t("start_trip")}
+              icon="play-arrow"
               onPress={() => syncStatusWithDb("started")}
               loading={isUpdating}
               style={styles.actionButton}
@@ -461,35 +683,41 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           ) : (orderStatus === "started" || orderStatus === "heading to pickup") ? (
             <Button
               title={t("arrived_at_pickup")}
+              icon="local-shipping"
+              variant="secondary"
               onPress={() => syncStatusWithDb("picked")}
               loading={isUpdating}
-              style={[styles.actionButton, { backgroundColor: theme.colors.secondary }]}
+              style={styles.actionButton}
             />
           ) : (orderStatus === "picked" || orderStatus === "picked up") ? (
             <Button
               title={t("start_delivery")}
+              icon="navigation"
               onPress={() => syncStatusWithDb("transit")}
               loading={isUpdating}
-              style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+              style={styles.actionButton}
             />
           ) : (orderStatus === "transit" || orderStatus === "in transit") ? (
             <>
               <Button
                 title={t("start_trip")}
+                icon="play-arrow"
                 onPress={() => syncStatusWithDb("started")}
                 loading={isUpdating}
                 style={styles.actionButton}
               />
               <Button
                 title={t("mark_delivered")}
+                icon="check-circle"
+                variant="success"
                 onPress={() => syncStatusWithDb("delivered")}
                 loading={isUpdating}
-                style={[styles.actionButton, { backgroundColor: theme.colors.success, marginTop: theme.spacing.sm }]}
+                style={[styles.actionButton, { marginTop: activeTheme.spacing.sm }]}
               />
             </>
           ) : orderStatus === "delivered" ? (
             <View style={styles.completedBox}>
-              <MaterialIcons name="check-circle" size={24} color={theme.colors.success} />
+              <MaterialIcons name="check-circle" size={24} color={activeTheme.colors.success} />
               <Typography variant="body" weight="bold" color="success" style={{ marginLeft: 8 }}>
                 {t("mission_completed_success")}
               </Typography>
@@ -497,6 +725,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           ) : (
             <Button
               title={t("start_trip")}
+              icon="play-arrow"
               onPress={() => syncStatusWithDb("started")}
               loading={isUpdating}
               style={styles.actionButton}
@@ -507,212 +736,3 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  map: {
-    width: "100%",
-    height: "100%",
-  },
-  markerContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "white",
-    ...theme.shadows.md,
-  },
-  markerDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-  },
-  circleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    ...theme.shadows.md,
-  },
-  headerStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    ...theme.shadows.sm,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
-  },
-  bottomSheet: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: 20,
-    ...theme.shadows.lg,
-    overflow: "hidden",
-  },
-  sheetHandleContainer: {
-    width: "100%",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: theme.colors.border,
-    borderRadius: 2,
-  },
-  orderSummary: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 4,
-    paddingBottom: 10,
-  },
-  etaContainer: {
-    alignItems: "flex-end",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.border,
-    marginVertical: 16,
-  },
-  routeBox: {
-    flexDirection: "row",
-    paddingLeft: 4,
-  },
-  routeIcons: {
-    alignItems: "center",
-    width: 24,
-  },
-  routeLine: {
-    width: 2,
-    height: 35,
-    backgroundColor: theme.colors.border,
-    marginVertical: 4,
-  },
-  routeDetails: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationInfo: {
-    justifyContent: "center",
-  },
-  infoGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 24,
-  },
-  infoTile: {
-    width: "31%",
-    padding: 12,
-    alignItems: "center",
-    borderRadius: 16,
-    backgroundColor: theme.colors.background,
-  },
-  footer: {
-    paddingTop: 12,
-    paddingBottom: 24,
-    paddingHorizontal: 20,
-    backgroundColor: "white",
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  actionButton: {
-    borderRadius: 16,
-    height: 56,
-  },
-  completedBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${theme.colors.success}15`,
-    padding: 16,
-    borderRadius: 16,
-  },
-  supportActions: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 24,
-  },
-  supportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  instructionsSection: {
-    marginTop: 24,
-  },
-  instructionsBanner: {
-    flexDirection: "row",
-    backgroundColor: "#FFFBEB",
-    borderRadius: 14,
-    overflow: "hidden",
-  },
-  instructionsAccent: {
-    width: 4,
-    backgroundColor: "#F59E0B",
-  },
-  instructionsBody: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-  },
-  instructionsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  instructionsIconBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#FEF3C7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 8,
-  },
-  floatingButtonsContainer: {
-    position: "absolute",
-    right: theme.spacing.lg,
-    top: 120,
-    zIndex: 100,
-  },
-  floatingCircleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    ...theme.shadows.md,
-  },
-});
