@@ -3,11 +3,11 @@ import {
     ArrowUpFromLine,
     BarChart3,
     CalendarDays,
+    Download,
     FileBarChart,
     Loader2,
     PackageCheck,
     PieChart as PieIcon,
-    Printer,
     Truck
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -97,6 +97,8 @@ export default function Reports() {
     });
 
     const [loading, setLoading] = useState(true);
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfError, setPdfError] = useState("");
 
     const [fromDate, setFromDate] = useState("2026-01-01");
     const [toDate, setToDate] = useState("2026-12-31");
@@ -138,8 +140,132 @@ export default function Reports() {
         }
     }
 
-    const handlePrint = () => {
-        window.print();
+    const handleDownloadPdf = async () => {
+        setPdfLoading(true);
+        setPdfError("");
+
+        try {
+            try {
+                const response = await api.get("/logistics/reports/pdf", {
+                    params: { fromDate, toDate },
+                    responseType: "blob",
+                });
+                const url = URL.createObjectURL(response.data);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `logistics-report-${fromDate}-to-${toDate}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                return;
+            } catch (err) {
+                if (err.response?.status !== 404) throw err;
+            }
+
+            const { jsPDF } = await import("jspdf");
+            const pdfDocument = new jsPDF();
+            const pageWidth = pdfDocument.internal.pageSize.getWidth();
+            const pageHeight = pdfDocument.internal.pageSize.getHeight();
+            const margin = 14;
+            let y = 18;
+
+            pdfDocument.setTextColor(18, 53, 91);
+            pdfDocument.setFontSize(18);
+            pdfDocument.setFont("helvetica", "bold");
+            pdfDocument.text("LOGISTICS OPERATIONS REPORT", margin, y);
+            y += 7;
+            pdfDocument.setTextColor(100, 116, 139);
+            pdfDocument.setFontSize(9);
+            pdfDocument.setFont("helvetica", "normal");
+            pdfDocument.text("ConnTrack Integrated Logistics System", margin, y);
+            y += 6;
+            pdfDocument.line(margin, y, pageWidth - margin, y);
+            y += 7;
+            pdfDocument.text(`Reporting period: ${fromDate} to ${toDate}`, margin, y);
+            y += 5;
+            pdfDocument.text(`Generated: ${new Date().toLocaleString()}`, margin, y);
+            y += 10;
+
+            const metrics = [
+                ["Total orders", stats.total],
+                ["Completed", stats.completedCount],
+                ["Imports", stats.imports],
+                ["Exports", stats.exports],
+            ];
+            const metricWidth = (pageWidth - margin * 2 - 9) / 4;
+            metrics.forEach(([label, value], index) => {
+                const x = margin + index * (metricWidth + 3);
+                pdfDocument.setFillColor(248, 250, 252);
+                pdfDocument.setDrawColor(226, 232, 240);
+                pdfDocument.roundedRect(x, y, metricWidth, 18, 2, 2, "FD");
+                pdfDocument.setTextColor(100, 116, 139);
+                pdfDocument.setFontSize(7);
+                pdfDocument.setFont("helvetica", "bold");
+                pdfDocument.text(label.toUpperCase(), x + 3, y + 6);
+                pdfDocument.setTextColor(18, 53, 91);
+                pdfDocument.setFontSize(13);
+                pdfDocument.text(String(value), x + 3, y + 14);
+            });
+            y += 28;
+
+            const drawTableHeader = () => {
+                pdfDocument.setFillColor(18, 53, 91);
+                pdfDocument.rect(margin, y, pageWidth - margin * 2, 8, "F");
+                pdfDocument.setTextColor(255, 255, 255);
+                pdfDocument.setFontSize(7);
+                pdfDocument.setFont("helvetica", "bold");
+                ["Order ID", "Customer", "Route", "Date", "Status"].forEach((label, index) => {
+                    pdfDocument.text(label, [margin + 3, margin + 25, margin + 68, margin + 145, margin + 170][index], y + 5);
+                });
+                y += 8;
+            };
+
+            pdfDocument.setTextColor(18, 53, 91);
+            pdfDocument.setFontSize(12);
+            pdfDocument.setFont("helvetica", "bold");
+            pdfDocument.text("Order Manifest", margin, y);
+            y += 5;
+            drawTableHeader();
+
+            orders.forEach((order, index) => {
+                if (y > pageHeight - 22) {
+                    pdfDocument.addPage();
+                    y = 18;
+                    drawTableHeader();
+                }
+
+                if (index % 2 === 0) {
+                    pdfDocument.setFillColor(248, 250, 252);
+                    pdfDocument.rect(margin, y, pageWidth - margin * 2, 8, "F");
+                }
+
+                const route = order.route || `${order.pickup_location || order.pickup_district || "N/A"} -> ${order.destination_location || order.destination_district || "N/A"}`;
+                const values = [
+                    `#${String(order.order_id).padStart(5, "0")}`,
+                    order.customer_name || "Unknown Customer",
+                    route,
+                    order.created_at ? new Date(order.created_at).toLocaleDateString() : "N/A",
+                    (order.current_status || "created").replace(/_/g, " "),
+                ];
+                pdfDocument.setTextColor(30, 41, 59);
+                pdfDocument.setFontSize(7);
+                pdfDocument.setFont("helvetica", "normal");
+                values.forEach((value, valueIndex) => {
+                    const x = [margin + 3, margin + 25, margin + 68, margin + 145, margin + 170][valueIndex];
+                    const width = [20, 40, 74, 22, 25][valueIndex];
+                    pdfDocument.text(pdfDocument.splitTextToSize(String(value), width)[0], x, y + 5);
+                });
+                y += 8;
+            });
+
+            pdfDocument.save(`logistics-report-${fromDate}-to-${toDate}.pdf`);
+        } catch (err) {
+            console.error("Logistics PDF Error:", err);
+            setPdfError("Failed to download the logistics report PDF.");
+        } finally {
+            setPdfLoading(false);
+        }
     };
 
     /* =========================================================
@@ -508,14 +634,20 @@ export default function Reports() {
                             </div>
 
                             <Button
-                                onClick={handlePrint}
-                                className="h-11 px-5 bg-[#1E40AF] hover:bg-blue-700 rounded-xl font-bold"
+                                onClick={handleDownloadPdf}
+                                disabled={pdfLoading || loading}
+                                className="h-11 px-4 bg-emerald-700 hover:bg-emerald-800 rounded-xl font-bold"
                             >
-                                <Printer size={16} />
-                                Print Report
+                                <Download size={16} />
+                                {pdfLoading ? "Creating PDF..." : "Download PDF"}
                             </Button>
                         </div>
                     </div>
+                    {pdfError && (
+                        <p className="mt-3 text-right text-xs font-semibold text-red-600">
+                            {pdfError}
+                        </p>
+                    )}
                 </section>
 
                 {/* =================================================
@@ -590,11 +722,11 @@ export default function Reports() {
                     CHART GRID
                 ================================================= */}
 
-                <section className="chart-grid grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <section className="chart-grid grid min-w-0 grid-cols-1 lg:grid-cols-2 gap-5">
 
                     {/* STATUS CHART */}
 
-                    <div className="chart-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div className="chart-card min-w-0 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
 
                         <ChartHeader
                             icon={
@@ -617,6 +749,8 @@ export default function Reports() {
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
+                                    minWidth={0}
+                                    minHeight={0}
                                 >
                                     <BarChart
                                         data={statusChartData}
@@ -711,7 +845,7 @@ export default function Reports() {
 
                     {/* CARGO CHART */}
 
-                    <div className="chart-card bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div className="chart-card min-w-0 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
 
                         <ChartHeader
                             icon={
@@ -734,6 +868,8 @@ export default function Reports() {
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
+                                    minWidth={0}
+                                    minHeight={0}
                                 >
                                     <PieChart>
                                         <Pie
@@ -798,7 +934,7 @@ export default function Reports() {
 
                     {/* DESTINATION CHART */}
 
-                    <div className="chart-card destination-chart lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div className="chart-card destination-chart min-w-0 lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
 
                         <div className="flex items-start justify-between">
 
@@ -830,6 +966,8 @@ export default function Reports() {
                                 <ResponsiveContainer
                                     width="100%"
                                     height="100%"
+                                    minWidth={0}
+                                    minHeight={0}
                                 >
                                     <BarChart
                                         layout="vertical"

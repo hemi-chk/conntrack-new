@@ -5,6 +5,7 @@ import {
     clearNotifications,
     createIssue,
     deleteDocument,
+    downloadReportPdf,
     finalizeOrder,
     getAllIssues,
     getDashboardSummary,
@@ -64,6 +65,7 @@ const upload = multer({
 // These endpoints power the logistics landing page and reporting views.
 router.get("/dashboard-summary", getDashboardSummary);
 router.get("/reports", getFilteredReports);
+router.get("/reports/pdf", downloadReportPdf);
 router.get("/profile", getMyProfile);
 
 // =============================================

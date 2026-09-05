@@ -1,12 +1,12 @@
 import {
-  AlertCircle,
-  CheckCircle2,
-  CircleDollarSign,
-  Loader2,
-  ShieldCheck,
-  Star,
-  Trophy,
-  Truck,
+    AlertCircle,
+    CheckCircle2,
+    CircleDollarSign,
+    Loader2,
+    ShieldCheck,
+    Star,
+    Trophy,
+    Truck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -20,6 +20,8 @@ export default function BidsSection({
 }) {
   const [bids, setBids] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [finalized, setFinalized] = useState(false);
@@ -34,9 +36,11 @@ export default function BidsSection({
     const fetchShortlistedBids = async () => {
       try {
         setLoading(true);
+        setLoadError("");
 
         const res = await api.get(
-          `/logistics/orders/${orderId}/shortlisted-bids`
+          `/logistics/orders/${orderId}/shortlisted-bids`,
+          { timeout: 15000 }
         );
 
         const data = res.data || [];
@@ -54,12 +58,18 @@ export default function BidsSection({
         }
       } catch (error) {
         console.error("Failed to load shortlisted bids:", error);
+        const status = error.response?.status;
+        const message = error.response?.data?.message;
+        const description = error.code === "ECONNABORTED"
+          ? "The bids service took too long to respond."
+          : message || `The bids service returned ${status || "an error"}.`;
+
+        setLoadError(description);
 
         toast({
           variant: "destructive",
           title: "Unable to load bids",
-          description:
-            "Something went wrong while loading the shortlisted carriers.",
+          description,
         });
       } finally {
         setLoading(false);
@@ -69,7 +79,7 @@ export default function BidsSection({
     if (orderId) {
       fetchShortlistedBids();
     }
-  }, [orderId, toast]);
+  }, [orderId, retryCount, toast]);
 
   // =====================================================
   // SELECT BID
@@ -173,6 +183,29 @@ export default function BidsSection({
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100">
+          <AlertCircle size={24} className="text-red-600" />
+        </div>
+        <h3 className="mt-4 text-sm font-extrabold text-red-800">
+          Unable to load shortlisted bids
+        </h3>
+        <p className="mx-auto mt-2 max-w-md text-xs font-medium text-red-700">
+          {loadError}
+        </p>
+        <Button
+          type="button"
+          onClick={() => setRetryCount((count) => count + 1)}
+          className="mt-5 h-9 rounded-lg bg-red-700 px-4 text-xs font-bold text-white hover:bg-red-800"
+        >
+          Retry
+        </Button>
       </div>
     );
   }
