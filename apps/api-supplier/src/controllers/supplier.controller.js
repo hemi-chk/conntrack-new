@@ -15,21 +15,25 @@ const uploadToStorage = async (bucket, folder, file) => {
 }
 
 // --- Dashboard Stats ---
+// req.supplierId is resolved server-side from the verified token by
+// resolveSupplierId middleware - never trust a client-supplied id here.
 
 export const getDashboardStats = async (req, res) => {
   try {
-    // Aggregating counts from different tables
     const { count: totalDrivers } = await supabase
       .from('drivers')
       .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', req.supplierId)
 
     const { count: totalVehicles } = await supabase
       .from('vehicles')
       .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', req.supplierId)
 
     const { count: bidsSubmitted } = await supabase
       .from('bids')
       .select('*', { count: 'exact', head: true })
+      .eq('supplier_id', req.supplierId)
 
     res.json({
       activeJobs: 0,
@@ -47,29 +51,27 @@ export const getDashboardStats = async (req, res) => {
 
 // --- Main Supplier Data ---
 
-// GET /api/supplier/:id - Fetch a single supplier profile
+// GET /api/supplier/profile - Fetch the caller's own supplier profile
 export const getSupplierProfile = async (req, res) => {
   try {
-    const { id } = req.params
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
-      .eq('supplier_id', id)
+      .eq('supplier_id', req.supplierId)
       .maybeSingle() // Use maybeSingle to avoid error on zero results
-    
+
     if (error) throw error
-    if (!data) return res.status(404).json({ error: `Supplier profile with ID ${id} not found` })
-    
+    if (!data) return res.status(404).json({ error: 'Supplier profile not found' })
+
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
 }
 
-// PATCH /api/supplier/:id/logo - Upload/replace supplier logo
+// PATCH /api/supplier/profile/logo - Upload/replace the caller's own logo
 export const updateSupplierLogo = async (req, res) => {
   try {
-    const { id } = req.params
     if (!req.file) return res.status(400).json({ error: 'No logo file uploaded' })
 
     const supplier_logo = await uploadToStorage('supplier-logos', 'logos', req.file)
@@ -77,7 +79,7 @@ export const updateSupplierLogo = async (req, res) => {
     const { data, error } = await supabase
       .from('suppliers')
       .update({ supplier_logo })
-      .eq('supplier_id', id)
+      .eq('supplier_id', req.supplierId)
       .select()
 
     if (error) throw error
@@ -90,12 +92,13 @@ export const updateSupplierLogo = async (req, res) => {
 }
 
 // GET /api/supplier/ - Fetch all supplier data
+
 export const getSupplierData = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
-    
+
     if (error) throw error
     res.json(data)
   } catch (error) {
@@ -106,13 +109,13 @@ export const getSupplierData = async (req, res) => {
 // POST /api/supplier/ - Create a new supplier record
 export const createSupplierRecord = async (req, res) => {
   try {
-    const { 
-      supplier_name, 
-      registration_number, 
-      contact_person, 
-      contact_number, 
-      email, 
-      address 
+    const {
+      supplier_name,
+      registration_number,
+      contact_person,
+      contact_number,
+      email,
+      address
     } = req.body
 
     const insertData = {
@@ -128,7 +131,7 @@ export const createSupplierRecord = async (req, res) => {
       .from('suppliers')
       .insert([insertData])
       .select()
-    
+
     if (error) throw error
     res.status(201).json(data[0])
   } catch (error) {
@@ -137,19 +140,17 @@ export const createSupplierRecord = async (req, res) => {
 }
 
 // --- Vehicles ---
+// Every query below is scoped to req.supplierId - client-supplied
+// supplier_id in query/body is ignored so one supplier can never
+// read/write another supplier's fleet.
 
 export const getVehicles = async (req, res) => {
   try {
-    const { supplier_id } = req.query
-    let query = supabase
+    const { data, error } = await supabase
       .from('vehicles')
       .select('*')
-    
-    if (supplier_id) {
-      query = query.eq('supplier_id', supplier_id)
-    }
-
-    const { data, error } = await query.order('vehicle_number', { ascending: true })
+      .eq('supplier_id', req.supplierId)
+      .order('vehicle_number', { ascending: true })
 
     if (error) throw error
     res.json(data)
@@ -169,13 +170,14 @@ export const addVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      supplier_id
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
 
     const insuranceFile = req.files?.insurance?.[0]
     const portPassFile = req.files?.port_pass?.[0]
 
-    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+    const [uploadedInsurance, uploadedPortPass] = await Promise.all([
       insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
       portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
     ])
@@ -189,9 +191,9 @@ export const addVehicle = async (req, res) => {
       port_pass_status: port_pass_status || 'valid',
       port_pass_expiry,
       condition_status: condition_status || 'good',
-      supplier_id,
-      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
-      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
+      supplier_id: req.supplierId,
+      Vehicle_Insurance_Copy: uploadedInsurance || Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy: uploadedPortPass || Vehicle_Port_Pass_Copy
     }
 
     const { data, error } = await supabase
@@ -218,13 +220,14 @@ export const updateVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      supplier_id
+      Vehicle_Insurance_Copy,
+      Vehicle_Port_Pass_Copy
     } = req.body
 
     const insuranceFile = req.files?.insurance?.[0]
     const portPassFile = req.files?.port_pass?.[0]
 
-    const [Vehicle_Insurance_Copy, Vehicle_Port_Pass_Copy] = await Promise.all([
+    const [uploadedInsurance, uploadedPortPass] = await Promise.all([
       insuranceFile ? uploadToStorage('vehicle-documents', 'insurance', insuranceFile) : Promise.resolve(undefined),
       portPassFile ? uploadToStorage('vehicle-documents', 'port-passes', portPassFile) : Promise.resolve(undefined)
     ])
@@ -238,24 +241,20 @@ export const updateVehicle = async (req, res) => {
       port_pass_status,
       port_pass_expiry,
       condition_status,
-      ...(Vehicle_Insurance_Copy && { Vehicle_Insurance_Copy }),
-      ...(Vehicle_Port_Pass_Copy && { Vehicle_Port_Pass_Copy })
+      ...(uploadedInsurance || Vehicle_Insurance_Copy ? { Vehicle_Insurance_Copy: uploadedInsurance || Vehicle_Insurance_Copy } : {}),
+      ...(uploadedPortPass || Vehicle_Port_Pass_Copy ? { Vehicle_Port_Pass_Copy: uploadedPortPass || Vehicle_Port_Pass_Copy } : {})
     }
 
-    let query = supabase
+    const { data, error } = await supabase
       .from('vehicles')
       .update(updateData)
       .eq('vehicle_number', id)
-    
-    if (supplier_id) {
-      query = query.eq('supplier_id', supplier_id)
-    }
-
-    const { data, error } = await query.select()
+      .eq('supplier_id', req.supplierId)
+      .select()
 
     if (error) throw error
     if (!data || data.length === 0) return res.status(404).json({ error: 'Vehicle not found or unauthorized' })
-    
+
     res.json(data[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -265,20 +264,17 @@ export const updateVehicle = async (req, res) => {
 export const deleteVehicle = async (req, res) => {
   try {
     const { id } = req.params
-    const { supplier_id } = req.query
 
-    let query = supabase
+    const { data, error } = await supabase
       .from('vehicles')
       .delete()
       .eq('vehicle_number', id)
-    
-    if (supplier_id) {
-      query = query.eq('supplier_id', supplier_id)
-    }
-
-    const { error } = await query
+      .eq('supplier_id', req.supplierId)
+      .select()
 
     if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Vehicle not found or unauthorized' })
+
     res.json({ message: 'Vehicle deleted successfully' })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -286,21 +282,15 @@ export const deleteVehicle = async (req, res) => {
 }
 
 // --- Drivers ---
+// Same scoping rule as Vehicles above - req.supplierId only.
 
 export const getDrivers = async (req, res) => {
   try {
-    const { supplier_id } = req.query;
-    
-    let query = supabase
+    const { data, error } = await supabase
       .from('drivers')
       .select('*')
+      .eq('supplier_id', req.supplierId)
       .order('driver_id', { ascending: true })
-
-    if (supplier_id) {
-      query = query.eq('supplier_id', supplier_id);
-    }
-
-    const { data, error } = await query;
 
     if (error) throw error
     res.json(data)
@@ -313,7 +303,7 @@ export const addDriver = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('drivers')
-      .insert([req.body])
+      .insert([{ ...req.body, supplier_id: req.supplierId }])
       .select()
 
     if (error) throw error
@@ -326,15 +316,17 @@ export const addDriver = async (req, res) => {
 export const updateDriver = async (req, res) => {
   try {
     const { id } = req.params
+    const { supplier_id, ...updateData } = req.body
     const { data, error } = await supabase
       .from('drivers')
-      .update(req.body)
+      .update(updateData)
       .eq('driver_id', id)
+      .eq('supplier_id', req.supplierId)
       .select()
 
     if (error) throw error
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Driver not found' })
-    
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Driver not found or unauthorized' })
+
     res.json(data[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -344,12 +336,16 @@ export const updateDriver = async (req, res) => {
 export const deleteDriver = async (req, res) => {
   try {
     const { id } = req.params
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('drivers')
       .delete()
       .eq('driver_id', id)
+      .eq('supplier_id', req.supplierId)
+      .select()
 
     if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Driver not found or unauthorized' })
+
     res.json({ message: 'Driver deleted successfully' })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -357,11 +353,12 @@ export const deleteDriver = async (req, res) => {
 }
 
 // --- Bids ---
+// Same scoping rule - a supplier may only ever see/submit/edit/delete
+// its own bids, never a competitor's.
 
 export const getBids = async (req, res) => {
   try {
-    const { supplier_id } = req.query
-    let query = supabase
+    const { data, error } = await supabase
       .from('bids')
       .select(`
         *,
@@ -409,13 +406,8 @@ export const getBids = async (req, res) => {
           port_pass_expiry
         )
       `)
-    
-    if (supplier_id) {
-      query = query.eq('supplier_id', supplier_id)
-    }
+      .eq('supplier_id', req.supplierId)
 
-    const { data, error } = await query
-    
     if (error) throw error
     res.json(data)
   } catch (error) {
@@ -426,7 +418,7 @@ export const getBids = async (req, res) => {
 export const getOpenBiddings = async (req, res) => {
   try {
     const now = new Date().toISOString()
-    
+
     const { data, error } = await supabase
       .from('bidding')
       .select(`
@@ -436,7 +428,7 @@ export const getOpenBiddings = async (req, res) => {
       .eq('status', 'open')
       .lte('start_time', now)
       .gte('end_time', now)
-    
+
     if (error) throw error
     res.json(data)
   } catch (err) {
@@ -446,11 +438,12 @@ export const getOpenBiddings = async (req, res) => {
 
 export const submitBid = async (req, res) => {
   try {
+    const { supplier_id, ...bidData } = req.body
     const { data, error } = await supabase
       .from('bids')
-      .insert([req.body])
+      .insert([{ ...bidData, supplier_id: req.supplierId }])
       .select()
-    
+
     if (error) throw error
     res.status(201).json(data[0])
   } catch (error) {
@@ -461,15 +454,17 @@ export const submitBid = async (req, res) => {
 export const updateBid = async (req, res) => {
   try {
     const { id } = req.params
+    const { supplier_id, ...updateData } = req.body
     const { data, error } = await supabase
       .from('bids')
-      .update(req.body)
+      .update(updateData)
       .eq('bid_id', id)
+      .eq('supplier_id', req.supplierId)
       .select()
 
     if (error) throw error
-    if (!data || data.length === 0) return res.status(404).json({ error: 'Bid not found' })
-    
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Bid not found or unauthorized' })
+
     res.json(data[0])
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -479,19 +474,26 @@ export const updateBid = async (req, res) => {
 export const deleteBid = async (req, res) => {
   try {
     const { id } = req.params
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('bids')
       .delete()
       .eq('bid_id', id)
+      .eq('supplier_id', req.supplierId)
+      .select()
 
     if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Bid not found or unauthorized' })
+
     res.json({ message: 'Bid deleted successfully' })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
 }
 
-// --- Chat & Inspections (Leader's Update) ---
+// --- Chat & Inspections ---
+// NOTE: chat.controller.js / inspection.controller.js also define these
+// handlers but aren't wired into supplier.routes.js - these are the
+// versions actually in use.
 
 export const getChatMessages = async (req, res) => {
   try {
@@ -512,10 +514,10 @@ export const getChatMessages = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { chatId } = req.params
-    const { sender_id, message, message_type } = req.body
+    const { message, message_type } = req.body
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert([{ chat_id: chatId, sender_id, message, message_type: message_type || 'text' }])
+      .insert([{ chat_id: chatId, sender_id: req.user.id, message, message_type: message_type || 'text' }])
       .select()
     if (error) throw error
     res.status(201).json(data[0])
@@ -541,10 +543,10 @@ export const getVehicleInspections = async (req, res) => {
 
 export const addInspectionRecord = async (req, res) => {
   try {
-    const { vehicle_id, inspection_date, status, remarks, inspected_by } = req.body
+    const { vehicle_id, inspection_date, status, remarks } = req.body
     const { data, error } = await supabase
       .from('vehicle_inspections')
-      .insert([{ vehicle_id, inspection_date, status, remarks, inspected_by }])
+      .insert([{ vehicle_id, inspection_date, status, remarks, inspected_by: req.user.id }])
       .select()
     if (error) throw error
     res.status(201).json(data[0])

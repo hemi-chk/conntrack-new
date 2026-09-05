@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Truck, Building2, ClipboardList,
-  Users, Package, FileText, CheckSquare, Settings,
+  Users, Package, CheckSquare, Settings,
   ChevronRight, UserCog, AlertTriangle
 } from 'lucide-react'
 
@@ -14,7 +14,6 @@ const menuItems = [
   { icon: ClipboardList,   label: 'Operations',  path: '/operations', section: 'Team' },
   { icon: Users,           label: 'Logistics',   path: '/logistics',  section: 'Team' },
   { icon: UserCog,         label: 'Staff',       path: '/staff',      section: 'Team' },
-  { icon: FileText,        label: 'Documents',   path: '/documents',  section: 'System' },
   { icon: Settings,        label: 'Settings',    path: '/settings',   section: 'System' },
 ]
 

@@ -23,7 +23,7 @@ const menuItems = [
 export function Sidebar({ isOpen, currentPath }) {
   return (
     <aside className={`fixed left-0 top-20 h-[calc(100vh-80px)] bg-white border-r border-slate-200 transition-all duration-300 z-40 overflow-hidden ${isOpen ? 'w-64' : 'w-0'}`}>
-      <div className="p-3 pt-6">
+      <div className="h-full flex flex-col justify-center p-3">
 
         <nav className="space-y-1">
           {menuItems.map((item) => (

@@ -4,49 +4,62 @@
  * Supports "Remember Me" functionality using local AsyncStorage.
  */
 
-import { useState, useEffect } from "react";
+import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import {
   Alert,
+  BackHandler,
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
-  ActivityIndicator,
-  ScrollView
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialIcons } from "@expo/vector-icons";
-import { theme } from "../constants/theme";
-import { Typography } from "../components/Typography";
-import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
+import { AUTH_TOKEN_KEY } from "../utils/authFetch";
 
 export default function LoginScreen({ navigation }) {
   const [driverId, setDriverId] = useState("");
+  const [suggestedDriverId, setSuggestedDriverId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  /**
-   * Effect hook to retrieve saved credentials on initial app launch.
-   * Ensures a faster login experience for returning users.
-   */
   useEffect(() => {
     const loadCredentials = async () => {
       try {
         const savedId = await AsyncStorage.getItem("saved_driver_id");
-        const savedPass = await AsyncStorage.getItem("saved_password");
+        const lastDriverId = await AsyncStorage.getItem("last_driver_id");
         const savedRemember = await AsyncStorage.getItem("remember_me");
-
+        const savedUser = await AsyncStorage.getItem("saved_user");
+        const savedToken = await SecureStore.getItemAsync(AUTH_TOKEN_KEY);
+        if (savedId || lastDriverId) {
+          setSuggestedDriverId(savedId || lastDriverId);
+        }
         if (savedRemember === "true") {
-          if (savedId) setDriverId(savedId);
-          if (savedPass) setPassword(savedPass);
+          if (savedToken && savedUser) {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Dashboard", params: { user: JSON.parse(savedUser) } }],
+            });
+            return;
+          }
+
+          if (savedId) {
+            const savedPassword = await SecureStore.getItemAsync(`saved_password_${savedId}`);
+            if (savedPassword) setPassword(savedPassword);
+          }
           setRememberMe(true);
         }
       } catch (error) {
@@ -56,10 +69,29 @@ export default function LoginScreen({ navigation }) {
     loadCredentials();
   }, []);
 
-  /**
-   * Primary login handler. 
-   * Authenticates against the backend and manages credential storage based on user preference.
-   */
+  useEffect(() => {
+    const handleBackPress = () => {
+      navigation.replace("Intro");
+      return true;
+    };
+
+    const backSubscription = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
+    return () => backSubscription.remove();
+  }, [navigation]);
+
+  useEffect(() => {
+    const loadPasswordForDriver = async () => {
+      if (!rememberMe || !driverId) return;
+      try {
+        const savedPassword = await SecureStore.getItemAsync(`saved_password_${driverId}`);
+        if (savedPassword) setPassword(savedPassword);
+      } catch (err) {
+        console.error('Error loading saved password for driver:', err);
+      }
+    };
+    loadPasswordForDriver();
+  }, [driverId, rememberMe]);
+
   const handleLogin = async () => {
     if (!driverId) {
       Alert.alert("Error", "Please enter your Driver ID / Reference");
@@ -82,22 +114,30 @@ export default function LoginScreen({ navigation }) {
       const result = await response.json();
 
       if (result.success) {
-        // Persist the session token so subsequent API calls can authenticate
-        await AsyncStorage.setItem("driver_token", result.token);
+        await SecureStore.setItemAsync(AUTH_TOKEN_KEY, result.token);
+        await AsyncStorage.setItem("last_driver_id", driverId);
 
         // Persist credentials locally if "Remember Me" is enabled
         if (rememberMe) {
           await AsyncStorage.setItem("saved_driver_id", driverId);
-          await AsyncStorage.setItem("saved_password", password);
+          await AsyncStorage.setItem("saved_user", JSON.stringify(result.user));
           await AsyncStorage.setItem("remember_me", "true");
+          try {
+            await SecureStore.setItemAsync(`saved_password_${driverId}`, password);
+          } catch (err) {
+            console.warn('Could not save password to secure store:', err);
+          }
         } else {
-          // Clear credentials if "Remember Me" is disabled
           await AsyncStorage.removeItem("saved_driver_id");
-          await AsyncStorage.removeItem("saved_password");
+          await AsyncStorage.removeItem("saved_user");
           await AsyncStorage.setItem("remember_me", "false");
+          try {
+            await SecureStore.deleteItemAsync(`saved_password_${driverId}`);
+          } catch (err) {
+            // ignore
+          }
         }
 
-        // Navigate to the Dashboard and pass user object for context
         navigation.navigate("Dashboard", { user: result.user });
       } else {
         Alert.alert("Login Failed", result.message || "Invalid credentials");
@@ -118,7 +158,15 @@ export default function LoginScreen({ navigation }) {
       >
         <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.innerContainer}>
-            {/* BRANDING SECTION */}
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Back to intro"
+              onPress={() => navigation.replace("Intro")}
+              style={styles.backButton}
+            >
+              <MaterialIcons name="arrow-back" size={22} color={theme.colors.primary} />
+            </TouchableOpacity>
+
             <View style={styles.imageContainer}>
               <Image
                 source={require("../../assets/truck.jpg")}
@@ -126,7 +174,6 @@ export default function LoginScreen({ navigation }) {
               />
             </View>
 
-            {/* HEADER TEXT */}
             <Typography variant="h2" align="center" style={styles.title}>
               Welcome Back
             </Typography>
@@ -135,28 +182,56 @@ export default function LoginScreen({ navigation }) {
               Login to continue your journey
             </Typography>
 
-            {/* AUTHENTICATION FORM */}
             {!showReset ? (
               <>
-                <TextInput
-                  placeholder="Driver ID / Reference"
-                  value={driverId}
-                  onChangeText={setDriverId}
-                  style={styles.input}
-                  placeholderTextColor={theme.colors.textMuted}
-                  autoCapitalize="none"
-                />
+                <View style={styles.driverIdContainer}>
+                  <TextInput
+                    placeholder="Driver ID / Reference"
+                    value={driverId}
+                    onChangeText={setDriverId}
+                    style={[styles.input, styles.driverIdInput]}
+                    placeholderTextColor={theme.colors.textMuted}
+                    autoCapitalize="none"
+                    autoComplete="username"
+                  />
+                  {suggestedDriverId && driverId !== suggestedDriverId ? (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={`Use suggested Driver ID ${suggestedDriverId}`}
+                      onPress={() => setDriverId(suggestedDriverId)}
+                      style={styles.suggestion}
+                    >
+                      <MaterialIcons name="person-outline" size={17} color={theme.colors.primary} />
+                      <Typography variant="caption" color="primary" style={styles.suggestionText}>
+                        Use {suggestedDriverId}
+                      </Typography>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
 
-                <TextInput
-                  placeholder="Password"
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  style={styles.input}
-                  placeholderTextColor={theme.colors.textMuted}
-                />
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    placeholder="Password"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    style={[styles.input, styles.passwordInput]}
+                    placeholderTextColor={theme.colors.textMuted}
+                  />
+                  <TouchableOpacity
+                    style={styles.showPasswordButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    accessible
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                  >
+                    <MaterialIcons
+                      name={showPassword ? "visibility-off" : "visibility"}
+                      size={22}
+                      color={theme.colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
 
-                {/* LOGIN PREFERENCES & HELP */}
                 <View style={styles.optionsRow}>
                   <TouchableOpacity 
                     style={styles.rememberMeContainer} 
@@ -187,7 +262,6 @@ export default function LoginScreen({ navigation }) {
                 />
               </>
             ) : (
-              // PASSWORD RESET FLOW
               <>
                 <Typography variant="subtitle" weight="semiBold" align="center" style={styles.resetTitle}>
                   Forgot Password
@@ -236,6 +310,18 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     justifyContent: "center",
   },
+  backButton: {
+    position: "absolute",
+    top: 8,
+    left: theme.spacing.lg,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+    backgroundColor: theme.colors.background,
+  },
   imageContainer: {
     alignItems: "center",
     marginBottom: theme.spacing.lg,
@@ -260,6 +346,25 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.regular,
     fontSize: theme.typography.sizes.md,
   },
+  driverIdContainer: {
+    marginBottom: theme.spacing.md,
+  },
+  driverIdInput: {
+    marginBottom: 0,
+  },
+  suggestion: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    marginTop: theme.spacing.xs,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.roundness.sm,
+    backgroundColor: "#DBEAFE",
+  },
+  suggestionText: {
+    marginLeft: theme.spacing.xs,
+  },
   optionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -281,5 +386,21 @@ const styles = StyleSheet.create({
   },
   backToLogin: {
     marginTop: theme.spacing.md,
+  }
+  ,
+  passwordInputContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 44,
+  },
+  showPasswordButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    height: 32,
+    width: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   }
 });

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useProfile, CURRENT_SUPPLIER_ID } from '../../hooks/useProfile';
+import { useProfile } from '../../hooks/useProfile';
 import { updateSupplierLogo } from '../../services/profileService';
 import {
   Mail,
@@ -33,7 +33,7 @@ export const Profile = () => {
     try {
       setIsUploadingLogo(true);
       setLogoError(null);
-      await updateSupplierLogo(CURRENT_SUPPLIER_ID, file);
+      await updateSupplierLogo(file);
       await refreshProfile();
     } catch (err) {
       setLogoError(err.message || 'Failed to upload logo');
@@ -41,6 +41,7 @@ export const Profile = () => {
       setIsUploadingLogo(false);
     }
   };
+
 
   if (isLoading) {
     return (
@@ -71,7 +72,11 @@ export const Profile = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-primary">Supplier Profile</h1>
         <button
-          onClick={() => console.log('Logout clicked')}
+          onClick={() => {
+            localStorage.clear()
+            const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://127.0.0.1:5173'
+            window.location.href = `${adminUrl}?logout=true`
+          }}
           className="bg-primary hover:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow flex items-center gap-2"
         >
           <LogOut size={18} />

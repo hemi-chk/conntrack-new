@@ -1,23 +1,25 @@
-import { useMemo, useState, useEffect } from "react";
 import {
-  BadgeDollarSign,
-  Clock3,
-  Star,
-  SlidersHorizontal,
-  CircleCheck,
-  CircleAlert,
-  Info,
-  Send,
-  PackageCheck,
   AlertTriangle,
+  BadgeDollarSign,
   ChevronDown,
+  CircleAlert,
+  CircleCheck,
+  Clock3,
+  Copy,
   Mail,
   MessageSquare,
+  PackageCheck,
   Phone,
-  Copy,
+  Send,
+  SlidersHorizontal,
+  Star
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 function Bidding() {
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:5000";
   // Main UI states for tab selection, sorting, shortlisted bids, and logistics submission
   const [activeTab, setActiveTab] = useState("Open");
   const [sortBy, setSortBy] = useState("Lowest Price");
@@ -27,6 +29,7 @@ function Bidding() {
   // Bidding timer states
   const [isBiddingOpen, setIsBiddingOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [biddingStatusLoaded, setBiddingStatusLoaded] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(true);
 
   // Popup and modal control states
@@ -34,7 +37,7 @@ function Bidding() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [selectedBidForDetails, setSelectedBidForDetails] = useState(null);
 
-  // Stores final winner selected by Logistics or manually marked by Operations
+  // Stores the final winner selected by Logistics
   const [winningBid, setWinningBid] = useState(null);
   const [showWinnerPopup, setShowWinnerPopup] = useState(false);
 
@@ -52,106 +55,53 @@ function Bidding() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Loads selected order, shortlisted bids, and winning bid from sessionStorage when page opens
-  useEffect(() => {
-    const biddingOrder = sessionStorage.getItem("biddingOrder");
-
-    if (biddingOrder) {
-      const parsedOrder = JSON.parse(biddingOrder);
-      setSelectedOrder(parsedOrder);
-      fetchBids(parsedOrder);
-    } else {
-      fetchBids();
-    }
-
-    const savedShortlistedIds = sessionStorage.getItem(
-      "shortlistedBidIdsForLogistics"
-    );
-
-    if (savedShortlistedIds) {
-      const parsedIds = JSON.parse(savedShortlistedIds);
-      setShortlistedBidIds(parsedIds);
-      setSentToLogistics(true);
-    } else {
-      const savedShortlisted = sessionStorage.getItem(
-        "shortlistedBidsForLogistics"
-      );
-
-      if (savedShortlisted) {
-        const parsedShortlisted = JSON.parse(savedShortlisted);
-        setShortlistedBidIds(parsedShortlisted.map((bid) => bid.id));
-        setSentToLogistics(true);
-      }
-    }
-
-    const selectedWinner = sessionStorage.getItem(
-      "selectedWinningBidForOperations"
-    );
-
-    if (selectedWinner) {
-      const parsedWinner = JSON.parse(selectedWinner);
-      setWinningBid(parsedWinner);
-      setShowWinnerPopup(true);
-    }
-  }, []);
-
-  // Runs countdown timer and automatically closes bidding when time reaches zero
-  useEffect(() => {
-    if (!isBiddingOpen || timeLeft <= 0) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setIsBiddingOpen(false);
-          setActiveTab("Closed");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isBiddingOpen, timeLeft]);
-
-  // Extracts order reference from different possible order object formats
+  // Extract actual order reference like EXP-00042
   const getOrderReference = (order) => {
-    return (
-      order?.id ||
-      order?.orderReference ||
-      order?.order_reference ||
-      order?.orderId ||
-      ""
-    );
-  };
+    if (!order) return "";
 
-  // Fetches bid data from backend. If an order is selected, only bids for that order are loaded
-  const fetchBids = async (order = null) => {
-    try {
-      setIsLoading(true);
-
-      const orderReference = getOrderReference(order);
-
-      const url = orderReference
-        ? `${import.meta.env.VITE_API_URL}/api/operations/bids?order_reference=${encodeURIComponent(
-            orderReference
-          )}`
-        : `${import.meta.env.VITE_API_URL}/api/operations/bids`;
-
-      const response = await fetch(url);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch bids");
-      }
-
-      const normalizedBids = result.map((bid) => normalizeBid(bid, order));
-      setBids(normalizedBids);
-    } catch (error) {
-      alert(error.message);
-    } finally {
-      setIsLoading(false);
+    if (order.orderReference) {
+      return order.orderReference;
     }
+
+    if (order.order_reference) {
+      return order.order_reference;
+    }
+
+    if (
+      typeof order.id === "string" &&
+      (order.id.startsWith("EXP-") || order.id.startsWith("IMP-"))
+    ) {
+      return order.id;
+    }
+
+    return "";
   };
+
+  // Gets real numeric database order_id from Orders page object
+  const getOrderDatabaseId = (order) => {
+    return (
+      order?.order_id ||
+      order?.dbId ||
+      order?.orderId ||
+      order?.databaseOrderId ||
+      order?.dbOrderId ||
+      null
+    );
+
+  };
+
+  // Normalizes the selected order status so bidding rules stay aligned
+  // with the official Operations workflow.
+  const getOrderStatus = (order = selectedOrder) =>
+    String(
+      order?.current_status ||
+        order?.status ||
+        ""
+    )
+      .toLowerCase()
+      .trim()
+      .replaceAll(" ", "_")
+      .replaceAll("-", "_");
 
   // Converts raw backend bid data into one consistent frontend format
   const normalizeBid = (bid, orderData = selectedOrder) => {
@@ -181,7 +131,10 @@ function Bidding() {
       "";
 
     const ratingValue = Number(
-      bid.supplier_rating || bid.suppliers?.rating || bid.rating || 0
+      bid.supplier_rating ||
+        bid.suppliers?.rating ||
+        bid.rating ||
+        0
     );
 
     const supplierCompliance =
@@ -215,96 +168,154 @@ function Bidding() {
 
     return {
       id: bid.bid_id || bid.id,
+
       bidId: bid.bid_id || bid.id,
-      supplierId: bid.supplier_id || bid.suppliers?.supplier_id || "-",
+
+      orderId:
+        bid.order_id ||
+        bid.orders?.order_id ||
+        getOrderDatabaseId(orderData) ||
+        null,
+
+      biddingId:
+        bid.bidding_id ||
+        bid.bidding?.bidding_id ||
+        null,
+
+      supplierId:
+        bid.supplier_id ||
+        bid.suppliers?.supplier_id ||
+        "-",
+
       supplier: supplierName,
+
       supplierEmail,
+
       supplierPhone,
-      years: bid.supplier_experience_years
-        ? `${bid.supplier_experience_years}+ Years`
-        : bid.suppliers?.experience_years
-        ? `${bid.suppliers.experience_years}+ Years`
-        : "-",
-      amount: Number(bid.bid_amount || bid.amount || bid.price || 0),
+
+      years:
+        bid.supplier_experience_years
+          ? `${bid.supplier_experience_years}+ Years`
+          : bid.suppliers?.experience_years
+          ? `${bid.suppliers.experience_years}+ Years`
+          : "-",
+
+      amount: Number(
+        bid.bid_amount ||
+          bid.amount ||
+          bid.price ||
+          0
+      ),
+
       eta:
         bid.eta ||
         bid.eta_date ||
         bid.estimated_arrival ||
         bid.estimated_delivery_date ||
         "-",
+
       rating: ratingValue,
+
       compliance: formattedCompliance,
+
       pastPerformance:
         bid.supplier_past_performance ||
         bid.suppliers?.past_performance ||
         bid.notes ||
         "-",
+
       bidStatus: formattedBidStatus,
-      notificationStatus: bid.notification_status || "Pending",
+
+      notificationStatus:
+        bid.notification_status ||
+        "Pending",
+
       orderReference:
         bid.order_reference ||
         bid.orders?.order_reference ||
         getOrderReference(orderData) ||
         "-",
+
       orderType:
         bid.order_type ||
         bid.orders?.order_type ||
         orderData?.type ||
         orderData?.order_type ||
         "-",
+
       pickup:
+        bid.pickup_location ||
+        bid.orders?.pickup_location ||
+        orderData?.pickupLocation ||
+        orderData?.pickup_location ||
+        orderData?.pickup ||
         bid.pickup_state ||
         bid.pickup_country ||
         bid.orders?.pickup_state ||
         bid.orders?.pickup_country ||
-        orderData?.pickup ||
         orderData?.pickup_state ||
         "-",
+
       destination:
+        bid.destination_location ||
+        bid.orders?.destination_location ||
+        orderData?.destinationLocation ||
+        orderData?.destination_location ||
+        orderData?.destination ||
         bid.destination_state ||
         bid.destination_country ||
         bid.orders?.destination_state ||
         bid.orders?.destination_country ||
-        orderData?.destination ||
         orderData?.destination_state ||
         "-",
+
       container:
         bid.container_no ||
         bid.orders?.container_no ||
         orderData?.containerNo ||
         orderData?.container_no ||
         "-",
+
       cargoType:
         bid.cargo_type ||
         bid.orders?.cargo_type ||
         orderData?.cargoType ||
         orderData?.cargo_type ||
         "-",
+
       cargoWeight:
         bid.cargo_weight ||
         bid.orders?.cargo_weight ||
         orderData?.cargoWeight ||
         orderData?.cargo_weight ||
         "-",
+
       pickupDate:
         bid.pickup_date ||
         bid.orders?.pickup_date ||
         orderData?.pickupDate ||
         orderData?.pickup_date ||
         "-",
+
       expectedArrival:
         bid.expected_arrival ||
         bid.orders?.expected_arrival ||
         orderData?.expectedArrival ||
         orderData?.expected_arrival ||
         "-",
+
       specialInstructions:
         bid.special_instructions ||
         bid.orders?.special_instructions ||
         orderData?.specialInstructions ||
         orderData?.special_instructions ||
         "-",
-      vehicleNumber: bid.vehicle_number || bid.vehicles?.vehicle_number || "-",
+
+      vehicleNumber:
+        bid.vehicle_number ||
+        bid.vehicles?.vehicle_number ||
+        "-",
+
       vehicleType:
         bid.vehicle_type ||
         bid.order_vehicle_type ||
@@ -316,468 +327,2018 @@ function Bidding() {
     };
   };
 
-  // Sorts bid table based on selected sort option
-  const sortedBids = useMemo(() => {
-    const data = [...bids];
+  // =========================================================
+  // LOAD CURRENT BIDDING STATUS AND TIMER FROM BACKEND
+  // =========================================================
+  const fetchBiddingStatus = async (order = null) => {
+    try {
+      let currentOrder = order || selectedOrder;
 
-    if (sortBy === "Lowest Price") {
-      return data.sort((a, b) => a.amount - b.amount);
+      if (!currentOrder) {
+        const storedOrder = sessionStorage.getItem("biddingOrder");
+
+        if (storedOrder) {
+          currentOrder = JSON.parse(storedOrder);
+        }
+      }
+
+      if (!currentOrder) {
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setBiddingStatusLoaded(true);
+        return;
+      }
+
+      const orderReference = getOrderReference(currentOrder);
+
+      if (!orderReference) {
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setBiddingStatusLoaded(true);
+        return;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/operations/bidding/status?order_reference=${encodeURIComponent(
+          orderReference
+        )}`
+      );
+
+      const responseText = await response.text();
+
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Bidding status API returned invalid response. Status: ${response.status}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Failed to load bidding status"
+        );
+      }
+
+      console.log("BIDDING STATUS RESULT:", result);
+
+      if (!result.bidding) {
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setActiveTab("Open");
+        setBiddingStatusLoaded(true);
+        return;
+      }
+
+      const bidding = result.bidding;
+
+      const backendStatus =
+        String(bidding.status || "").toLowerCase();
+
+      const endTime = bidding.end_time
+        ? new Date(bidding.end_time).getTime()
+        : null;
+
+      const now = Date.now();
+
+      let remainingSeconds = 0;
+
+      if (endTime) {
+        remainingSeconds = Math.max(
+          0,
+          Math.floor((endTime - now) / 1000)
+        );
+      }
+
+      if (
+        backendStatus === "open" &&
+        remainingSeconds > 0
+      ) {
+        setIsBiddingOpen(true);
+        setTimeLeft(remainingSeconds);
+        setActiveTab("Open");
+      } else {
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setActiveTab("Closed");
+      }
+
+      setBiddingStatusLoaded(true);
+    } catch (error) {
+      console.error(
+        "Fetch bidding status error:",
+        error
+      );
+
+      setIsBiddingOpen(false);
+      setTimeLeft(0);
+      setBiddingStatusLoaded(true);
     }
+  };
 
-    if (sortBy === "Highest Rating") {
-      return data.sort((a, b) => b.rating - a.rating);
+  // =========================================================
+  // LOAD SAVED SHORTLIST + LOGISTICS DECISION FROM BACKEND
+  //
+  // This reads bid_selection through the Operations backend.
+  // It keeps the exact shortlist after refresh and detects the
+  // winner selected by Logistics without connecting to their PC.
+  // =========================================================
+  const fetchShortlistStatus = async (order = null) => {
+    try {
+      let currentOrder = order || selectedOrder;
+
+      if (!currentOrder) {
+        const storedOrder = sessionStorage.getItem("biddingOrder");
+
+        if (storedOrder) {
+          currentOrder = JSON.parse(storedOrder);
+        }
+      }
+
+      if (!currentOrder) {
+        return;
+      }
+
+      const orderReference = getOrderReference(currentOrder);
+      const orderDatabaseId = getOrderDatabaseId(currentOrder);
+
+      let url = "";
+
+      if (orderReference) {
+        url =
+          `${API_BASE_URL}/api/operations/bids/shortlist-status?order_reference=` +
+          encodeURIComponent(orderReference);
+      } else if (orderDatabaseId) {
+        url =
+          `${API_BASE_URL}/api/operations/bids/shortlist-status?order_id=` +
+          encodeURIComponent(orderDatabaseId);
+      } else {
+        return;
+      }
+
+      const response = await fetch(url);
+      const responseText = await response.text();
+
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Shortlist status API returned invalid response. Status: ${response.status}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Failed to load shortlist status"
+        );
+      }
+
+      const savedBidIds = Array.isArray(result.bid_ids)
+        ? result.bid_ids
+            .map((id) => Number(id))
+            .filter((id) => !Number.isNaN(id))
+        : Array.isArray(result.selections)
+        ? result.selections
+            .map((item) => Number(item.bid_id))
+            .filter((id) => !Number.isNaN(id))
+        : [];
+
+      const alreadySent =
+        result.sent_to_logistics === true ||
+        result.locked === true ||
+        result.already_sent === true ||
+        result.is_locked === true ||
+        savedBidIds.length > 0;
+
+      setShortlistedBidIds(savedBidIds);
+      setSentToLogistics(alreadySent);
+
+      const winnerBidId = Number(
+        result.winner_bid_id ||
+          result.winner_selection?.bid_id ||
+          0
+      );
+
+      if (!Number.isNaN(winnerBidId) && winnerBidId > 0) {
+        const currentWinner =
+          bids.find(
+            (bid) =>
+              Number(bid.id) === winnerBidId ||
+              Number(bid.bidId) === winnerBidId
+          ) || {
+            id: winnerBidId,
+            bidId: winnerBidId,
+          };
+
+        setWinningBid(currentWinner);
+      } else {
+        setWinningBid(null);
+      }
+
+      console.log("SHORTLIST STATUS RESULT:", {
+        alreadySent,
+        savedBidIds,
+        winnerBidId:
+          !Number.isNaN(winnerBidId) && winnerBidId > 0
+            ? winnerBidId
+            : null,
+        result,
+      });
+    } catch (error) {
+      console.error(
+        "Fetch shortlist status error:",
+        error
+      );
+
+      // Session storage is only a local fallback for the same browser.
+      // Supabase remains the real source of truth.
+      const storedOrderReference = sessionStorage.getItem(
+        "shortlistedOrderReferenceForLogistics"
+      );
+
+      const currentOrderReference = getOrderReference(
+        order || selectedOrder
+      );
+
+      if (
+        storedOrderReference &&
+        currentOrderReference &&
+        storedOrderReference === currentOrderReference
+      ) {
+        try {
+          const storedBidIds = JSON.parse(
+            sessionStorage.getItem(
+              "shortlistedBidIdsForLogistics"
+            ) || "[]"
+          );
+
+          if (
+            Array.isArray(storedBidIds) &&
+            storedBidIds.length > 0
+          ) {
+            setShortlistedBidIds(
+              storedBidIds
+                .map((id) => Number(id))
+                .filter((id) => !Number.isNaN(id))
+            );
+
+            setSentToLogistics(true);
+          }
+        } catch (sessionError) {
+          console.error(
+            "Could not restore shortlist from session:",
+            sessionError
+          );
+        }
+      }
     }
+  };
 
-    if (sortBy === "Compliance") {
-      const rank = {
-        Verified: 1,
-        Completed: 1,
-        Pending: 2,
-        Warning: 3,
-        Blocked: 4,
-      };
+  // Fetch ONLY bids belonging to selected order
+  const fetchBids = async (order = null) => {
+    try {
+      setIsLoading(true);
 
-      return data.sort(
-        (a, b) => (rank[a.compliance] || 99) - (rank[b.compliance] || 99)
+      let currentOrder =
+        order ||
+        selectedOrder;
+
+      if (!currentOrder) {
+        const storedOrder =
+          sessionStorage.getItem(
+            "biddingOrder"
+          );
+
+        if (storedOrder) {
+          try {
+            currentOrder =
+              JSON.parse(
+                storedOrder
+              );
+          } catch (error) {
+            console.error(
+              "Could not parse biddingOrder:",
+              error
+            );
+          }
+        }
+      }
+
+      if (!currentOrder) {
+        console.log(
+          "FETCH BIDS STOPPED: No bidding order selected"
+        );
+
+        setBids([]);
+        return;
+      }
+
+      const orderReference =
+        getOrderReference(
+          currentOrder
+        );
+
+      const orderDatabaseId =
+        getOrderDatabaseId(
+          currentOrder
+        );
+
+      console.log(
+        "CURRENT BIDDING ORDER:",
+        currentOrder
+      );
+
+      console.log(
+        "ORDER REFERENCE:",
+        orderReference
+      );
+
+      console.log(
+        "DATABASE ORDER ID:",
+        orderDatabaseId
+      );
+
+      let url = "";
+
+      if (orderReference) {
+        url =
+          `${API_BASE_URL}/api/operations/bids?order_reference=` +
+          encodeURIComponent(
+            orderReference
+          );
+      } else if (
+        orderDatabaseId
+      ) {
+        url =
+          `${API_BASE_URL}/api/operations/bids?order_id=` +
+          encodeURIComponent(
+            orderDatabaseId
+          );
+      } else {
+        throw new Error(
+          "Selected order does not contain order reference or database order ID."
+        );
+      }
+
+      console.log(
+        "FETCHING BIDS URL:",
+        url
+      );
+
+      const response =
+        await fetch(url);
+
+      const responseText =
+        await response.text();
+
+      let result;
+
+      try {
+        result =
+          responseText
+            ? JSON.parse(
+                responseText
+              )
+            : [];
+      } catch {
+        throw new Error(
+          `Backend returned invalid response. Status: ${response.status}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            "Failed to fetch bids"
+        );
+      }
+
+      if (!Array.isArray(result)) {
+        throw new Error(
+          "Invalid bids response from backend"
+        );
+      }
+
+      let normalizedBids =
+        result.map((bid) =>
+          normalizeBid(
+            bid,
+            currentOrder
+          )
+        );
+
+      if (orderDatabaseId) {
+        normalizedBids =
+          normalizedBids.filter(
+            (bid) =>
+              Number(
+                bid.orderId
+              ) ===
+              Number(
+                orderDatabaseId
+              )
+          );
+      }
+
+      if (orderReference) {
+        normalizedBids =
+          normalizedBids.filter(
+            (bid) =>
+              String(
+                bid.orderReference ||
+                  ""
+              )
+                .trim()
+                .toLowerCase() ===
+              String(
+                orderReference
+              )
+                .trim()
+                .toLowerCase()
+          );
+      }
+
+      console.log(
+        "FINAL BID FILTER:",
+        {
+          orderReference,
+          orderDatabaseId,
+          bidCount:
+            normalizedBids.length,
+          bidIds:
+            normalizedBids.map(
+              (bid) =>
+                bid.id
+            ),
+        }
+      );
+
+      // Keep only locally selected IDs that still belong to this order.
+      // The authoritative sent/locked shortlist is restored separately
+      // from bid_selection by fetchShortlistStatus().
+      setShortlistedBidIds((prev) =>
+        prev.filter((bidId) =>
+          normalizedBids.some(
+            (bid) => Number(bid.id) === Number(bidId)
+          )
+        )
+      );
+
+      setBids(normalizedBids);
+    } catch (error) {
+      console.error(
+        "Fetch bids error:",
+        error
+      );
+
+      alert(
+        error.message
+      );
+
+      setBids([]);
+    } finally {
+      setIsLoading(
+        false
+      );
+    }
+  };
+
+  // Loads selected bidding order when Bidding page opens
+  useEffect(() => {
+    const biddingOrder =
+      sessionStorage.getItem(
+        "biddingOrder"
+      );
+
+    console.log(
+      "BIDDING ORDER FROM SESSION:",
+      biddingOrder
+    );
+
+    if (biddingOrder) {
+      try {
+        const parsedOrder =
+          JSON.parse(
+            biddingOrder
+          );
+
+        console.log(
+          "PARSED BIDDING ORDER:",
+          parsedOrder
+        );
+
+        setSelectedOrder(
+          parsedOrder
+        );
+
+        setShortlistedBidIds(
+          []
+        );
+
+        setSentToLogistics(
+          false
+        );
+
+        fetchBids(
+          parsedOrder
+        );
+
+        fetchBiddingStatus(
+          parsedOrder
+        );
+
+        // Restore the exact saved shortlist from bid_selection.
+        // This also detects a winner selected by Logistics.
+        fetchShortlistStatus(parsedOrder);
+      } catch (error) {
+        console.error(
+          "Invalid biddingOrder:",
+          error
+        );
+
+        setSelectedOrder(
+          null
+        );
+
+        setBids([]);
+
+        setIsBiddingOpen(
+          false
+        );
+
+        setTimeLeft(
+          0
+        );
+
+        setBiddingStatusLoaded(
+          true
+        );
+      }
+    } else {
+      console.log(
+        "NO BIDDING ORDER FOUND"
+      );
+
+      setSelectedOrder(
+        null
+      );
+
+      setBids([]);
+
+      setIsBiddingOpen(
+        false
+      );
+
+      setTimeLeft(
+        0
+      );
+
+      setBiddingStatusLoaded(
+        true
       );
     }
 
-    return data;
-  }, [bids, sortBy]);
+  }, []);
 
-  // Finds lowest price bid for summary card and recommendation badge
-  const lowestPriceBid = useMemo(() => {
-    if (bids.length === 0) return null;
-    return [...bids].sort((a, b) => a.amount - b.amount)[0];
-  }, [bids]);
+  // Once the shortlist is sent to Logistics, the bidding stage is permanently
+  // locked in the Operations UI. Even if an older backend bidding record still
+  // says "open", Operations cannot reopen, close, or extend the bidding.
+  useEffect(() => {
+    if (!sentToLogistics) {
+      return;
+    }
 
-  // Finds highest rated supplier bid for summary card
-  const highestRatedBid = useMemo(() => {
-    if (bids.length === 0) return null;
-    return [...bids].sort((a, b) => b.rating - a.rating)[0];
-  }, [bids]);
+    if (isBiddingOpen) {
+      setIsBiddingOpen(false);
+    }
 
-  // Finds fastest ETA bid. Multiple suppliers can have the same fastest ETA
-  const fastestEtaBids = useMemo(() => {
-    if (bids.length === 0) return [];
+    if (timeLeft !== 0) {
+      setTimeLeft(0);
+    }
 
-    const validEtaBids = bids.filter((bid) => bid.eta && bid.eta !== "-");
-    if (validEtaBids.length === 0) return [];
+    if (activeTab !== "Closed") {
+      setActiveTab("Closed");
+    }
 
-    const sortedByEta = [...validEtaBids].sort(
-      (a, b) => new Date(a.eta) - new Date(b.eta)
-    );
+    if (showTimerPopup) {
+      setShowTimerPopup(false);
+    }
 
-    const fastestEta = sortedByEta[0].eta;
-    return validEtaBids.filter((bid) => bid.eta === fastestEta);
-  }, [bids]);
+    if (showCloseConfirm) {
+      setShowCloseConfirm(false);
+    }
+  }, [
+    sentToLogistics,
+    isBiddingOpen,
+    timeLeft,
+    activeTab,
+    showTimerPopup,
+    showCloseConfirm,
+  ]);
 
-  // Displays selected order details. Falls back to first bid data if selected order is missing
+  // Poll the shared Supabase decision every 5 seconds after the shortlist
+  // has been sent. No frontend-to-frontend connection is required.
+  useEffect(() => {
+    if (!selectedOrder || !sentToLogistics || winningBid) {
+      return;
+    }
+
+    const decisionTimer = setInterval(() => {
+      fetchShortlistStatus(selectedOrder);
+    }, 5000);
+
+    return () => clearInterval(decisionTimer);
+  }, [selectedOrder, sentToLogistics, winningBid]);
+
+  useEffect(() => {
+    if (
+      !isBiddingOpen ||
+      timeLeft <= 0
+    ) {
+      return;
+    }
+
+    const timer =
+      setInterval(() => {
+        setTimeLeft(
+          (prev) => {
+            if (
+              prev <= 1
+            ) {
+              setIsBiddingOpen(
+                false
+              );
+
+              setActiveTab(
+                "Closed"
+              );
+
+              return 0;
+            }
+
+            return (
+              prev - 1
+            );
+          }
+        );
+      }, 1000);
+
+    return () =>
+      clearInterval(
+        timer
+      );
+  }, [
+    isBiddingOpen,
+    timeLeft,
+  ]);
+
+  const sortedBids =
+    useMemo(() => {
+      const data = [
+        ...bids,
+      ];
+
+      if (
+        sortBy ===
+        "Lowest Price"
+      ) {
+        return data.sort(
+          (a, b) =>
+            a.amount -
+            b.amount
+        );
+      }
+
+      if (
+        sortBy ===
+        "Highest Rating"
+      ) {
+        return data.sort(
+          (a, b) =>
+            b.rating -
+            a.rating
+        );
+      }
+
+      if (
+        sortBy ===
+        "Compliance"
+      ) {
+        const rank = {
+          Verified: 1,
+          Completed: 1,
+          Pending: 2,
+          Warning: 3,
+          Blocked: 4,
+        };
+
+        return data.sort(
+          (a, b) =>
+            (rank[
+              a.compliance
+            ] ||
+              99) -
+            (rank[
+              b.compliance
+            ] ||
+              99)
+        );
+      }
+
+      return data;
+    }, [
+      bids,
+      sortBy,
+    ]);
+
+  const lowestPriceBid =
+    useMemo(() => {
+      if (
+        bids.length ===
+        0
+      ) {
+        return null;
+      }
+
+      return [
+        ...bids,
+      ].sort(
+        (a, b) =>
+          a.amount -
+          b.amount
+      )[0];
+    }, [bids]);
+
+  const highestRatedBid =
+    useMemo(() => {
+      if (
+        bids.length ===
+        0
+      ) {
+        return null;
+      }
+
+      return [
+        ...bids,
+      ].sort(
+        (a, b) =>
+          b.rating -
+          a.rating
+      )[0];
+    }, [bids]);
+
+  const fastestEtaBids =
+    useMemo(() => {
+      if (
+        bids.length ===
+        0
+      ) {
+        return [];
+      }
+
+      const validEtaBids =
+        bids.filter(
+          (bid) =>
+            bid.eta &&
+            bid.eta !==
+              "-"
+        );
+
+      if (
+        validEtaBids.length ===
+        0
+      ) {
+        return [];
+      }
+
+      const sortedByEta =
+        [
+          ...validEtaBids,
+        ].sort(
+          (a, b) =>
+            new Date(
+              a.eta
+            ) -
+            new Date(
+              b.eta
+            )
+        );
+
+      const fastestEta =
+        sortedByEta[0]
+          .eta;
+
+      return validEtaBids.filter(
+        (bid) =>
+          bid.eta ===
+          fastestEta
+      );
+    }, [bids]);
+
+  // Operations can shortlist up to 5 suppliers.
+  // Fewer than 5 is valid, as long as at least one bid is selected.
+  const maxShortlistCount = useMemo(
+    () => Math.min(5, bids.length),
+    [bids]
+  );
+
   const displayOrder = {
     orderReference:
-      getOrderReference(selectedOrder) ||
-      bids[0]?.orderReference ||
+      getOrderReference(
+        selectedOrder
+      ) ||
+      bids[0]
+        ?.orderReference ||
       "No order selected",
+
     orderType:
       selectedOrder?.type ||
       selectedOrder?.order_type ||
-      bids[0]?.orderType ||
+      bids[0]
+        ?.orderType ||
       "-",
+
     pickup:
+      selectedOrder?.pickupLocation ||
+      selectedOrder?.pickup_location ||
       selectedOrder?.pickup ||
       selectedOrder?.pickup_state ||
       bids[0]?.pickup ||
       "-",
+
     destination:
+      selectedOrder?.destinationLocation ||
+      selectedOrder?.destination_location ||
       selectedOrder?.destination ||
       selectedOrder?.destination_state ||
       bids[0]?.destination ||
       "-",
+
     container:
       selectedOrder?.containerNo ||
       selectedOrder?.container_no ||
-      bids[0]?.container ||
+      bids[0]
+        ?.container ||
       "-",
+
     cargoType:
       selectedOrder?.cargoType ||
       selectedOrder?.cargo_type ||
-      bids[0]?.cargoType ||
+      bids[0]
+        ?.cargoType ||
       "-",
+
     cargoWeight:
       selectedOrder?.cargoWeight ||
       selectedOrder?.cargo_weight ||
-      bids[0]?.cargoWeight ||
+      bids[0]
+        ?.cargoWeight ||
       "-",
+
     vehicleType:
       selectedOrder?.vehicleType ||
       selectedOrder?.vehicle_type ||
-      bids[0]?.vehicleType ||
+      bids[0]
+        ?.vehicleType ||
       "-",
+
     pickupDate:
       selectedOrder?.pickupDate ||
       selectedOrder?.pickup_date ||
-      bids[0]?.pickupDate ||
+      bids[0]
+        ?.pickupDate ||
       "-",
+
     expectedArrival:
       selectedOrder?.expectedArrival ||
       selectedOrder?.expected_arrival ||
-      bids[0]?.expectedArrival ||
+      bids[0]
+        ?.expectedArrival ||
       "-",
+
     specialInstructions:
       selectedOrder?.specialInstructions ||
       selectedOrder?.special_instructions ||
-      bids[0]?.specialInstructions ||
+      bids[0]
+        ?.specialInstructions ||
       "-",
   };
 
-  // Formatting helpers for money, ETA date, and timer display
-  const formatMoney = (value) => `LKR ${Number(value || 0).toLocaleString()}`;
+  const formatMoney = (
+    value
+  ) =>
+    `LKR ${Number(
+      value || 0
+    ).toLocaleString()}`;
 
-  const formatEta = (value) => {
-    if (!value || value === "-") return "-";
+  const formatEta = (
+    value
+  ) => {
+    if (
+      !value ||
+      value === "-"
+    ) {
+      return "-";
+    }
 
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
+    const date =
+      new Date(
+        value
+      );
 
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+      return value;
+    }
+
+    return date.toLocaleDateString(
+      "en-US",
+      {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }
+    );
   };
 
-  const formatTime = (seconds) => {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+  const formatTime = (
+    seconds
+  ) => {
+    const days =
+      Math.floor(
+        seconds /
+          86400
+      );
+
+    const hours =
+      Math.floor(
+        (seconds %
+          86400) /
+          3600
+      );
+
+    const minutes =
+      Math.floor(
+        (seconds %
+          3600) /
+          60
+      );
+
+    const secs =
+      seconds %
+      60;
 
     return `${days}d ${hours}h ${minutes}m ${secs}s`;
   };
 
-  // Converts timer input fields into total seconds
-  const convertToSeconds = () =>
-    Number(timerInput.days) * 86400 +
-    Number(timerInput.hours) * 3600 +
-    Number(timerInput.minutes) * 60 +
-    Number(timerInput.seconds);
+  const convertToSeconds =
+    () =>
+      Number(
+        timerInput.days
+      ) *
+        86400 +
+      Number(
+        timerInput.hours
+      ) *
+        3600 +
+      Number(
+        timerInput.minutes
+      ) *
+        60 +
+      Number(
+        timerInput.seconds
+      );
 
-  const openTimerPopup = () => {
-    setTimerMode("open");
-    setShowTimerPopup(true);
-  };
-
-  const closeBidding = () => setShowCloseConfirm(true);
-
-  // Confirms manual bidding close and moves active tab to Closed
-  const confirmCloseBidding = () => {
-    setIsBiddingOpen(false);
-    setTimeLeft(0);
-    setActiveTab("Closed");
-    setShowCloseConfirm(false);
-  };
-
-  const extendTimerPopup = () => {
-    setTimerMode("extend");
-    setShowTimerPopup(true);
-  };
-
-  // Starts or extends bidding timer after validating entered time
-  const confirmTimer = () => {
-    const seconds = convertToSeconds();
-
-    if (seconds <= 0) {
-      alert("Please enter valid time.");
-      return;
-    }
-
-    if (timerMode === "open") {
-      setTimeLeft(seconds);
-      setIsBiddingOpen(true);
-      setActiveTab("Open");
-    }
-
-    if (timerMode === "extend") {
-      setTimeLeft((prev) => prev + seconds);
-      setIsBiddingOpen(true);
-      setActiveTab("Open");
-    }
-
-    setShowTimerPopup(false);
-    setTimerInput({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  };
-
-  // Adds/removes supplier from shortlist. Maximum 5 bids can be shortlisted
-  const toggleShortlist = (bidId) => {
-    if (sentToLogistics) return;
-
-    setShortlistedBidIds((prev) => {
-      if (prev.includes(bidId)) return prev.filter((item) => item !== bidId);
-
-      if (prev.length >= 5) {
-        alert("You can shortlist maximum 5 suppliers only.");
-        return prev;
+  const openTimerPopup =
+    () => {
+      if (sentToLogistics) {
+        alert(
+          "Bidding is locked because the shortlist has already been sent to Logistics."
+        );
+        return;
       }
 
-      return [...prev, bidId];
-    });
-  };
+      if (isBiddingOpen) {
+        alert(
+          "Bidding is already open for this order."
+        );
+        return;
+      }
 
-  // Saves shortlisted bids to sessionStorage so Logistics side can access them
-  const sendShortlistedToLogistics = () => {
-    if (shortlistedBidIds.length === 0) {
-      alert("Please shortlist at least one supplier.");
+      const orderStatus =
+        getOrderStatus();
+
+      // Only a newly created order can start a new bidding cycle.
+      // If no status is available in the session object, the backend
+      // remains the final authority and will validate the request.
+      if (
+        orderStatus &&
+        orderStatus !== "created"
+      ) {
+        alert(
+          `Bidding can only be opened for a Created order. Current status: ${orderStatus
+            .replaceAll("_", " ")
+            .replace(/\b\w/g, (char) => char.toUpperCase())}.`
+        );
+        return;
+      }
+
+      setTimerMode(
+        "open"
+      );
+
+      setShowTimerPopup(
+        true
+      );
+    };
+
+  const closeBidding =
+    () => {
+      if (sentToLogistics) {
+        alert(
+          "Bidding is locked because the shortlist has already been sent to Logistics."
+        );
+        return;
+      }
+
+      setShowCloseConfirm(
+        true
+      );
+    };
+
+  const confirmCloseBidding =
+    async () => {
+      if (sentToLogistics) {
+        setShowCloseConfirm(false);
+        alert(
+          "Bidding is locked because the shortlist has already been sent to Logistics."
+        );
+        return;
+      }
+
+      const orderReference =
+        displayOrder.orderReference;
+
+      if (
+        !orderReference ||
+        orderReference ===
+          "No order selected"
+      ) {
+        alert(
+          "Order reference is missing."
+        );
+
+        return;
+      }
+
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/operations/bidding/close`,
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  order_reference:
+                    orderReference,
+                }),
+            }
+          );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.error ||
+              "Failed to close bidding"
+          );
+        }
+
+        setIsBiddingOpen(
+          false
+        );
+
+        setTimeLeft(
+          0
+        );
+
+        setActiveTab(
+          "Closed"
+        );
+
+        setShowCloseConfirm(
+          false
+        );
+
+        await fetchBiddingStatus(
+          selectedOrder
+        );
+      } catch (error) {
+        alert(
+          error.message
+        );
+      }
+    };
+
+  const extendTimerPopup =
+    () => {
+      if (sentToLogistics) {
+        alert(
+          "Bidding is locked because the shortlist has already been sent to Logistics."
+        );
+        return;
+      }
+
+      setTimerMode(
+        "extend"
+      );
+
+      setShowTimerPopup(
+        true
+      );
+    };
+
+  const confirmTimer =
+    async () => {
+      if (sentToLogistics) {
+        setShowTimerPopup(false);
+        alert(
+          "Bidding is locked because the shortlist has already been sent to Logistics."
+        );
+        return;
+      }
+
+      const seconds =
+        convertToSeconds();
+
+      if (
+        seconds <=
+        0
+      ) {
+        alert(
+          "Please enter valid time."
+        );
+
+        return;
+      }
+
+      if (
+        timerMode === "open"
+      ) {
+        const orderStatus =
+          getOrderStatus();
+
+        if (
+          orderStatus &&
+          orderStatus !== "created"
+        ) {
+          alert(
+            "Bidding can only be opened for an order in Created status."
+          );
+          return;
+        }
+      }
+
+      const orderReference =
+        displayOrder.orderReference;
+
+      if (
+        !orderReference ||
+        orderReference ===
+          "No order selected"
+      ) {
+        alert(
+          "Order reference is missing."
+        );
+
+        return;
+      }
+
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/operations/bidding/open`,
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify({
+                  order_reference:
+                    orderReference,
+
+                  duration_seconds:
+                    timerMode ===
+                    "extend"
+                      ? timeLeft +
+                        seconds
+                      : seconds,
+                }),
+            }
+          );
+
+        const responseText =
+          await response.text();
+
+        let result =
+          {};
+
+        try {
+          result =
+            responseText
+              ? JSON.parse(
+                  responseText
+                )
+              : {};
+        } catch {
+          throw new Error(
+            `Backend returned invalid response. Status: ${response.status}`
+          );
+        }
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            result.error ||
+              "Failed to update bidding timer"
+          );
+        }
+
+        setShowTimerPopup(
+          false
+        );
+
+        setTimerInput({
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+        });
+
+        await fetchBiddingStatus(
+          selectedOrder
+        );
+      } catch (error) {
+        alert(
+          error.message
+        );
+      }
+    };
+
+  // LOCAL SHORTLIST BEFORE SENDING TO LOGISTICS
+  // Shortlisting is allowed only after bidding closes.
+  // Operations may shortlist 1 to 5 suppliers.
+  // Once sent to Logistics, the shortlist is permanently locked in this UI.
+  const toggleShortlist = (
+    bidId
+  ) => {
+    if (sentToLogistics) {
+      alert(
+        "Shortlist has already been sent to Logistics and is locked."
+      );
       return;
     }
 
-    const shortlistedBids = bids.filter((bid) =>
-      shortlistedBidIds.includes(bid.id)
-    );
+    if (isBiddingOpen) {
+      alert(
+        "Please wait until bidding is closed before shortlisting suppliers."
+      );
+      return;
+    }
 
-    sessionStorage.setItem(
-      "shortlistedBidsForLogistics",
-      JSON.stringify(shortlistedBids)
-    );
+    setShortlistedBidIds(
+      (prev) => {
+        if (
+          prev.some(
+            (item) =>
+              Number(item) ===
+              Number(bidId)
+          )
+        ) {
+          return prev.filter(
+            (item) =>
+              Number(item) !==
+              Number(bidId)
+          );
+        }
 
-    sessionStorage.setItem(
-      "shortlistedBidIdsForLogistics",
-      JSON.stringify(shortlistedBidIds)
-    );
+        if (
+          prev.length >=
+          maxShortlistCount
+        ) {
+          alert(
+            maxShortlistCount < 5
+              ? `Only ${maxShortlistCount} bid${
+                  maxShortlistCount === 1 ? " is" : "s are"
+                } available for this order.`
+              : "You can shortlist maximum 5 suppliers only."
+          );
+          return prev;
+        }
 
-    setSentToLogistics(true);
-    alert(
-      `${shortlistedBids.length} shortlisted suppliers sent to Logistics Team.`
+        return [
+          ...prev,
+          bidId,
+        ];
+      }
     );
   };
 
-  // Matches the stored winning bid with latest loaded bid data
-  const getFreshWinningBid = () => {
-    if (!winningBid) return null;
+  const sendShortlistedToLogistics = async () => {
+    if (sentToLogistics) {
+      alert(
+        "Shortlist has already been sent to Logistics for this order."
+      );
+      return;
+    }
 
-    return (
-      bids.find(
-        (bid) =>
-          Number(bid.id) === Number(winningBid.id) ||
-          Number(bid.bidId) === Number(winningBid.bidId) ||
-          Number(bid.id) === Number(winningBid.bidId) ||
-          Number(bid.bidId) === Number(winningBid.id)
-      ) || winningBid
-    );
+    if (isBiddingOpen) {
+      alert(
+        "Bidding is still open. Please close bidding before sending the shortlist."
+      );
+      return;
+    }
+
+    if (bids.length === 0) {
+      alert(
+        "No bids are available for this order."
+      );
+      return;
+    }
+
+    if (shortlistedBidIds.length === 0) {
+      alert(
+        "Please shortlist at least one supplier before sending to Logistics."
+      );
+      return;
+    }
+
+    if (shortlistedBidIds.length > 5) {
+      alert(
+        "You can send a maximum of 5 shortlisted suppliers to Logistics."
+      );
+      return;
+    }
+
+    const orderReference =
+      displayOrder.orderReference;
+
+    if (
+      !orderReference ||
+      orderReference ===
+        "No order selected"
+    ) {
+      alert(
+        "Order reference is missing."
+      );
+      return;
+    }
+
+    const selectedCurrentOrderBids =
+      bids.filter((bid) =>
+        shortlistedBidIds.some(
+          (id) =>
+            Number(id) ===
+            Number(bid.id)
+        )
+      );
+
+    if (
+      selectedCurrentOrderBids.length !==
+      shortlistedBidIds.length
+    ) {
+      alert(
+        "One or more selected bids do not belong to this order. Please select the suppliers again."
+      );
+
+      setShortlistedBidIds([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/operations/bids/send-to-logistics`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            order_reference:
+              orderReference,
+            bid_ids:
+              shortlistedBidIds,
+          }),
+        }
+      );
+
+      const responseText =
+        await response.text();
+
+      let result = {};
+
+      try {
+        result = responseText
+          ? JSON.parse(responseText)
+          : {};
+      } catch {
+        throw new Error(
+          `Backend returned a non-JSON response. Status: ${response.status}`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ||
+            result.message ||
+            "Failed to send shortlisted bids to Logistics"
+        );
+      }
+
+      const shortlistedBids =
+        bids.filter((bid) =>
+          shortlistedBidIds.some(
+            (id) =>
+              Number(id) ===
+              Number(bid.id)
+          )
+        );
+
+      // Local session copies are only convenience fallbacks.
+      // Supabase bid_selection remains the source of truth.
+      sessionStorage.setItem(
+        "shortlistedBidsForLogistics",
+        JSON.stringify(
+          shortlistedBids
+        )
+      );
+
+      sessionStorage.setItem(
+        "shortlistedBidIdsForLogistics",
+        JSON.stringify(
+          shortlistedBidIds
+        )
+      );
+
+      sessionStorage.setItem(
+        "shortlistedOrderReferenceForLogistics",
+        orderReference
+      );
+
+      setSentToLogistics(true);
+
+      alert(
+        `${shortlistedBidIds.length} shortlisted supplier${
+          shortlistedBidIds.length === 1 ? "" : "s"
+        } sent to Logistics Team successfully.`
+      );
+
+      await fetchBids(selectedOrder);
+      await fetchShortlistStatus(selectedOrder);
+    } catch (error) {
+      console.error(
+        "Send to Logistics error:",
+        error
+      );
+
+      alert(
+        error.message
+      );
+    }
   };
 
-  // Shortlisted suppliers who were not selected as winner
-  const getRejectedShortlistedBids = () => {
+  const getFreshWinningBid =
+    () => {
+      if (
+        !winningBid
+      ) {
+        return null;
+      }
+
+      return (
+        bids.find(
+          (bid) =>
+            Number(
+              bid.id
+            ) ===
+              Number(
+                winningBid.id
+              ) ||
+            Number(
+              bid.bidId
+            ) ===
+              Number(
+                winningBid.bidId
+              ) ||
+            Number(
+              bid.id
+            ) ===
+              Number(
+                winningBid.bidId
+              ) ||
+            Number(
+              bid.bidId
+            ) ===
+              Number(
+                winningBid.id
+              )
+        ) ||
+        winningBid
+      );
+    };
+
+  // Only shortlisted suppliers that were not selected by Logistics
+  // are treated as rejected. Non-shortlisted bids remain "Not Shortlisted".
+  const getUnsuccessfulBids = () => {
     const freshWinner = getFreshWinningBid();
 
-    if (!freshWinner) return [];
+    if (!freshWinner) {
+      return [];
+    }
 
     return bids.filter(
       (bid) =>
-        shortlistedBidIds.includes(bid.id) &&
-        Number(bid.id) !== Number(freshWinner.id)
+        shortlistedBidIds.some(
+          (id) =>
+            Number(id) ===
+            Number(bid.id)
+        ) &&
+        Number(bid.id) !==
+          Number(freshWinner.id)
     );
   };
 
-  // Suppliers who submitted bids but were not shortlisted
-  const getNotShortlistedBids = () => {
-    return bids.filter((bid) => !shortlistedBidIds.includes(bid.id));
-  };
+  const getComplianceClass =
+    (status) => {
+      if (
+        status ===
+          "Verified" ||
+        status ===
+          "Completed"
+      ) {
+        return "bg-green-100 text-[#16A34A]";
+      }
 
-  // Returns Tailwind classes based on supplier compliance status
-  const getComplianceClass = (status) => {
-    if (status === "Verified" || status === "Completed") {
-      return "bg-green-100 text-[#16A34A]";
-    }
+      if (
+        status ===
+          "Pending" ||
+        status ===
+          "Warning"
+      ) {
+        return "bg-orange-100 text-[#EA580C]";
+      }
 
-    if (status === "Pending" || status === "Warning") {
-      return "bg-orange-100 text-[#EA580C]";
-    }
+      if (
+        status ===
+        "Blocked"
+      ) {
+        return "bg-red-100 text-[#DC2626]";
+      }
 
-    if (status === "Blocked") return "bg-red-100 text-[#DC2626]";
+      return "bg-slate-100 text-[#1E293B]";
+    };
 
-    return "bg-slate-100 text-[#1E293B]";
-  };
+  const renderStars = (
+    value
+  ) => {
+    const safeValue =
+      Number(
+        value ||
+          0
+      );
 
-  // Displays supplier rating as star text
-  const renderStars = (value) => {
-    const safeValue = Number(value || 0);
-    const full = Math.floor(safeValue);
-    const empty = 5 - full;
+    const full =
+      Math.floor(
+        safeValue
+      );
+
+    const empty =
+      5 -
+      full;
 
     return (
       <div className="flex items-center gap-1">
         <span className="text-[#EA580C] text-xs">
-          {"★".repeat(full)}
-          {"☆".repeat(empty)}
+          {"★".repeat(
+            full
+          )}
+          {"☆".repeat(
+            empty
+          )}
         </span>
 
         <span className="text-slate-600 text-xs">
-          {safeValue > 0 ? safeValue.toFixed(1) : "-"}
+          {safeValue >
+          0
+            ? safeValue.toFixed(
+                1
+              )
+            : "-"}
         </span>
       </div>
     );
   };
 
-  // Creates supplier avatar using first letter of supplier name
-  const getSupplierIcon = (supplier) => (
-    <div className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#052659] text-sm font-bold">
-      {supplier?.charAt(0) || "S"}
+  const getSupplierIcon = (
+    supplier
+  ) => (
+    <div className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#1E40AF] text-sm font-bold">
+      {supplier?.charAt(
+        0
+      ) || "S"}
+
     </div>
   );
 
-  // Displays bid status based on winner, shortlist, or original backend status
   const getBidStatus = (bid) => {
     const freshWinner = getFreshWinningBid();
+    const isWinner =
+      freshWinner &&
+      Number(freshWinner.id) === Number(bid.id);
 
-    if (freshWinner?.id === bid.id) return "Winner Selected";
-    if (shortlistedBidIds.includes(bid.id)) return "Shortlisted";
+    const isShortlisted =
+      shortlistedBidIds.some(
+        (id) => Number(id) === Number(bid.id)
+      );
+
+    if (isWinner) {
+      return "Winner Selected";
+    }
+
+    if (sentToLogistics && freshWinner && isShortlisted) {
+      return "Rejected";
+    }
+
+    if (sentToLogistics && !freshWinner && isShortlisted) {
+      return "Awaiting Logistics";
+    }
+
+    if (!sentToLogistics && isShortlisted) {
+      return "Shortlisted";
+    }
+
+    if (sentToLogistics && freshWinner && !isShortlisted) {
+      return "Not Shortlisted";
+    }
 
     return bid.bidStatus || "Under Review";
   };
 
-  // Displays notification status based on shortlist and winner process
   const getNotificationStatus = (bid) => {
     const freshWinner = getFreshWinningBid();
 
-    if (freshWinner?.id === bid.id) return "Ready to Notify";
+    const isWinner =
+      freshWinner &&
+      Number(freshWinner.id) ===
+        Number(bid.id);
 
-    if (sentToLogistics && shortlistedBidIds.includes(bid.id)) {
+    const isShortlisted =
+      shortlistedBidIds.some(
+        (id) =>
+          Number(id) ===
+          Number(bid.id)
+      );
+
+    if (isWinner) {
+      return "Ready to Notify";
+    }
+
+    if (
+      sentToLogistics &&
+      freshWinner &&
+      isShortlisted
+    ) {
+      return "Ready to Notify";
+    }
+
+    if (
+      sentToLogistics &&
+      !freshWinner &&
+      isShortlisted
+    ) {
       return "Sent to Logistics";
     }
 
-    if (sentToLogistics && !shortlistedBidIds.includes(bid.id)) {
+    if (
+      sentToLogistics &&
+      !isShortlisted
+    ) {
       return "Not Shortlisted";
     }
 
     return bid.notificationStatus || "Pending";
   };
 
-  // Generates recommendation label for each supplier bid
-  const getRecommendation = (bid) => {
-    if (!lowestPriceBid || !highestRatedBid) return "";
-    if (bid.id === lowestPriceBid.id) return "BEST PRICE";
-    if (bid.id === highestRatedBid.id) return "TOP RATED";
+  const getRecommendation =
+    (bid) => {
+      if (
+        !lowestPriceBid ||
+        !highestRatedBid
+      ) {
+        return "";
+      }
 
-    if (bid.compliance === "Verified" || bid.compliance === "Completed") {
-      return "COMPLIANT";
-    }
+      if (
+        bid.id ===
+        lowestPriceBid.id
+      ) {
+        return "BEST PRICE";
+      }
 
-    if (bid.compliance === "Warning") return "REVIEW";
+      if (
+        bid.id ===
+        highestRatedBid.id
+      ) {
+        return "TOP RATED";
+      }
 
-    return "";
-  };
+      if (
+        bid.compliance ===
+          "Verified" ||
+        bid.compliance ===
+          "Completed"
+      ) {
+        return "COMPLIANT";
+      }
 
-  // Returns icon for recommendation label
-  const getRecommendationIcon = (recommendation) => {
-    if (recommendation === "BEST PRICE") {
-      return <BadgeDollarSign size={14} className="text-[#16A34A]" />;
-    }
+      if (
+        bid.compliance ===
+        "Warning"
+      ) {
+        return "REVIEW";
+      }
 
-    if (recommendation === "TOP RATED") {
-      return <Star size={14} className="text-[#EA580C]" />;
-    }
-
-    if (recommendation === "COMPLIANT") {
-      return <CircleCheck size={14} className="text-[#16A34A]" />;
-    }
-
-    if (recommendation === "REVIEW") {
-      return <CircleAlert size={14} className="text-[#EA580C]" />;
-    }
-
-    return null;
-  };
-
-  // Calculates supplier score out of 100
-  // Price = 40%, ETA = 20%, Rating = 20%, Compliance = 20%
-  const calculateSupplierScore = (bid) => {
-    let priceScore = 0;
-    let etaScore = 0;
-    let ratingScore = 0;
-    let complianceScore = 0;
-
-    if (lowestPriceBid && bid.amount > 0) {
-      priceScore = Math.round((lowestPriceBid.amount / bid.amount) * 40);
-      if (priceScore > 40) priceScore = 40;
-    }
-
-    if (fastestEtaBids.some((item) => item.id === bid.id)) {
-      etaScore = 20;
-    } else if (bid.eta && bid.eta !== "-") {
-      etaScore = 12;
-    } else {
-      etaScore = 0;
-    }
-
-    ratingScore = Math.round((Number(bid.rating || 0) / 5) * 20);
-    if (ratingScore > 20) ratingScore = 20;
-
-    if (bid.compliance === "Verified" || bid.compliance === "Completed") {
-      complianceScore = 20;
-    } else if (bid.compliance === "Pending") {
-      complianceScore = 10;
-    } else if (bid.compliance === "Warning") {
-      complianceScore = 5;
-    } else {
-      complianceScore = 0;
-    }
-
-    const totalScore = priceScore + etaScore + ratingScore + complianceScore;
-
-    return {
-      priceScore,
-      etaScore,
-      ratingScore,
-      complianceScore,
-      totalScore,
+      return "";
     };
-  };
 
-  // Allows Operations to manually mark a shortlisted bid as winner for notification
-  const openWinnerPopupManually = (bid) => {
-    setWinningBid(bid);
-    setShowWinnerPopup(true);
-    sessionStorage.setItem(
-      "selectedWinningBidForOperations",
-      JSON.stringify({ id: bid.id, bidId: bid.bidId })
-    );
-  };
+  const getRecommendationIcon =
+    (recommendation) => {
+      if (
+        recommendation ===
+        "BEST PRICE"
+      ) {
+        return (
+          <BadgeDollarSign
+            size={14}
+            className="text-[#16A34A]"
+          />
+        );
+      }
 
-  const freshWinningBid = getFreshWinningBid();
+      if (
+        recommendation ===
+        "TOP RATED"
+      ) {
+        return (
+          <Star
+            size={14}
+            className="text-[#EA580C]"
+          />
+        );
+      }
+
+      if (
+        recommendation ===
+        "COMPLIANT"
+      ) {
+        return (
+          <CircleCheck
+            size={14}
+            className="text-[#16A34A]"
+          />
+        );
+      }
+
+      if (
+        recommendation ===
+        "REVIEW"
+      ) {
+        return (
+          <CircleAlert
+            size={14}
+            className="text-[#EA580C]"
+          />
+        );
+      }
+
+      return null;
+    };
+
+  const calculateSupplierScore =
+    (bid) => {
+      let priceScore =
+        0;
+
+      let etaScore =
+        0;
+
+      let ratingScore =
+        0;
+
+      let complianceScore =
+        0;
+
+      if (
+        lowestPriceBid &&
+        bid.amount >
+          0
+      ) {
+        priceScore =
+          Math.round(
+            (lowestPriceBid.amount /
+              bid.amount) *
+              40
+          );
+
+        if (
+          priceScore >
+          40
+        ) {
+          priceScore =
+            40;
+        }
+      }
+
+      if (
+        fastestEtaBids.some(
+          (item) =>
+            item.id ===
+            bid.id
+        )
+      ) {
+        etaScore =
+          20;
+      } else if (
+        bid.eta &&
+        bid.eta !==
+          "-"
+      ) {
+        etaScore =
+          12;
+      }
+
+      ratingScore =
+        Math.round(
+          (Number(
+            bid.rating ||
+              0
+          ) /
+            5) *
+            20
+        );
+
+      if (
+        ratingScore >
+        20
+      ) {
+        ratingScore =
+          20;
+      }
+
+      if (
+        bid.compliance ===
+          "Verified" ||
+        bid.compliance ===
+          "Completed"
+      ) {
+        complianceScore =
+          20;
+      } else if (
+        bid.compliance ===
+        "Pending"
+      ) {
+        complianceScore =
+          10;
+      } else if (
+        bid.compliance ===
+        "Warning"
+      ) {
+        complianceScore =
+          5;
+      }
+
+      const totalScore =
+        priceScore +
+        etaScore +
+        ratingScore +
+        complianceScore;
+
+      return {
+        priceScore,
+        etaScore,
+        ratingScore,
+        complianceScore,
+        totalScore,
+      };
+    };
+
+  const freshWinningBid =
+    getFreshWinningBid();
 
   return (
     <div className="bg-[#EBF4FF] p-5 min-h-full">
       <div className="max-w-[1500px] mx-auto space-y-4">
-        {/* Top bidding status cards */}
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-[760px]">
+
           <MiniStatusCard
             title="Status"
-            value={isBiddingOpen ? "Bidding Open" : "Not Started"}
-            type={isBiddingOpen ? "success" : "neutral"}
+            value={
+              !biddingStatusLoaded
+                ? "Loading..."
+                : sentToLogistics
+                ? "Bidding Locked"
+                : isBiddingOpen
+                ? "Bidding Open"
+                : activeTab ===
+                  "Closed"
+                ? "Bidding Closed"
+                : "Not Started"
+            }
+            type={
+              sentToLogistics
+                ? "neutral"
+                : isBiddingOpen
+                ? "success"
+                : activeTab ===
+                  "Closed"
+                ? "danger"
+                : "neutral"
+            }
           />
 
           <MiniStatusCard
             title="Closes In"
-            value={isBiddingOpen ? formatTime(timeLeft) : "Not Started"}
+            value={
+              !biddingStatusLoaded
+                ? "Loading..."
+                : sentToLogistics
+                ? "Locked"
+                : isBiddingOpen
+                ? formatTime(
+                    timeLeft
+                  )
+                : activeTab ===
+                  "Closed"
+                ? "Closed"
+                : "Not Started"
+            }
             type="danger"
           />
 
           <MiniStatusCard
             title="Available Bids"
-            value={bids.length}
+            value={
+              bids.length
+            }
             type="primary"
           />
+
         </div>
 
-        {/* Order detail card with collapsible detail table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#052659] flex items-center justify-center shrink-0">
-                <PackageCheck className="text-white" size={20} />
+
+              <div className="w-10 h-10 rounded-xl bg-[#1E40AF] flex items-center justify-center shrink-0">
+
+                <PackageCheck
+                  className="text-white"
+                  size={20}
+                />
+
+
               </div>
 
               <div>
+
                 <h3 className="text-base font-semibold text-[#1E293B]">
                   Order Details
                 </h3>
@@ -785,462 +2346,791 @@ function Bidding() {
                 <p className="text-xs text-slate-500">
                   {displayOrder.orderReference}
                 </p>
+
               </div>
+
             </div>
 
             <button
-              onClick={() => setShowOrderDetails(!showOrderDetails)}
-              className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#052659] hover:bg-[#EBF4FF] transition"
-              title={
-                showOrderDetails ? "Hide order details" : "Show order details"
+              onClick={() =>
+                setShowOrderDetails(
+                  !showOrderDetails
+                )
+
               }
+              className="w-9 h-9 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-[#1E40AF] hover:bg-[#EFF6FF] transition"
             >
+
               <ChevronDown
                 size={20}
                 className={`transition-transform duration-300 ${
-                  showOrderDetails ? "rotate-180" : ""
+                  showOrderDetails
+                    ? "rotate-180"
+                    : ""
                 }`}
               />
+
             </button>
+
           </div>
 
           {showOrderDetails && (
             <div className="overflow-x-auto">
+
               <table className="w-full text-sm table-fixed">
+
                 <tbody>
+
                   <tr className="border-b border-slate-100">
+
                     <OrderTableCell
                       label="Order ID"
                       value={displayOrder.orderReference}
                     />
-                    <OrderTableCell label="Type" value={displayOrder.orderType} />
-                    <OrderTableCell label="Pickup" value={displayOrder.pickup} />
+
+                    <OrderTableCell
+                      label="Type"
+                      value={displayOrder.orderType}
+                    />
+
+                    <OrderTableCell
+                      label="Pickup"
+                      value={displayOrder.pickup}
+                    />
+
                     <OrderTableCell
                       label="Destination"
                       value={displayOrder.destination}
                     />
+
                     <OrderTableCell
                       label="Container"
                       value={displayOrder.container}
                     />
+
                     <OrderTableCell
                       label="Cargo Type"
                       value={displayOrder.cargoType}
                     />
+
                   </tr>
 
                   <tr>
+
                     <OrderTableCell
                       label="Cargo Weight"
                       value={
-                        displayOrder.cargoWeight !== "-"
+                        displayOrder.cargoWeight !==
+                        "-"
                           ? `${displayOrder.cargoWeight} kg`
                           : "-"
                       }
                     />
+
                     <OrderTableCell
                       label="Vehicle Type"
                       value={displayOrder.vehicleType}
                     />
+
                     <OrderTableCell
                       label="Pickup Date"
-                      value={formatEta(displayOrder.pickupDate)}
+                      value={formatEta(
+                        displayOrder.pickupDate
+                      )}
                     />
+
                     <OrderTableCell
                       label="Expected Arrival"
-                      value={formatEta(displayOrder.expectedArrival)}
+                      value={formatEta(
+                        displayOrder.expectedArrival
+                      )}
                     />
+
                     <OrderTableCell
                       label="Special Instructions"
                       value={displayOrder.specialInstructions}
                       colSpan={2}
                     />
+
                   </tr>
+
                 </tbody>
+
               </table>
+
             </div>
           )}
+
         </div>
 
-        {/* Bidding action controls */}
         <div className="flex justify-between items-center gap-3">
+
           <div className="flex gap-2">
+
             <button
-              onClick={openTimerPopup}
+              onClick={
+                openTimerPopup
+              }
+              disabled={sentToLogistics}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                activeTab === "Open"
-                  ? "bg-[#052659] text-white"
+                sentToLogistics
+                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  : activeTab ===
+                    "Open"
+                  ? "bg-[#1E40AF] text-white"
+
                   : "bg-white text-[#1E293B] border border-slate-200"
               }`}
             >
               Open Bidding{" "}
+
               <span className="ml-2 bg-white/20 px-2 rounded-full">
                 {bids.length}
               </span>
             </button>
 
             <button
-              onClick={closeBidding}
+              onClick={
+                closeBidding
+              }
+              disabled={sentToLogistics}
               className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                activeTab === "Closed"
-                  ? "bg-[#052659] text-white"
+                sentToLogistics
+                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  : activeTab ===
+                    "Closed"
+                  ? "bg-[#1E40AF] text-white"
+
                   : "bg-white text-[#1E293B] border border-slate-200"
               }`}
             >
               Closed Bidding
             </button>
+
           </div>
 
           <div className="flex items-center gap-2">
+
             <button
-              onClick={extendTimerPopup}
-              className="bg-white border border-slate-200 text-[#052659] px-3 py-2 rounded-lg text-sm font-medium"
+              onClick={
+                extendTimerPopup
+              }
+              disabled={
+                !isBiddingOpen ||
+                sentToLogistics
+              }
+              className={`border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium ${
+                isBiddingOpen &&
+                !sentToLogistics
+                  ? "bg-white text-[#1E40AF]"
+                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              }`}
+
             >
               Extend Timer
             </button>
 
             <button
-              onClick={sendShortlistedToLogistics}
-              disabled={sentToLogistics}
+              onClick={
+                sendShortlistedToLogistics
+              }
+              disabled={
+                isBiddingOpen ||
+                sentToLogistics ||
+                bids.length === 0 ||
+                shortlistedBidIds.length === 0 ||
+                shortlistedBidIds.length > 5
+              }
               className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                 sentToLogistics
                   ? "bg-green-100 text-[#16A34A]"
-                  : "bg-[#052659] text-white hover:bg-[#5483B3]"
+                  : !isBiddingOpen &&
+                    shortlistedBidIds.length > 0 &&
+                    shortlistedBidIds.length <= 5
+                  ? "bg-[#1E40AF] text-white hover:bg-[#1E3A8A]"
+                  : "bg-slate-200 text-slate-500 cursor-not-allowed"
+
               }`}
             >
-              <Send size={16} />
+
+              <Send
+                size={16}
+              />
+
               {sentToLogistics
                 ? "Shortlist Sent to Logistics"
-                : `Send Shortlisted to Logistics (${shortlistedBidIds.length}/5)`}
+                : `Send Shortlisted to Logistics (${shortlistedBidIds.length}/${maxShortlistCount})`}
+
             </button>
+
           </div>
+
         </div>
 
-        {/* Recommendation summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
           <SummaryCard
-            icon={<BadgeDollarSign className="text-[#16A34A]" size={22} />}
+            icon={
+              <BadgeDollarSign
+                className="text-[#16A34A]"
+                size={22}
+              />
+            }
             title="Lowest Price"
-            value={lowestPriceBid ? formatMoney(lowestPriceBid.amount) : "-"}
-            subtitle={lowestPriceBid?.supplier || "No bids available"}
-            tag={lowestPriceBid ? "Best Price" : ""}
+            value={
+              lowestPriceBid
+                ? formatMoney(
+                    lowestPriceBid.amount
+                  )
+                : "-"
+            }
+            subtitle={
+              lowestPriceBid?.supplier ||
+              "No bids available"
+            }
+            tag={
+              lowestPriceBid
+                ? "Best Price"
+                : ""
+            }
             tagClass="bg-green-100 text-[#16A34A]"
           />
 
           <SummaryCard
-            icon={<Clock3 className="text-[#052659]" size={22} />}
+            icon={
+              <Clock3
+                className="text-[#1E40AF]"
+                size={22}
+              />
+            }
+
             title="Fastest ETA"
             value={
-              fastestEtaBids.length > 0 ? formatEta(fastestEtaBids[0].eta) : "-"
+              fastestEtaBids.length >
+              0
+                ? formatEta(
+                    fastestEtaBids[0]
+                      .eta
+                  )
+                : "-"
             }
             subtitle={
-              fastestEtaBids.length > 0
-                ? fastestEtaBids.map((bid) => bid.supplier).join(", ")
+              fastestEtaBids.length >
+              0
+                ? fastestEtaBids
+                    .map(
+                      (bid) =>
+                        bid.supplier
+                    )
+                    .join(", ")
                 : "No ETA available"
             }
           />
 
           <SummaryCard
-            icon={<Star className="text-[#EA580C]" size={22} />}
+            icon={
+              <Star
+                className="text-[#EA580C]"
+                size={22}
+              />
+            }
             title="Highest Rating"
             value={
-              highestRatedBid ? `${highestRatedBid.rating.toFixed(1)} / 5` : "-"
+              highestRatedBid
+                ? `${highestRatedBid.rating.toFixed(
+                    1
+                  )} / 5`
+                : "-"
             }
-            subtitle={highestRatedBid?.supplier || "No ratings available"}
-            tag={highestRatedBid ? "Top Rated" : ""}
+            subtitle={
+              highestRatedBid?.supplier ||
+              "No ratings available"
+            }
+            tag={
+              highestRatedBid
+                ? "Top Rated"
+                : ""
+            }
             tagClass="bg-orange-100 text-[#EA580C]"
           />
+
         </div>
 
-        {/* Main supplier bid comparison table */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+
           <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+
             <h3 className="text-lg font-semibold text-[#1E293B]">
               Supplier Bids Comparison
             </h3>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-500">Sort by:</span>
+
+              <span className="text-sm text-slate-500">
+                Sort by:
+              </span>
 
               <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                value={
+                  sortBy
+                }
+                onChange={(e) =>
+                  setSortBy(
+                    e.target.value
+                  )
+                }
                 className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white"
               >
-                <option>Lowest Price</option>
-                <option>Highest Rating</option>
-                <option>Compliance</option>
+
+                <option>
+                  Lowest Price
+                </option>
+
+                <option>
+                  Highest Rating
+                </option>
+
+                <option>
+                  Compliance
+                </option>
+
               </select>
 
               <button className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white flex items-center gap-2">
-                <SlidersHorizontal size={14} />
+
+                <SlidersHorizontal
+                  size={14}
+                />
+
                 Filters
+
               </button>
+
             </div>
+
           </div>
 
           <div className="overflow-x-auto">
+
             {isLoading ? (
               <div className="py-10 text-center text-sm text-slate-500">
                 Loading bids...
               </div>
-            ) : sortedBids.length === 0 ? (
+            ) : sortedBids.length ===
+              0 ? (
               <div className="py-10 text-center text-sm text-slate-500">
                 No bids found for this order.
               </div>
             ) : (
               <table className="w-full text-sm border-separate border-spacing-0">
-                <thead className="bg-[#EBF4FF] text-[#1E293B]">
+
+                <thead className="bg-[#EFF6FF] text-[#1E293B]">
+
+
                   <tr>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Supplier
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
-                      Bid Amount <Info size={13} className="inline ml-1" />
+                      Bid Amount
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       ETA ↓
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
-                      Rating <Info size={13} className="inline ml-1" />
+                      Rating
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Compliance
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Past Performance
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Score
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Bid Status
                     </th>
+
                     <th className="text-left px-3 py-3 font-semibold text-[13px]">
                       Notification
                     </th>
+
                     <th className="text-center px-3 py-3 font-semibold text-[13px]">
                       Action
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
-                  {sortedBids.map((bid) => {
-                    const isLowest = lowestPriceBid?.id === bid.id;
-                    const isShortlisted = shortlistedBidIds.includes(bid.id);
-                    const isWinner = freshWinningBid?.id === bid.id;
-                    const recommendation = getRecommendation(bid);
-                    const score = calculateSupplierScore(bid);
 
-                    return (
-                      <tr
-                        key={bid.id}
-                        className={
-                          isWinner
-                            ? "bg-green-50"
-                            : isShortlisted || isLowest
-                            ? "bg-[#EBF4FF]"
-                            : "bg-white"
-                        }
-                      >
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          <div className="flex items-center gap-2">
-                            {isShortlisted && (
-                              <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-[#EBF4FF] text-[#052659] border border-[#052659]">
-                                SHORTLIST
-                              </div>
-                            )}
+                  {sortedBids.map(
+                    (bid) => {
+                      const isLowest =
+                        lowestPriceBid?.id ===
+                        bid.id;
 
-                            {isWinner && (
-                              <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-green-100 text-[#16A34A] border border-green-200">
-                                WINNER
-                              </div>
-                            )}
 
-                            {getSupplierIcon(bid.supplier)}
+                      const isShortlisted =
+                        shortlistedBidIds.some(
+                          (id) => Number(id) === Number(bid.id)
+                        );
 
-                            <div>
-                              <div className="flex items-center gap-2">
+                      const isWinner =
+                        freshWinningBid &&
+                        Number(freshWinningBid.id) === Number(bid.id);
+
+                      const recommendation =
+                        getRecommendation(
+                          bid
+                        );
+
+                      const score =
+                        calculateSupplierScore(
+                          bid
+                        );
+
+                      return (
+                        <tr
+                          key={
+                            bid.id
+                          }
+                          className={
+                            isWinner
+                              ? "bg-green-50"
+                              : isShortlisted ||
+                                isLowest
+                              ? "bg-[#EFF6FF]"
+                              : "bg-white"
+                          }
+                        >
+
+                          <td className="px-3 py-3 border-b border-slate-100">
+
+                            <div className="flex items-center gap-2">
+
+                              {isShortlisted && (
+                                <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-[#EFF6FF] text-[#1E40AF] border border-[#1E40AF]">
+                                  SHORTLIST
+                                </div>
+                              )}
+
+                              {isWinner && (
+                                <div className="text-[9px] font-bold px-2 py-1 rounded-md w-[78px] text-center bg-green-100 text-[#16A34A] border border-green-200">
+                                  WINNER
+                                </div>
+                              )}
+
+                              {getSupplierIcon(
+                                bid.supplier
+                              )}
+
+                              <div>
+
                                 <p className="font-medium text-sm text-[#1E293B]">
-                                  {bid.supplier}
+                                  {
+                                    bid.supplier
+                                  }
                                 </p>
 
-                                {recommendation && (
-                                  <span
-                                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-50 border border-slate-200"
-                                    title={recommendation}
-                                  >
-                                    {getRecommendationIcon(recommendation)}
-                                  </span>
-                                )}
+                                <p className="text-xs text-slate-500">
+                                  {
+                                    bid.years
+                                  }
+                                </p>
+
+                                <p className="text-[11px] text-slate-400">
+
+                                  {bid.supplierEmail ||
+                                    "No email"}{" "}
+
+                                  {bid.supplierPhone
+                                    ? `• ${bid.supplierPhone}`
+                                    : "• No phone"}
+
+                                </p>
+
                               </div>
 
-                              <p className="text-xs text-slate-500">
-                                {bid.years}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                {bid.supplierEmail || "No email"}{" "}
-                                {bid.supplierPhone
-                                  ? `• ${bid.supplierPhone}`
-                                  : "• No phone"}
-                              </p>
                             </div>
-                          </div>
-                        </td>
 
-                        <td className="px-3 py-3 border-b border-slate-100 text-sm font-medium text-[#16A34A]">
-                          {formatMoney(bid.amount)}
-                        </td>
+                          </td>
 
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          <p className="text-sm text-[#1E293B]">
-                            {formatEta(bid.eta)}
-                          </p>
-
-                          {fastestEtaBids.some((item) => item.id === bid.id) && (
-                            <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-green-100 text-[#16A34A] text-xs">
-                              Fastest
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          {renderStars(bid.rating)}
-                        </td>
-
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl text-xs ${getComplianceClass(
-                              bid.compliance
-                            )}`}
-                          >
-                            {bid.compliance === "Verified" ||
-                            bid.compliance === "Completed" ? (
-                              <CircleCheck size={12} />
-                            ) : (
-                              <CircleAlert size={12} />
+                          <td className="px-3 py-3 border-b border-slate-100 text-sm font-medium text-[#16A34A]">
+                            {formatMoney(
+                              bid.amount
                             )}
+                          </td>
 
-                            {bid.compliance}
-                          </span>
-                        </td>
+                          <td className="px-3 py-3 border-b border-slate-100">
 
-                        <td className="px-3 py-3 border-b border-slate-100 text-xs text-slate-600 max-w-[220px]">
-                          {bid.pastPerformance}
-                        </td>
+                            <p className="text-sm text-[#1E293B]">
+                              {formatEta(
+                                bid.eta
+                              )}
+                            </p>
 
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          <span className="px-2.5 py-1 rounded-full bg-[#EBF4FF] text-[#052659] text-xs font-semibold">
-                            {score.totalScore}/100
-                          </span>
-                        </td>
+                            {fastestEtaBids.some(
+                              (item) =>
+                                item.id ===
+                                bid.id
+                            ) && (
+                              <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-green-100 text-[#16A34A] text-xs">
+                                Fastest
 
-                        <td className="px-3 py-3 border-b border-slate-100">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs ${
-                              getBidStatus(bid) === "Shortlisted"
-                                ? "bg-[#EBF4FF] text-[#052659]"
-                                : getBidStatus(bid) === "Winner Selected"
-                                ? "bg-green-100 text-[#16A34A]"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {getBidStatus(bid)}
-                          </span>
-                        </td>
-
-                        <td className="px-3 py-3 border-b border-slate-100 text-xs text-slate-600">
-                          {getNotificationStatus(bid)}
-                        </td>
-
-                        <td className="px-3 py-3 border-b border-slate-100 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => setSelectedBidForDetails(bid)}
-                              className="border border-slate-200 text-[#052659] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EBF4FF]"
-                            >
-                              View Details
-                            </button>
-
-                            {isWinner ? (
-                              <button
-                                onClick={() => {
-                                  setWinningBid(bid);
-                                  setShowWinnerPopup(true);
-                                }}
-                                className="border border-green-200 bg-green-50 text-[#16A34A] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-100"
-                              >
-                                Notify
-                              </button>
-                            ) : !sentToLogistics ? (
-                              <button
-                                onClick={() => toggleShortlist(bid.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-                                  isShortlisted
-                                    ? "bg-[#EBF4FF] text-[#052659] border border-[#052659]"
-                                    : "border border-[#052659] text-[#052659] hover:bg-[#EBF4FF]"
-                                }`}
-                              >
-                                {isShortlisted ? "Remove" : "Shortlist"}
-                              </button>
-                            ) : isShortlisted ? (
-                              <button
-                                onClick={() => openWinnerPopupManually(bid)}
-                                className="border border-[#052659] text-[#052659] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EBF4FF]"
-                              >
-                                Mark Winner
-                              </button>
-                            ) : (
-                              <span className="text-xs text-slate-400">
-                                Not shortlisted
                               </span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100">
+                            {renderStars(
+                              bid.rating
+                            )}
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100">
+
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-xl text-xs ${getComplianceClass(
+                                bid.compliance
+                              )}`}
+                            >
+
+                              {bid.compliance ===
+                                "Verified" ||
+                              bid.compliance ===
+                                "Completed" ? (
+                                <CircleCheck
+                                  size={12}
+                                />
+                              ) : (
+                                <CircleAlert
+                                  size={12}
+                                />
+                              )}
+
+                              {
+                                bid.compliance
+                              }
+
+                            </span>
+
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100 text-xs text-slate-600 max-w-[220px]">
+                            {
+                              bid.pastPerformance
+                            }
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100">
+
+                            <span className="px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#1E40AF] text-xs font-semibold">
+                              {
+                                score.totalScore
+                              }
+                              /100
+                            </span>
+
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100">
+
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs ${
+                                getBidStatus(bid) === "Shortlisted"
+                                  ? "bg-[#EFF6FF] text-[#1E40AF]"
+                                  : getBidStatus(bid) === "Winner Selected"
+                                  ? "bg-green-100 text-[#16A34A]"
+                                  : getBidStatus(bid) === "Rejected"
+                                  ? "bg-red-100 text-[#DC2626]"
+                                  : getBidStatus(bid) === "Awaiting Logistics"
+                                  ? "bg-orange-100 text-[#EA580C]"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {getBidStatus(
+                                bid
+                              )}
+                            </span>
+
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100 text-xs text-slate-600">
+                            {getNotificationStatus(
+                              bid
+                            )}
+                          </td>
+
+                          <td className="px-3 py-3 border-b border-slate-100 text-center">
+
+                            <div className="flex items-center justify-center gap-2">
+
+                              <button
+                                onClick={() =>
+                                  setSelectedBidForDetails(
+                                    bid
+                                  )
+                                }
+                                className="border border-slate-200 text-[#1E40AF] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#EFF6FF]"
+                              >
+                                View Details
+                              </button>
+
+                              {isWinner ? (
+                                <button
+                                  onClick={() => {
+                                    setWinningBid(
+                                      bid
+                                    );
+
+                                    setShowWinnerPopup(
+                                      true
+                                    );
+                                  }}
+                                  className="border border-green-200 bg-green-50 text-[#16A34A] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-100"
+                                >
+                                  Notify
+                                </button>
+                              ) : !sentToLogistics ? (
+                                <button
+                                  onClick={() =>
+                                    toggleShortlist(
+                                      bid.id
+                                    )
+                                  }
+                                  disabled={
+                                    isBiddingOpen ||
+                                    bids.length === 0 ||
+                                    (!isShortlisted &&
+                                      shortlistedBidIds.length >=
+                                        maxShortlistCount)
+                                  }
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                                    isBiddingOpen
+                                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                      : isShortlisted
+                                      ? "bg-green-50 text-[#16A34A] border border-green-200 hover:bg-green-100"
+                                      : bids.length === 0 ||
+                                        shortlistedBidIds.length >=
+                                          maxShortlistCount
+                                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                                      : "border border-[#1E40AF] text-[#1E40AF] hover:bg-[#EFF6FF]"
+                                  }`}
+                                >
+                                  {isBiddingOpen
+                                    ? "Bidding Open"
+                                    : isShortlisted
+                                    ? "Remove"
+                                    : bids.length === 0
+                                    ? "No Bids"
+                                    : shortlistedBidIds.length >=
+                                      maxShortlistCount
+                                    ? "Limit Reached"
+                                    : "Shortlist"}
+                                </button>
+                              ) : isShortlisted && !freshWinningBid ? (
+                                <button
+                                  disabled
+                                  className="border border-slate-200 bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
+                                >
+                                  Awaiting Logistics
+                                </button>
+                              ) : isShortlisted && freshWinningBid ? (
+                                <span className="text-xs font-medium text-[#DC2626]">
+                                  Rejected
+                                </span>
+                              ) : freshWinningBid ? (
+                                <span className="text-xs text-slate-500">
+                                  Not shortlisted
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  Not shortlisted
+                                </span>
+                              )}
+
+                            </div>
+
+                          </td>
+
+                        </tr>
+                      );
+                    }
+                  )}
+
                 </tbody>
+
               </table>
             )}
+
           </div>
+
         </div>
+
       </div>
 
-      {/* Score calculation popup */}
       {selectedBidForDetails && (
         <ScoreDetailsModal
           bid={selectedBidForDetails}
-          score={calculateSupplierScore(selectedBidForDetails)}
+          score={calculateSupplierScore(
+            selectedBidForDetails
+          )}
           formatMoney={formatMoney}
           formatEta={formatEta}
-          onClose={() => setSelectedBidForDetails(null)}
+          onClose={() =>
+            setSelectedBidForDetails(
+              null
+            )
+          }
         />
       )}
 
-      {/* Winner and rejection notification popup */}
-      {showWinnerPopup && freshWinningBid && (
-        <WinnerNotificationPopup
-          bid={freshWinningBid}
-          rejectedBids={getRejectedShortlistedBids()}
-          notShortlistedBids={getNotShortlistedBids()}
-          formatMoney={formatMoney}
-          formatEta={formatEta}
-          onClose={() => setShowWinnerPopup(false)}
-        />
-      )}
+      {showWinnerPopup &&
+        freshWinningBid && (
+          <WinnerNotificationPopup
+            bid={freshWinningBid}
+            unsuccessfulBids={getUnsuccessfulBids()}
+            formatMoney={formatMoney}
+            formatEta={formatEta}
+            onClose={() =>
+              setShowWinnerPopup(
+                false
+              )
+            }
+          />
+        )}
 
-      {/* Close bidding confirmation popup */}
       {showCloseConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
           <div className="bg-white rounded-xl shadow-lg w-[380px] p-6">
+
             <div className="flex items-center gap-3 mb-4">
+
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="text-[#DC2626]" size={22} />
+
+                <AlertTriangle
+                  className="text-[#DC2626]"
+                  size={22}
+                />
+
               </div>
 
               <div>
+
                 <h3 className="text-lg font-semibold text-[#1E293B]">
                   Close Bidding?
                 </h3>
@@ -1248,12 +3138,19 @@ function Bidding() {
                 <p className="text-sm text-slate-500">
                   Are you sure you want to close the bid?
                 </p>
+
               </div>
+
             </div>
 
             <div className="flex justify-end gap-3">
+
               <button
-                onClick={() => setShowCloseConfirm(false)}
+                onClick={() =>
+                  setShowCloseConfirm(
+                    false
+                  )
+                }
                 className="px-4 py-2 rounded-md border border-slate-200 text-sm text-[#1E293B]"
               >
                 Cancel
@@ -1265,27 +3162,38 @@ function Bidding() {
               >
                 Yes, Close Bid
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
 
-      {/* Timer popup for opening or extending bidding */}
       {showTimerPopup && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
           <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+
             <h3 className="text-lg font-semibold text-[#1E293B] mb-4">
-              {timerMode === "open"
+
+              {timerMode ===
+              "open"
                 ? "Set Bidding Timer"
                 : "Extend Bidding Timer"}
+
             </h3>
 
             <div className="grid grid-cols-4 gap-3 mb-5">
+
               <TimerInput
                 label="Days"
                 value={timerInput.days}
                 onChange={(value) =>
-                  setTimerInput({ ...timerInput, days: value })
+                  setTimerInput({
+                    ...timerInput,
+                    days: value,
+                  })
                 }
               />
 
@@ -1293,7 +3201,10 @@ function Bidding() {
                 label="Hours"
                 value={timerInput.hours}
                 onChange={(value) =>
-                  setTimerInput({ ...timerInput, hours: value })
+                  setTimerInput({
+                    ...timerInput,
+                    hours: value,
+                  })
                 }
               />
 
@@ -1301,7 +3212,10 @@ function Bidding() {
                 label="Minutes"
                 value={timerInput.minutes}
                 onChange={(value) =>
-                  setTimerInput({ ...timerInput, minutes: value })
+                  setTimerInput({
+                    ...timerInput,
+                    minutes: value,
+                  })
                 }
               />
 
@@ -1309,14 +3223,23 @@ function Bidding() {
                 label="Seconds"
                 value={timerInput.seconds}
                 onChange={(value) =>
-                  setTimerInput({ ...timerInput, seconds: value })
+                  setTimerInput({
+                    ...timerInput,
+                    seconds: value,
+                  })
                 }
               />
+
             </div>
 
             <div className="flex justify-end gap-3">
+
               <button
-                onClick={() => setShowTimerPopup(false)}
+                onClick={() =>
+                  setShowTimerPopup(
+                    false
+                  )
+                }
                 className="px-4 py-2 rounded-md border border-slate-200 text-sm text-[#1E293B]"
               >
                 Cancel
@@ -1326,26 +3249,30 @@ function Bidding() {
                 onClick={confirmTimer}
                 className="px-4 py-2 rounded-md bg-[#052659] text-white text-sm"
               >
-                {timerMode === "open" ? "Start Bidding" : "Add Time"}
+                {timerMode ===
+                "open"
+                  ? "Start Bidding"
+                  : "Add Time"}
               </button>
+
             </div>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 }
 
-// Popup used to notify winner, rejected shortlisted suppliers, and not-shortlisted suppliers
 function WinnerNotificationPopup({
   bid,
-  rejectedBids = [],
-  notShortlistedBids = [],
+  unsuccessfulBids = [],
   formatMoney,
   formatEta,
   onClose,
 }) {
-  // Predefined message templates for each supplier result group
   const winnerMessage = `Dear ${bid.supplier},
 
 Congratulations! Your bid has been selected for the order.
@@ -1357,42 +3284,38 @@ Please confirm your availability and prepare the required vehicle and documents.
 
 Thank you.`;
 
-  const rejectedMessage = `Dear Supplier,
+  const unsuccessfulMessage = `Dear Supplier,
 
 Thank you for submitting your bid.
 
-After the final review by the Logistics Team, we regret to inform you that your bid was not selected for this order.
+After the final review and winner selection, we regret to inform you that your bid was not selected for this order.
 
 We appreciate your participation and look forward to working with you on future opportunities.
 
 Thank you.`;
 
-  const notShortlistedMessage = `Dear Supplier,
-
-Thank you for submitting your bid.
-
-After the initial evaluation, your bid was not shortlisted for this order.
-
-We appreciate your participation and look forward to receiving your bids for future orders.
-
-Thank you.`;
-
-  // Copies message or phone numbers to clipboard
   const copyText = async (text, successMessage) => {
     try {
       await navigator.clipboard.writeText(text);
       alert(successMessage);
     } catch {
-      alert("Could not copy message. Please copy it manually.");
+      alert(
+        "Could not copy message. Please copy it manually."
+      );
     }
   };
 
-  // Opens Gmail compose window with subject/body and optional to/bcc fields
-  const openGmailCompose = ({ to = "", bcc = "", subjectText, bodyText }) => {
+  const openGmailCompose = ({
+    to = "",
+    bcc = "",
+    subjectText,
+    bodyText,
+  }) => {
     const subject = encodeURIComponent(subjectText);
     const body = encodeURIComponent(bodyText);
 
-    let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+    let gmailUrl =
+      `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
 
     if (to) {
       gmailUrl += `&to=${encodeURIComponent(to)}`;
@@ -1402,115 +3325,111 @@ Thank you.`;
       gmailUrl += `&bcc=${encodeURIComponent(bcc)}`;
     }
 
-    window.open(gmailUrl, "_blank", "noopener,noreferrer");
+    window.open(
+      gmailUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
-  // Collects unique valid supplier emails for bulk BCC
   const getValidEmails = (supplierList) => {
     return [
       ...new Set(
         supplierList
           .map((item) => item.supplierEmail)
-          .filter((email) => email && email.includes("@"))
+          .filter(
+            (email) =>
+              email &&
+              email.includes("@")
+          )
       ),
     ];
   };
 
-  // Collects unique supplier phone numbers for manual phone/message follow-up
   const getValidPhones = (supplierList) => {
     return [
       ...new Set(
         supplierList
           .map((item) => item.supplierPhone)
-          .filter((phone) => phone && String(phone).trim() !== "")
+          .filter(
+            (phone) =>
+              phone &&
+              String(phone).trim() !== ""
+          )
       ),
     ];
   };
 
-  // Sends email to winning supplier
   const openWinnerEmail = () => {
     if (!bid.supplierEmail) {
-      alert("Winning supplier email address is missing.");
+      alert(
+        "Winning supplier email address is missing."
+      );
       return;
     }
 
     openGmailCompose({
       to: bid.supplierEmail,
-      subjectText: "Bid Selected - Confirmation Required",
+      subjectText:
+        "Bid Selected - Confirmation Required",
       bodyText: winnerMessage,
     });
   };
 
-  // Sends rejected email to shortlisted suppliers who did not win
-  const sendBulkRejectedEmail = () => {
-    const emails = getValidEmails(rejectedBids);
+  const sendBulkUnsuccessfulEmail = () => {
+    const emails =
+      getValidEmails(unsuccessfulBids);
 
     if (emails.length === 0) {
-      alert("Rejected shortlisted suppliers do not have email addresses.");
+      alert(
+        "Unsuccessful suppliers do not have email addresses."
+      );
       return;
     }
 
     openGmailCompose({
       bcc: emails.join(","),
-      subjectText: "Bid Result Update",
-      bodyText: rejectedMessage,
+      subjectText:
+        "Bid Result Update",
+      bodyText:
+        unsuccessfulMessage,
     });
   };
 
-  // Sends not-shortlisted email to suppliers who were not shortlisted
-  const sendBulkNotShortlistedEmail = () => {
-    const emails = getValidEmails(notShortlistedBids);
-
-    if (emails.length === 0) {
-      alert("Not shortlisted suppliers do not have email addresses.");
-      return;
-    }
-
-    openGmailCompose({
-      bcc: emails.join(","),
-      subjectText: "Bid Status Update",
-      bodyText: notShortlistedMessage,
-    });
-  };
-
-  const copyRejectedPhones = () => {
-    const phones = getValidPhones(rejectedBids);
+  const copyUnsuccessfulPhones = () => {
+    const phones =
+      getValidPhones(unsuccessfulBids);
 
     if (phones.length === 0) {
-      alert("Rejected shortlisted suppliers do not have phone numbers.");
+      alert(
+        "Unsuccessful suppliers do not have phone numbers."
+      );
       return;
     }
 
     copyText(
       phones.join("\n"),
-      "Rejected shortlisted supplier phone numbers copied."
+      "Unsuccessful supplier phone numbers copied."
     );
-  };
-
-  const copyNotShortlistedPhones = () => {
-    const phones = getValidPhones(notShortlistedBids);
-
-    if (phones.length === 0) {
-      alert("Not shortlisted suppliers do not have phone numbers.");
-      return;
-    }
-
-    copyText(phones.join("\n"), "Not shortlisted supplier phone numbers copied.");
   };
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
       <div className="bg-white rounded-2xl shadow-lg w-[880px] max-w-[94vw] max-h-[90vh] overflow-y-auto p-6">
+
         <div className="flex justify-between items-start gap-4 mb-5">
+
           <div>
+
             <h3 className="text-lg font-bold text-[#1E293B]">
               Supplier Notification Center
             </h3>
 
             <p className="text-sm text-slate-500 mt-1">
-              Send winner email directly, and send rejected/not-shortlisted
-              emails using Gmail BCC.
+              Notify the winner directly and send one BCC email to all unsuccessful suppliers.
             </p>
+
           </div>
 
           <button
@@ -1519,9 +3438,11 @@ Thank you.`;
           >
             ×
           </button>
+
         </div>
 
         <div className="bg-green-50 border border-green-100 rounded-xl p-4 mb-5">
+
           <p className="text-xs text-[#16A34A] font-semibold">
             Selected Supplier
           </p>
@@ -1531,16 +3452,48 @@ Thank you.`;
           </h4>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <InfoMini label="Bid Amount" value={formatMoney(bid.amount)} green />
-            <InfoMini label="ETA" value={formatEta(bid.eta)} />
+
+            <InfoMini
+              label="Bid Amount"
+              value={formatMoney(bid.amount)}
+              green
+            />
+
+            <InfoMini
+              label="ETA"
+              value={formatEta(bid.eta)}
+            />
+
             <InfoMini
               label="Rating"
-              value={`${Number(bid.rating || 0).toFixed(1)} / 5`}
+              value={`${Number(
+                bid.rating || 0
+              ).toFixed(1)} / 5`}
             />
-            <InfoMini label="Compliance" value={bid.compliance} />
-            <InfoMini label="Email" value={bid.supplierEmail || "No email"} />
-            <InfoMini label="Phone" value={bid.supplierPhone || "No phone"} />
+
+            <InfoMini
+              label="Compliance"
+              value={bid.compliance}
+            />
+
+            <InfoMini
+              label="Email"
+              value={
+                bid.supplierEmail ||
+                "No email"
+              }
+            />
+
+            <InfoMini
+              label="Phone"
+              value={
+                bid.supplierPhone ||
+                "No phone"
+              }
+            />
+
           </div>
+
         </div>
 
         <MessageBox
@@ -1549,84 +3502,69 @@ Thank you.`;
           color="blue"
           emailButtonText="Gmail Winner"
           onCopy={() =>
-            copyText(winnerMessage, "Winning supplier message copied.")
+            copyText(
+              winnerMessage,
+              "Winning supplier message copied."
+            )
           }
           onEmail={openWinnerEmail}
           onMessage={() =>
-            copyText(winnerMessage, "Winning supplier message copied.")
+            copyText(
+              winnerMessage,
+              "Winning supplier message copied."
+            )
           }
           onPhone={() =>
             bid.supplierPhone
-              ? copyText(bid.supplierPhone, "Winning supplier phone copied.")
-              : alert("Winning supplier phone number is missing.")
+              ? copyText(
+                  bid.supplierPhone,
+                  "Winning supplier phone copied."
+                )
+              : alert(
+                  "Winning supplier phone number is missing."
+                )
           }
         />
 
         <SupplierGroupBox
-          title="Rejected Shortlisted Suppliers"
-          count={rejectedBids.length}
-          suppliers={rejectedBids}
-          label="Rejected"
+          title="Unsuccessful Suppliers"
+          count={unsuccessfulBids.length}
+          suppliers={unsuccessfulBids}
+          label="Unsuccessful"
           color="red"
           formatMoney={formatMoney}
           formatEta={formatEta}
         />
 
         <MessageBox
-          title="Rejected Shortlisted Supplier Message"
-          value={rejectedMessage}
+          title="Unsuccessful Supplier Message"
+          value={unsuccessfulMessage}
           color="red"
-          emailButtonText="Gmail All Rejected"
-          messageButtonText="Copy Message"
-          phoneButtonText="Copy Phones"
-          onCopy={() =>
-            copyText(rejectedMessage, "Rejected supplier message copied.")
-          }
-          onEmail={sendBulkRejectedEmail}
-          onMessage={() =>
-            copyText(rejectedMessage, "Rejected supplier message copied.")
-          }
-          onPhone={copyRejectedPhones}
-        />
-
-        <SupplierGroupBox
-          title="Not Shortlisted Suppliers"
-          count={notShortlistedBids.length}
-          suppliers={notShortlistedBids}
-          label="Not Shortlisted"
-          color="orange"
-          formatMoney={formatMoney}
-          formatEta={formatEta}
-        />
-
-        <MessageBox
-          title="Not Shortlisted Supplier Message"
-          value={notShortlistedMessage}
-          color="orange"
-          emailButtonText="Gmail All Not Shortlisted"
+          emailButtonText="Gmail All Unsuccessful"
           messageButtonText="Copy Message"
           phoneButtonText="Copy Phones"
           onCopy={() =>
             copyText(
-              notShortlistedMessage,
-              "Not shortlisted supplier message copied."
+              unsuccessfulMessage,
+              "Unsuccessful supplier message copied."
             )
           }
-          onEmail={sendBulkNotShortlistedEmail}
+          onEmail={sendBulkUnsuccessfulEmail}
           onMessage={() =>
             copyText(
-              notShortlistedMessage,
-              "Not shortlisted supplier message copied."
+              unsuccessfulMessage,
+              "Unsuccessful supplier message copied."
             )
           }
-          onPhone={copyNotShortlistedPhones}
+          onPhone={copyUnsuccessfulPhones}
         />
+
       </div>
+
     </div>
   );
 }
 
-// Shows rejected or not-shortlisted supplier groups inside notification popup
 function SupplierGroupBox({
   title,
   count,
@@ -1641,17 +3579,28 @@ function SupplierGroupBox({
       ? "border-red-100 bg-red-50"
       : "border-orange-100 bg-orange-50";
 
-  const titleClass = color === "red" ? "text-[#DC2626]" : "text-[#EA580C]";
+  const titleClass =
+    color === "red"
+      ? "text-[#DC2626]"
+      : "text-[#EA580C]";
 
   return (
-    <div className={`border ${boxClass} rounded-xl p-4 mb-4`}>
-      <p className={`text-xs font-semibold ${titleClass}`}>{title}</p>
+    <div
+      className={`border ${boxClass} rounded-xl p-4 mb-4`}
+    >
+
+      <p
+        className={`text-xs font-semibold ${titleClass}`}
+      >
+        {title}
+      </p>
 
       <h4 className="text-base font-bold text-[#1E293B] mt-1">
         {count} Suppliers
       </h4>
 
       <div className="mt-3 space-y-2">
+
         {suppliers.length > 0 ? (
           suppliers.map((item) => (
             <SupplierResultRow
@@ -1670,12 +3619,13 @@ function SupplierGroupBox({
             No suppliers found in this category.
           </p>
         )}
+
       </div>
+
     </div>
   );
 }
 
-// Reusable message box with copy, Gmail, message, and phone actions
 function MessageBox({
   title,
   value,
@@ -1704,7 +3654,10 @@ function MessageBox({
 
   return (
     <div className="border border-slate-200 rounded-xl p-4 mb-4">
-      <p className="text-xs text-slate-500 mb-2">{title}</p>
+
+      <p className="text-xs text-slate-500 mb-2">
+        {title}
+      </p>
 
       <textarea
         readOnly
@@ -1713,6 +3666,7 @@ function MessageBox({
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+
         <button
           onClick={onCopy}
           className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 ${buttonStyle}`}
@@ -1744,13 +3698,22 @@ function MessageBox({
           <Phone size={15} />
           {phoneButtonText}
         </button>
+
       </div>
+
     </div>
   );
 }
 
-// Reusable row for each rejected or not-shortlisted supplier
-function SupplierResultRow({ supplier, amount, eta, email, phone, label, color }) {
+function SupplierResultRow({
+  supplier,
+  amount,
+  eta,
+  email,
+  phone,
+  label,
+  color,
+}) {
   const badgeClass =
     color === "red"
       ? "text-[#DC2626] bg-red-100"
@@ -1758,14 +3721,24 @@ function SupplierResultRow({ supplier, amount, eta, email, phone, label, color }
 
   return (
     <div className="bg-white border border-slate-100 rounded-lg px-3 py-2 flex justify-between items-center gap-3">
+
       <div>
-        <p className="text-sm font-semibold text-[#1E293B]">{supplier}</p>
+
+        <p className="text-sm font-semibold text-[#1E293B]">
+          {supplier}
+        </p>
+
         <p className="text-xs text-slate-500">
           Bid: {amount} | ETA: {eta}
         </p>
+
         <p className="text-[11px] text-slate-400">
-          {email || "No email"} {phone ? `• ${phone}` : "• No phone"}
+          {email || "No email"}{" "}
+          {phone
+            ? `• ${phone}`
+            : "• No phone"}
         </p>
+
       </div>
 
       <span
@@ -1773,38 +3746,61 @@ function SupplierResultRow({ supplier, amount, eta, email, phone, label, color }
       >
         {label}
       </span>
+
     </div>
   );
 }
 
-function InfoMini({ label, value, green = false }) {
+function InfoMini({
+  label,
+  value,
+  green = false,
+}) {
   return (
     <div>
-      <p className="text-xs text-slate-500">{label}</p>
+
+      <p className="text-xs text-slate-500">
+        {label}
+      </p>
 
       <p
         className={`text-sm font-semibold mt-1 break-words ${
-          green ? "text-[#16A34A]" : "text-[#1E293B]"
+          green
+            ? "text-[#16A34A]"
+            : "text-[#1E293B]"
         }`}
       >
         {value || "-"}
       </p>
+
     </div>
   );
 }
 
-// Modal that explains how supplier score was calculated
-function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
+function ScoreDetailsModal({
+  bid,
+  score,
+  formatMoney,
+  formatEta,
+  onClose,
+}) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
       <div className="bg-white rounded-2xl shadow-lg w-[520px] max-w-[92vw] p-6">
+
         <div className="flex justify-between items-start gap-4 mb-5">
+
           <div>
+
             <h3 className="text-lg font-bold text-[#1E293B]">
               Supplier Score Details
             </h3>
 
-            <p className="text-sm text-slate-500 mt-1">{bid.supplier}</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {bid.supplier}
+            </p>
+
           </div>
 
           <button
@@ -1813,9 +3809,11 @@ function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
           >
             ×
           </button>
+
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-5">
+
           <ScoreBox
             label="Price Score"
             value={`${score.priceScore} / 40`}
@@ -1831,7 +3829,9 @@ function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
           <ScoreBox
             label="Rating Score"
             value={`${score.ratingScore} / 20`}
-            note={`${Number(bid.rating || 0).toFixed(1)} / 5`}
+            note={`${Number(
+              bid.rating || 0
+            ).toFixed(1)} / 5`}
           />
 
           <ScoreBox
@@ -1839,88 +3839,144 @@ function ScoreDetailsModal({ bid, score, formatMoney, formatEta, onClose }) {
             value={`${score.complianceScore} / 20`}
             note={bid.compliance}
           />
+
         </div>
 
-        <div className="bg-[#EBF4FF] border border-blue-100 rounded-xl p-4 flex justify-between items-center">
+        <div className="bg-[#EFF6FF] border border-blue-100 rounded-xl p-4 flex justify-between items-center">
+
+
           <div>
-            <p className="text-sm text-slate-500">Total Score</p>
+
+            <p className="text-sm text-slate-500">
+              Total Score
+            </p>
 
             <h2 className="text-2xl font-bold text-[#052659] mt-1">
               {score.totalScore} / 100
             </h2>
+
           </div>
 
           <div className="text-right">
-            <p className="text-xs text-slate-500">Score Basis</p>
+
+            <p className="text-xs text-slate-500">
+              Score Basis
+            </p>
 
             <p className="text-sm font-semibold text-[#1E293B] mt-1">
               Price 40% + ETA 20% + Rating 20% + Compliance 20%
             </p>
+
           </div>
+
         </div>
 
         <div className="flex justify-end mt-5">
+
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg bg-[#052659] text-white text-sm font-semibold hover:bg-[#5483B3]"
           >
             Close
           </button>
+
         </div>
+
       </div>
+
     </div>
   );
 }
 
-function ScoreBox({ label, value, note }) {
+function ScoreBox({
+  label,
+  value,
+  note,
+}) {
   return (
     <div className="border border-slate-200 rounded-xl p-4">
-      <p className="text-xs text-slate-500">{label}</p>
 
-      <h4 className="text-lg font-bold text-[#1E293B] mt-1">{value}</h4>
+      <p className="text-xs text-slate-500">
+        {label}
+      </p>
 
-      <p className="text-xs text-slate-500 mt-1">{note}</p>
+      <h4 className="text-lg font-bold text-[#1E293B] mt-1">
+        {value}
+      </h4>
+
+      <p className="text-xs text-slate-500 mt-1">
+        {note}
+      </p>
+
     </div>
   );
 }
 
-// Compact bidding status card shown at the top of the page
-function MiniStatusCard({ title, value, type = "neutral" }) {
+function MiniStatusCard({
+  title,
+  value,
+  type = "neutral",
+}) {
   const styles = {
     success: {
-      box: "bg-green-50 border-green-100",
-      icon: "bg-green-100 text-[#16A34A]",
-      value: "text-[#16A34A]",
+      box:
+        "bg-green-50 border-green-100",
+      icon:
+        "bg-green-100 text-[#16A34A]",
+      value:
+        "text-[#16A34A]",
     },
+
     danger: {
-      box: "bg-red-50 border-red-100",
-      icon: "bg-red-100 text-[#DC2626]",
-      value: "text-[#DC2626]",
+      box:
+        "bg-red-50 border-red-100",
+      icon:
+        "bg-red-100 text-[#DC2626]",
+      value:
+        "text-[#DC2626]",
     },
+
     primary: {
-      box: "bg-blue-50 border-blue-100",
-      icon: "bg-[#EBF4FF] text-[#052659]",
-      value: "text-[#052659]",
+      box:
+        "bg-blue-50 border-blue-100",
+      icon:
+        "bg-[#EFF6FF] text-[#1E40AF]",
+      value:
+        "text-[#1E40AF]",
+
     },
+
     neutral: {
-      box: "bg-white border-slate-200",
-      icon: "bg-slate-100 text-slate-600",
-      value: "text-[#1E293B]",
+      box:
+        "bg-white border-slate-200",
+      icon:
+        "bg-slate-100 text-slate-600",
+      value:
+        "text-[#1E293B]",
     },
   };
 
-  const selected = styles[type] || styles.neutral;
+  const selected =
+    styles[type] ||
+    styles.neutral;
 
   return (
     <div
       className={`rounded-xl border px-3 py-2.5 shadow-sm flex items-center justify-between w-full max-w-[240px] min-h-[70px] ${selected.box}`}
     >
-      <div className="min-w-0">
-        <p className="text-[11px] text-slate-500">{title}</p>
 
-        <h3 className={`text-base font-semibold mt-0.5 ${selected.value}`}>
+      <div className="min-w-0">
+
+        <p className="text-[11px] text-slate-500">
+          {title}
+        </p>
+
+        <h3
+          className={`text-base font-semibold mt-0.5 ${selected.value}`}
+        >
           {value}
         </h3>
+
       </div>
 
       <div
@@ -1928,51 +3984,84 @@ function MiniStatusCard({ title, value, type = "neutral" }) {
       >
         <PackageCheck size={15} />
       </div>
+
     </div>
   );
 }
 
-// Reusable table cell for the order detail table
-function OrderTableCell({ label, value, colSpan = 1 }) {
+function OrderTableCell({
+  label,
+  value,
+  colSpan = 1,
+}) {
   return (
-    <td colSpan={colSpan} className="px-5 py-4 align-top min-w-[150px]">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
+    <td
+      colSpan={colSpan}
+      className="px-5 py-4 align-top min-w-[150px]"
+    >
+
+      <p className="text-xs text-slate-500 mb-1">
+        {label}
+      </p>
 
       <p className="text-sm font-semibold text-[#1E293B] break-words">
         {value || "-"}
       </p>
+
     </td>
   );
 }
 
-// Reusable timer input for days, hours, minutes, and seconds
-function TimerInput({ label, value, onChange }) {
+function TimerInput({
+  label,
+  value,
+  onChange,
+}) {
   return (
     <div>
-      <label className="text-xs text-slate-500">{label}</label>
+
+      <label className="text-xs text-slate-500">
+        {label}
+      </label>
 
       <input
         type="number"
         min="0"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) =>
+          onChange(
+            e.target.value
+          )
+        }
         className="w-full border border-slate-200 rounded-md px-2 py-2 text-sm mt-1"
       />
+
     </div>
   );
 }
 
-// Reusable summary card for lowest price, fastest ETA, and highest rating
-function SummaryCard({ icon, title, value, subtitle, tag, tagClass }) {
+function SummaryCard({
+  icon,
+  title,
+  value,
+  subtitle,
+  tag,
+  tagClass,
+}) {
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+
       <div className="flex items-start gap-3">
+
         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center shrink-0">
           {icon}
         </div>
 
         <div className="min-w-0">
-          <p className="text-sm text-slate-600">{title}</p>
+
+          <p className="text-sm text-slate-600">
+            {title}
+          </p>
 
           <h3 className="text-xl font-semibold text-[#1E293B] mt-0.5">
             {value}
@@ -1989,8 +4078,11 @@ function SummaryCard({ icon, title, value, subtitle, tag, tagClass }) {
               {tag}
             </span>
           )}
+
         </div>
+
       </div>
+
     </div>
   );
 }

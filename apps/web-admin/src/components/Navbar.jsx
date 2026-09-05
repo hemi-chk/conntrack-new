@@ -1,4 +1,4 @@
-import { Bell, Menu, Sun, Moon, Search, LogOut } from 'lucide-react'
+import { Bell, Menu, Sun, Moon, LogOut } from 'lucide-react'
 import { useState } from 'react'
 
 function LogoutModal({ onConfirm, onCancel }) {
@@ -90,20 +90,6 @@ function Navbar({ isOpen, onMenuClick, darkMode, onToggleDark }) {
               </span>
             </div>
           )}
-        </div>
-
-        {/* Center — Search */}
-        <div
-          className="flex items-center gap-2.5 px-4 py-2 rounded-xl w-72"
-          style={{ background: darkMode ? '#052659' : '#EBF4FF' }}
-        >
-          <Search size={15} className="shrink-0 opacity-50" style={{ color: darkMode ? '#7DA0CA' : '#5483B3' }} />
-          <input
-            type="text"
-            placeholder="Search orders, drivers, suppliers..."
-            className="bg-transparent text-sm outline-none w-full"
-            style={{ color: darkMode ? '#C1E8FF' : '#052659' }}
-          />
         </div>
 
         {/* Right — Actions */}

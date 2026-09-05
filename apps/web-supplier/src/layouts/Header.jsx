@@ -41,7 +41,8 @@ export function Header({ onMenuClick }) {
 
   const confirmLogout = () => {
     localStorage.clear()
-    window.location.href = 'http://127.0.0.1:5173?logout=true'
+    const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://127.0.0.1:5173'
+    window.location.href = `${adminUrl}?logout=true`
   }
 
   return (
@@ -105,3 +106,4 @@ export function Header({ onMenuClick }) {
     </>
   )
 }
+

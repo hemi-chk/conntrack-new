@@ -4,28 +4,29 @@
  * Displays the current active mission, quick action buttons, and recent notifications.
  */
 
-import { useEffect, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  Image
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
-import { theme } from "../constants/theme";
 import { API_BASE_URL } from "../constants/config";
+import { theme } from "../constants/theme";
 import { useOrder } from "../context/OrderContext";
-import * as Location from "expo-location";
-import * as Haptics from "expo-haptics";
-import { Alert } from "react-native";
+import { authFetch } from "../utils/authFetch";
 
 const { width } = Dimensions.get("window");
 
@@ -39,7 +40,7 @@ export default function Dashboard({ route, navigation }) {
   const [recentIssues, setRecentIssues] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  const { orderStatus, setOrderStatus } = useOrder();
+  const { orderStatus, setOrderStatus, registerTrackingMission } = useOrder();
 
   // Load mission data on component mount
   useEffect(() => {
@@ -65,7 +66,7 @@ export default function Dashboard({ route, navigation }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/mission/${idToUse}`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/mission/${idToUse}`, {
         signal: controller.signal
       });
       
@@ -74,6 +75,7 @@ export default function Dashboard({ route, navigation }) {
       
       if (result.success && result.data) {
         setActiveMission(result.data);
+        registerTrackingMission(result.data);
         if (result.data.status) {
           setOrderStatus(result.data.status.toLowerCase());
         }
@@ -93,7 +95,7 @@ export default function Dashboard({ route, navigation }) {
       const idToUse = user.driver_id || user.emp_id;
       if (!idToUse) return;
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/issues/${idToUse}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/issues/${idToUse}`);
       const result = await response.json();
       
       if (result.success) {
@@ -129,7 +131,7 @@ export default function Dashboard({ route, navigation }) {
       const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
       const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";
 
-      const response = await fetch(`${API_BASE_URL}/api/driver/update-status`, {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/update-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,7 +209,7 @@ export default function Dashboard({ route, navigation }) {
     { 
       icon: "support-agent", 
       label: t("help"), 
-      onPress: () => navigation.navigate("Support", { user }),
+      onPress: () => navigation.navigate("Support", { user, order: activeMission }),
       color: "#EC4899" 
     },
   ];
@@ -228,7 +230,6 @@ export default function Dashboard({ route, navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* HEADER SECTION: Welcome message and Profile link */}
         <View style={styles.header}>
           <View>
             <Typography variant="h2" weight="bold">
@@ -256,7 +257,6 @@ export default function Dashboard({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ACTIVE MISSION SECTION: Highlights the primary current task */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("active_mission")}
         </Typography>
@@ -311,7 +311,6 @@ export default function Dashboard({ route, navigation }) {
           </Card>
         )}
 
-        {/* QUICK ACTIONS GRID */}
         <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
           {t("quick_actions")}
         </Typography>
@@ -340,7 +339,6 @@ export default function Dashboard({ route, navigation }) {
           ))}
         </View>
 
-        {/* RECENT UPDATES SECTION: Feed-like view for recent events */}
         <View style={styles.sectionHeader}>
           <Typography variant="subtitle" weight="bold">
             {t("recent_updates")}

@@ -2,21 +2,22 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 
-import LoginScreen from "../screens/LoginScreen";
+import ChangePassword from "../screens/ChangePassword";
 import Dashboard from "../screens/Dashboard";
-import OrderDetails from "../screens/OrderDetails";
-import Tracking from "../screens/Tracking";
-import MapScreen from "../screens/MapScreen";
 import Documents from "../screens/Documents";
-import Support from "../screens/Support";
 import DriverProfile from "../screens/DriverProfile";
 import EditProfile from "../screens/EditProfile";
-import Notifications from "../screens/Notifications";
-import VehicleInfo from "../screens/VehicleInfo";
-import Settings from "../screens/Settings";
-import Language from "../screens/Language";
 import History from "../screens/History";
-import ChangePassword from "../screens/ChangePassword";
+import IntroScreen from "../screens/IntroScreen";
+import Language from "../screens/Language";
+import LoginScreen from "../screens/LoginScreen";
+import MapScreen from "../screens/MapScreen";
+import Notifications from "../screens/Notifications";
+import OrderDetails from "../screens/OrderDetails";
+import Settings from "../screens/Settings";
+import Support from "../screens/Support";
+import Tracking from "../screens/Tracking";
+import VehicleInfo from "../screens/VehicleInfo";
 
 
 const Stack = createNativeStackNavigator();
@@ -25,6 +26,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Intro" component={IntroScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Dashboard" component={Dashboard} />
         <Stack.Screen name="OrderDetails" component={OrderDetails} />

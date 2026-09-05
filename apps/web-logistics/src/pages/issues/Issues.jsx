@@ -28,6 +28,16 @@ import api from "../../config/api";
 // ---------------------------------------------------------
 // This page is the logistics escalation workflow. It allows users to report an
 // operational issue and review previous issue records related to shipment activity.
+
+// Accepts legacy low/medium/high values too, for issues created before the
+// 3-tier scale, and normalizes everything to minor/major/critical.
+const normalizePriority = (priority) => {
+    const p = priority?.toLowerCase();
+    if (["critical", "high", "urgent"].includes(p)) return "critical";
+    if (["major", "medium"].includes(p)) return "major";
+    return "minor";
+};
+
 const Issues = () => {
     const [issues, setIssues] = useState([]);
     const [ordersList, setOrdersList] = useState([]);
@@ -50,7 +60,7 @@ const Issues = () => {
         supplier_id: "",
         driver_id: "",
         issue_type: "Traffic/Route Delay",
-        priority: "medium",
+        priority: "major",
         description: "",
     });
 
@@ -147,6 +157,8 @@ const Issues = () => {
                 localStorage.getItem("user") || "{}"
             );
 
+            // reported_by sent here is advisory only - the backend always
+            // derives it from the verified token, never trusts this value.
             const reportedByUuid =
                 storedUser?.id ||
                 storedUser?.uuid ||
@@ -174,7 +186,7 @@ const Issues = () => {
                     supplier_id: "",
                     driver_id: "",
                     issue_type: "Traffic/Route Delay",
-                    priority: "medium",
+                    priority: "major",
                     description: "",
                 });
 
@@ -239,7 +251,7 @@ const Issues = () => {
 
         const matchesPriority =
             priorityFilter === "all" ||
-            issue.priority === priorityFilter;
+            normalizePriority(issue.priority) === priorityFilter;
 
         return (
             matchesSearch &&
@@ -272,7 +284,7 @@ const Issues = () => {
     // ---------------------------------------------------------
 
     const getPriorityBadge = (priority) => {
-        switch (priority?.toLowerCase()) {
+        switch (normalizePriority(priority)) {
             case "critical":
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-red-700">
@@ -281,34 +293,19 @@ const Issues = () => {
                     </span>
                 );
 
-            case "high":
+            case "major":
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-700">
                         <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                        High
-                    </span>
-                );
-
-            case "medium":
-                return (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-blue-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                        Medium
-                    </span>
-                );
-
-            case "low":
-                return (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                        Low
+                        Major
                     </span>
                 );
 
             default:
                 return (
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                        {priority || "Normal"}
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                        Minor
                     </span>
                 );
         }
@@ -320,7 +317,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
                         <CheckCircle2 size={12} />
-                        Resolved
+                        Solved
                     </span>
                 );
 
@@ -328,7 +325,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
                         <ShieldAlert size={12} />
-                        Escalated
+                        Reviewing
                     </span>
                 );
 
@@ -336,7 +333,7 @@ const Issues = () => {
                 return (
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">
                         <Clock size={12} />
-                        Open
+                        Not Reviewed
                     </span>
                 );
         }
@@ -434,7 +431,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Open
+                                    Not Reviewed
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-amber-600">
@@ -452,7 +449,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Escalated
+                                    Reviewing
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-indigo-600">
@@ -470,7 +467,7 @@ const Issues = () => {
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                    Resolved
+                                    Solved
                                 </p>
 
                                 <p className="mt-2 text-2xl font-bold text-emerald-600">
@@ -541,13 +538,13 @@ const Issues = () => {
                                                 All
                                             </option>
                                             <option value="open">
-                                                Open
+                                                Not Reviewed
                                             </option>
                                             <option value="escalated">
-                                                Escalated
+                                                Reviewing
                                             </option>
                                             <option value="resolved">
-                                                Resolved
+                                                Solved
                                             </option>
                                         </select>
                                     </div>
@@ -573,14 +570,11 @@ const Issues = () => {
                                             <option value="critical">
                                                 Critical
                                             </option>
-                                            <option value="high">
-                                                High
+                                            <option value="major">
+                                                Major
                                             </option>
-                                            <option value="medium">
-                                                Medium
-                                            </option>
-                                            <option value="low">
-                                                Low
+                                            <option value="minor">
+                                                Minor
                                             </option>
                                         </select>
 
@@ -838,7 +832,6 @@ const Issues = () => {
                             )}
 
                         </div>
-
                     </div>
                 )}
 
@@ -1114,20 +1107,16 @@ const Issues = () => {
 
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                    <div className="grid grid-cols-3 gap-3">
 
                                         {[
                                             {
-                                                id: "low",
-                                                label: "Low",
+                                                id: "minor",
+                                                label: "Minor",
                                             },
                                             {
-                                                id: "medium",
-                                                label: "Medium",
-                                            },
-                                            {
-                                                id: "high",
-                                                label: "High",
+                                                id: "major",
+                                                label: "Major",
                                             },
                                             {
                                                 id: "critical",
