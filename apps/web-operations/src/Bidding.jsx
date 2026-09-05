@@ -2,6 +2,8 @@ import {
   AlertTriangle,
   BadgeDollarSign,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   Clock3,
@@ -15,6 +17,20 @@ import {
   Star
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
+const BIDDING_ORDERS_PER_PAGE = 6;
+
+const AWARD_STATUS_PROCESS_ORDER = [
+  "No Bids Received",
+  "Shortlisting Required",
+  "Shortlist Ready - Send to Logistics",
+  "Awaiting Logistics Selection",
+  "Selected Notice Pending",
+  "Awaiting Supplier Response",
+  "Alternate Selection Required",
+  "Notifications Pending",
+  "Award Completed",
+];
 
 function Bidding() {
   const API_BASE_URL =
@@ -797,6 +813,8 @@ function Bidding() {
       setBiddingStateByOrder(biddingStates);
       setLogisticsStateByOrder(logisticsStates);
       setAwardStateByOrder(awardStates);
+
+      return ordersResult;
     } catch (error) {
       console.error("Fetch bidding orders error:", error);
       setOrders([]);
@@ -805,6 +823,8 @@ function Bidding() {
       setBiddingStateByOrder({});
       setLogisticsStateByOrder({});
       setAwardStateByOrder({});
+
+      return [];
     } finally {
       setIsOrdersLoading(false);
     }
@@ -1552,104 +1572,94 @@ function Bidding() {
     };
   }, [showBiddingWorkspace]);
 
-  // Loads selected bidding order when Bidding page opens
+  // Loads the Bidding page.
+  //
+  // IMPORTANT PERFORMANCE RULE:
+  // If the user came from Orders, open that exact order IMMEDIATELY.
+  // Do not wait for the expensive full Bidding-page table refresh first.
+  //
+  // The selected order's bids/timer/shortlist/award state load in parallel,
+  // while the three Bidding tables refresh independently in the background.
   useEffect(() => {
-    fetchBiddingOrders();
-    const biddingOrder =
-      sessionStorage.getItem(
-        "biddingOrder"
+    let cancelled = false;
+
+    const initialiseBiddingPage = async () => {
+      const storedOrder = sessionStorage.getItem("biddingOrder");
+
+      console.log(
+        "BIDDING ORDER FROM SESSION:",
+        storedOrder
       );
 
-    console.log(
-      "BIDDING ORDER FROM SESSION:",
-      biddingOrder
-    );
+      // Start loading the full three-table Bidding overview in the background.
+      // Do NOT await this before opening an order received from Orders.jsx.
+      const ordersRefreshPromise = fetchBiddingOrders();
 
-    if (biddingOrder) {
+      if (!storedOrder) {
+        setSelectedOrder(null);
+        setBids([]);
+        setIsBiddingOpen(false);
+        setTimeLeft(0);
+        setBiddingStatusLoaded(true);
+        setShowBiddingWorkspace(false);
+
+        await ordersRefreshPromise;
+        return;
+      }
+
       try {
-        const parsedOrder =
-          JSON.parse(
-            biddingOrder
-          );
+        const parsedOrder = JSON.parse(storedOrder);
 
         console.log(
           "PARSED BIDDING ORDER:",
           parsedOrder
         );
 
-        setSelectedOrder(
-          parsedOrder
-        );
+        if (cancelled) {
+          return;
+        }
 
-        setShortlistedBidIds(
-          []
-        );
+        // Open the workspace immediately using the order object passed by
+        // Orders.jsx. selectBiddingOrder() already opens the modal before its
+        // API requests finish, so the user sees the correct order at once.
+        const selectedOrderPromise = selectBiddingOrder(parsedOrder);
 
-        // Do not infer shortlist/winner state from the order status.
-        // Restore it from the Operations API / Supabase instead.
-        setSentToLogistics(false);
-        setWinningBid(null);
+        // Wait for the selected order's four focused requests only.
+        // The expensive all-orders refresh continues independently.
+        await selectedOrderPromise;
 
-        fetchBids(
-          parsedOrder
-        );
+        if (!cancelled) {
+          sessionStorage.removeItem("biddingOrder");
+        }
 
-        fetchBiddingStatus(
-          parsedOrder
-        );
-
-        // Restore the exact saved shortlist from bid_selection and load the
-        // persistent supplier-award workflow from the Operations API.
-        fetchShortlistStatus(parsedOrder);
-        fetchAwardState(parsedOrder);
+        // Let the overview refresh finish without blocking the selected order.
+        await ordersRefreshPromise;
       } catch (error) {
         console.error(
           "Invalid biddingOrder:",
           error
         );
 
-        setSelectedOrder(
-          null
-        );
+        sessionStorage.removeItem("biddingOrder");
 
-        setBids([]);
+        if (!cancelled) {
+          setSelectedOrder(null);
+          setBids([]);
+          setIsBiddingOpen(false);
+          setTimeLeft(0);
+          setBiddingStatusLoaded(true);
+          setShowBiddingWorkspace(false);
+        }
 
-        setIsBiddingOpen(
-          false
-        );
-
-        setTimeLeft(
-          0
-        );
-
-        setBiddingStatusLoaded(
-          true
-        );
+        await ordersRefreshPromise;
       }
-    } else {
-      console.log(
-        "NO BIDDING ORDER FOUND"
-      );
+    };
 
-      setSelectedOrder(
-        null
-      );
+    initialiseBiddingPage();
 
-      setBids([]);
-
-      setIsBiddingOpen(
-        false
-      );
-
-      setTimeLeft(
-        0
-      );
-
-      setBiddingStatusLoaded(
-        true
-      );
-    }
-
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // sentToLogistics is restored from backend/Supabase data.
@@ -4715,6 +4725,8 @@ function BiddingOrdersTable({
   tableMode = "created",
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [awardStatusFilter, setAwardStatusFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Column visibility by workflow stage:
   // Created Orders: no Bids / no Order Status (both are obvious here).
@@ -4797,15 +4809,55 @@ function BiddingOrdersTable({
     };
   };
 
+  const awardStatusOptions =
+    tableMode === "result"
+      ? (() => {
+          const presentStatuses = Array.from(
+            new Set(
+              orders
+                .map((order) => getLogisticsState(order)?.label)
+                .filter(Boolean)
+            )
+          );
+
+          const orderedKnownStatuses =
+            AWARD_STATUS_PROCESS_ORDER.filter((status) =>
+              presentStatuses.includes(status)
+            );
+
+          const additionalStatuses = presentStatuses
+            .filter(
+              (status) =>
+                !AWARD_STATUS_PROCESS_ORDER.includes(status)
+            )
+            .sort((a, b) => a.localeCompare(b));
+
+          return [
+            ...orderedKnownStatuses,
+            ...additionalStatuses,
+          ];
+        })()
+      : [];
+
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    if (!query) {
-      return orders;
-    }
-
     return orders.filter((order) => {
       const winner = getWinnerForOrder?.(order);
+      const awardStatus = getLogisticsState(order)?.label || "";
+
+      const matchesAwardStatus =
+        tableMode !== "result" ||
+        awardStatusFilter === "All" ||
+        awardStatus === awardStatusFilter;
+
+      if (!matchesAwardStatus) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
 
       const searchableValues = [
         getOrderReference(order),
@@ -4835,6 +4887,7 @@ function BiddingOrdersTable({
         winner?.supplier,
         winner?.amount,
         getBidCountForOrder(order),
+        awardStatus,
       ];
 
       return searchableValues
@@ -4846,10 +4899,57 @@ function BiddingOrdersTable({
   }, [
     orders,
     searchTerm,
+    awardStatusFilter,
+    tableMode,
     getOrderReference,
     getBidCountForOrder,
     getWinnerForOrder,
+    getAwardStateForOrder,
   ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredOrders.length / BIDDING_ORDERS_PER_PAGE)
+  );
+
+  const activePage = Math.min(currentPage, totalPages);
+  const firstOrderIndex =
+    (activePage - 1) * BIDDING_ORDERS_PER_PAGE;
+  const lastOrderIndex =
+    firstOrderIndex + BIDDING_ORDERS_PER_PAGE;
+
+  const paginatedOrders = filteredOrders.slice(
+    firstOrderIndex,
+    lastOrderIndex
+  );
+
+  const showingFrom =
+    filteredOrders.length === 0
+      ? 0
+      : firstOrderIndex + 1;
+
+  const showingTo = Math.min(
+    lastOrderIndex,
+    filteredOrders.length
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, awardStatusFilter, orders]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const goToPreviousPage = () => {
+    setCurrentPage((page) => Math.max(1, page - 1));
+  };
+
+  const goToNextPage = () => {
+    setCurrentPage((page) => Math.min(totalPages, page + 1));
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -4891,22 +4991,43 @@ function BiddingOrdersTable({
       {expanded && (
         <div className="border-t border-slate-100">
         <div className="px-4 py-3 border-b border-slate-100 bg-white">
-          <div className="relative max-w-2xl">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-            />
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative min-w-0 flex-1 max-w-2xl">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
 
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={searchPlaceholder}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#F8FBFF] text-sm text-[#1E293B] outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
-            />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#F8FBFF] text-sm text-[#1E293B] outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
+              />
+            </div>
+
+            {tableMode === "result" && (
+              <select
+                value={awardStatusFilter}
+                onChange={(e) => setAwardStatusFilter(e.target.value)}
+                className="min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
+              >
+                <option value="All">
+                  All Award Statuses
+                </option>
+
+                {awardStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {searchTerm.trim() && (
+          {(searchTerm.trim() ||
+            (tableMode === "result" && awardStatusFilter !== "All")) && (
             <p className="text-xs text-slate-500 mt-2">
               Showing {filteredOrders.length} of {orders.length} orders
             </p>
@@ -4983,7 +5104,7 @@ function BiddingOrdersTable({
               </thead>
 
               <tbody>
-                {filteredOrders.map((order) => {
+                {paginatedOrders.map((order) => {
                   const reference = getOrderReference(order);
 
                   const isSelected =
@@ -5147,6 +5268,41 @@ function BiddingOrdersTable({
             </table>
           )}
         </div>
+
+        {!isLoading && filteredOrders.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              Showing {showingFrom}–{showingTo} of {filteredOrders.length}{" "}
+              {filteredOrders.length === 1 ? "order" : "orders"}
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={goToPreviousPage}
+                disabled={activePage === 1}
+                aria-label="Previous page"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <div className="min-w-[96px] text-center text-sm font-medium text-[#1E293B]">
+                Page {activePage} of {totalPages}
+              </div>
+
+              <button
+                type="button"
+                onClick={goToNextPage}
+                disabled={activePage === totalPages}
+                aria-label="Next page"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       )}
     </div>
