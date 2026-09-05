@@ -1886,8 +1886,18 @@ function Bidding() {
       );
     }, [bids]);
 
-  // Operations can shortlist up to 5 suppliers.
-  // Fewer than 5 is valid, as long as at least one bid is selected.
+  // Dynamic shortlist rule:
+  // 1 bid  -> send 1
+  // 2 bids -> send both
+  // 3+ bids -> minimum 3, maximum 5
+  //
+  // Draft selection can still be built one supplier at a time.
+  // The minimum is enforced only when sending to Logistics.
+  const minShortlistCount = useMemo(
+    () => Math.min(3, bids.length),
+    [bids]
+  );
+
   const maxShortlistCount = useMemo(
     () => Math.min(5, bids.length),
     [bids]
@@ -2129,6 +2139,82 @@ Thank you.`;
     const gmailUrl =
       `https://mail.google.com/mail/?view=cm&fs=1` +
       `&to=${encodeURIComponent(bid.supplierEmail)}` +
+      `&su=${encodeURIComponent(subjectText)}` +
+      `&body=${encodeURIComponent(bodyText)}`;
+
+    window.open(
+      gmailUrl,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  };
+
+
+  // Opens one Gmail compose window for every supplier who did NOT win.
+  // Addresses are placed in BCC so suppliers cannot see each other's email.
+  // This includes shortlisted losers, rejected/declined bids, and bids that
+  // were not shortlisted. The confirmed/selected supplier is excluded.
+  const openBulkUnsuccessfulBccEmail = () => {
+    if (!isSupplierConfirmed) {
+      alert(
+        "Bulk unsuccessful email is available only after the selected supplier accepts the award."
+      );
+      return;
+    }
+
+    const selectedBid = getFreshWinningBid();
+    const selectedBidId = Number(
+      selectedBid?.id || selectedBid?.bidId || 0
+    );
+
+    const unsuccessfulRecipients = bids.filter((bid) => {
+      const bidId = Number(bid.id || bid.bidId || 0);
+
+      if (selectedBidId > 0 && bidId === selectedBidId) {
+        return false;
+      }
+
+      return Boolean(
+        String(bid.supplierEmail || "").trim()
+      );
+    });
+
+    const bccEmails = Array.from(
+      new Set(
+        unsuccessfulRecipients
+          .map((bid) => String(bid.supplierEmail || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (bccEmails.length === 0) {
+      alert(
+        "No email addresses are available for the unsuccessful suppliers."
+      );
+      return;
+    }
+
+    const orderReference =
+      displayOrder.orderReference &&
+      displayOrder.orderReference !== "No order selected"
+        ? displayOrder.orderReference
+        : "Order";
+
+    const subjectText = `Bid Result - ${orderReference}`;
+
+    const bodyText = `Dear Supplier,
+
+Thank you for submitting your bid for order ${orderReference}.
+
+The supplier selection process has now been completed. We regret to inform you that your bid was not selected for this order.
+
+We appreciate your participation and look forward to working with you on future opportunities.
+
+Thank you.`;
+
+    const gmailUrl =
+      `https://mail.google.com/mail/?view=cm&fs=1` +
+      `&bcc=${encodeURIComponent(bccEmails.join(","))}` +
       `&su=${encodeURIComponent(subjectText)}` +
       `&body=${encodeURIComponent(bodyText)}`;
 
@@ -2620,16 +2706,29 @@ Thank you.`;
       return;
     }
 
-    if (shortlistedBidIds.length === 0) {
-      alert(
-        "Please shortlist at least one supplier before sending to Logistics."
-      );
+    if (shortlistedBidIds.length < minShortlistCount) {
+      if (bids.length < 3) {
+        alert(
+          `This order received only ${bids.length} bid${
+            bids.length === 1 ? "" : "s"
+          }. Please shortlist all ${bids.length} available bid${
+            bids.length === 1 ? "" : "s"
+          } before sending to Logistics.`
+        );
+      } else {
+        alert(
+          `Please shortlist at least ${minShortlistCount} suppliers before sending to Logistics.`
+        );
+      }
+
       return;
     }
 
-    if (shortlistedBidIds.length > 5) {
+    if (shortlistedBidIds.length > maxShortlistCount) {
       alert(
-        "You can send a maximum of 5 shortlisted suppliers to Logistics."
+        `You can send a maximum of ${maxShortlistCount} shortlisted supplier${
+          maxShortlistCount === 1 ? "" : "s"
+        } to Logistics.`
       );
       return;
     }
@@ -2869,6 +2968,93 @@ Thank you.`;
     }
   };
 
+
+  // Marks every remaining unsuccessful supplier notification as sent
+  // using the existing backend endpoint, then refreshes the workflow once.
+  // Use this AFTER the BCC email has actually been sent.
+  const markAllOutcomeNoticesSent = async () => {
+    if (!selectedOrder) {
+      alert("Please select an order first.");
+      return;
+    }
+
+    const databaseId = getOrderDatabaseId(selectedOrder);
+
+    if (!databaseId) {
+      alert(
+        "The selected order does not contain its database order ID."
+      );
+      return;
+    }
+
+    const pendingBids = getUnsuccessfulBids().filter(
+      (bid) => !isOutcomeNoticeSent(bid)
+    );
+
+    if (pendingBids.length === 0) {
+      alert("There are no pending unsuccessful supplier notifications.");
+      return;
+    }
+
+    try {
+      setAwardActionLoading(true);
+
+      for (const bid of pendingBids) {
+        const notification = getOutcomeNotificationForBid(bid);
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/operations/bids/${encodeURIComponent(
+            databaseId
+          )}/outcome-notice-sent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              order_reference: getOrderReference(selectedOrder),
+              bid_id: bid.id || bid.bidId,
+              notification_id:
+                notification?.notificationId || undefined,
+            }),
+          }
+        );
+
+        const responseText = await response.text();
+        let result = {};
+
+        try {
+          result = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          result = {};
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            result.error ||
+              result.message ||
+              `Failed to mark ${bid.supplier} as sent.`
+          );
+        }
+      }
+
+      await fetchAwardState(selectedOrder);
+      await fetchShortlistStatus(selectedOrder);
+      await fetchBiddingOrders();
+
+      alert(
+        `${pendingBids.length} unsuccessful supplier notification${
+          pendingBids.length === 1 ? "" : "s"
+        } marked as sent.`
+      );
+    } catch (error) {
+      console.error("Mark all outcome notices sent error:", error);
+      alert(error.message);
+    } finally {
+      setAwardActionLoading(false);
+    }
+  };
+
   const getFreshWinningBid = () => {
     const persistedSelectedBidId = Number(awardState?.selectedBidId || 0);
 
@@ -2948,8 +3134,8 @@ Thank you.`;
     );
 
   // Suppliers only become unsuccessful AFTER a supplier accepts.
-  // Before acceptance, the remaining shortlisted suppliers stay available for
-  // an alternate Logistics selection.
+  // At that point EVERY non-winning bidder must receive the final result,
+  // including suppliers that were never shortlisted.
   const getUnsuccessfulBids = () => {
     const workflowState = awardState?.awardWorkflowState;
 
@@ -2963,30 +3149,19 @@ Thank you.`;
     }
 
     const selectedBid = getFreshWinningBid();
-    const notificationBidIds = new Set(
-      (awardState?.outcomeNotifications || [])
-        .map((item) => Number(item.bidId))
-        .filter((id) => !Number.isNaN(id) && id > 0)
-    );
 
-    const candidateBids = bids.filter((bid) => {
-      if (selectedBid && Number(bid.id) === Number(selectedBid.id)) {
-        return false;
-      }
+    return bids
+      .filter((bid) => {
+        if (!selectedBid) {
+          return true;
+        }
 
-      if (notificationBidIds.size > 0) {
-        return notificationBidIds.has(Number(bid.id));
-      }
-
-      return shortlistedBidIds.some(
-        (id) => Number(id) === Number(bid.id)
-      );
-    });
-
-    return candidateBids.map((bid) => ({
-      ...bid,
-      outcomeNotification: getOutcomeNotificationForBid(bid),
-    }));
+        return Number(bid.id) !== Number(selectedBid.id);
+      })
+      .map((bid) => ({
+        ...bid,
+        outcomeNotification: getOutcomeNotificationForBid(bid),
+      }));
   };
 
   const getComplianceClass =
@@ -3107,6 +3282,20 @@ Thank you.`;
       return "Selected by Logistics";
     }
 
+    // After the winner accepts, every other bidder has a final unsuccessful
+    // outcome, even if that supplier was never shortlisted.
+    if (
+      !isSelectedSupplier &&
+      [
+        "unsuccessful_supplier_notifications_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
+      return isOutcomeNoticeSent(bid)
+        ? "Unsuccessful - Notified"
+        : "Unsuccessful";
+    }
+
     if (
       isShortlisted &&
       wasSupplierDeclinedEarlier(bid) &&
@@ -3123,18 +3312,6 @@ Thank you.`;
       workflowState === "alternate_supplier_selection_required"
     ) {
       return "Available for Alternate";
-    }
-
-    if (
-      isShortlisted &&
-      [
-        "unsuccessful_supplier_notifications_pending",
-        "award_completed",
-      ].includes(workflowState)
-    ) {
-      return isOutcomeNoticeSent(bid)
-        ? "Unsuccessful - Notified"
-        : "Unsuccessful";
     }
 
     if (sentToLogistics && isShortlisted) {
@@ -3185,13 +3362,15 @@ Thank you.`;
     }
 
     if (
-      isShortlisted &&
+      !isSelectedSupplier &&
       [
         "unsuccessful_supplier_notifications_pending",
         "award_completed",
       ].includes(workflowState)
     ) {
-      return isOutcomeNoticeSent(bid) ? "Result Sent" : "Result Pending";
+      return isOutcomeNoticeSent(bid)
+        ? "Result Sent"
+        : "Result Pending";
     }
 
     if (
@@ -3905,14 +4084,16 @@ Thank you.`;
                     }
                     className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                       !isBiddingOpen &&
-                      shortlistedBidIds.length > 0 &&
-                      shortlistedBidIds.length <= 5
+                      shortlistedBidIds.length >= minShortlistCount &&
+                      shortlistedBidIds.length <= maxShortlistCount
                         ? "bg-[#052659] text-white hover:bg-[#5483B3]"
                         : "bg-slate-200 text-slate-500 cursor-not-allowed"
                     }`}
                   >
                     <Send size={16} />
-                    {`Send Shortlisted to Logistics (${shortlistedBidIds.length}/${maxShortlistCount})`}
+                    {bids.length > 0
+                      ? `Send Shortlisted to Logistics (${shortlistedBidIds.length} selected · min ${minShortlistCount} / max ${maxShortlistCount})`
+                      : "Send Shortlisted to Logistics"}
                   </button>
                 )}
 
@@ -3958,9 +4139,11 @@ Thank you.`;
                 formatMoney={formatMoney}
                 formatEta={formatEta}
                 openSupplierResultEmail={openSupplierResultEmail}
+                onOpenBulkUnsuccessfulBccEmail={openBulkUnsuccessfulBccEmail}
                 onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
                 onRecordSupplierResponse={recordSupplierResponse}
                 onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
+                onMarkAllOutcomeNoticesSent={markAllOutcomeNoticesSent}
                 loading={awardActionLoading}
               />
             )}
@@ -4454,7 +4637,7 @@ Thank you.`;
                                     : "Shortlist"}
                                 </button>
                               ) :
-                                isShortlisted &&
+                                !isWinner &&
                                 [
                                   "unsuccessful_supplier_notifications_pending",
                                   "award_completed",
@@ -4544,9 +4727,11 @@ Thank you.`;
           formatMoney={formatMoney}
           formatEta={formatEta}
           openSupplierResultEmail={openSupplierResultEmail}
+          onOpenBulkUnsuccessfulBccEmail={openBulkUnsuccessfulBccEmail}
           onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
           onRecordSupplierResponse={recordSupplierResponse}
           onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
+          onMarkAllOutcomeNoticesSent={markAllOutcomeNoticesSent}
           loading={awardActionLoading}
           onClose={() => setShowWinnerPopup(false)}
         />
@@ -5319,9 +5504,11 @@ function AwardWorkflowPanel({
   formatMoney,
   formatEta,
   openSupplierResultEmail,
+  onOpenBulkUnsuccessfulBccEmail,
   onMarkSelectedNoticeSent,
   onRecordSupplierResponse,
   onMarkOutcomeNoticeSent,
+  onMarkAllOutcomeNoticesSent,
   loading,
 }) {
   const state = String(workflowState || "").toLowerCase();
@@ -5602,6 +5789,33 @@ function AwardWorkflowPanel({
                     } remaining · ${sentCount} sent`}
               </p>
             </div>
+
+            {!completed && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={onOpenBulkUnsuccessfulBccEmail}
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#052659] bg-white px-4 py-2 text-xs font-semibold text-[#052659] transition hover:bg-[#EFF6FF]"
+                  title="Open one BCC email for all unsuccessful suppliers"
+                >
+                  <Mail size={15} />
+                  Email All (BCC)
+                </button>
+
+                {pendingCount > 0 && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={onMarkAllOutcomeNoticesSent}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5483B3] disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Mark every pending unsuccessful supplier notification as sent"
+                  >
+                    <CircleCheck size={15} />
+                    {loading ? "Saving..." : "Mark All as Sent"}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-3 space-y-2">
@@ -5682,9 +5896,11 @@ function AwardWorkflowModal({
   formatMoney,
   formatEta,
   openSupplierResultEmail,
+  onOpenBulkUnsuccessfulBccEmail,
   onMarkSelectedNoticeSent,
   onRecordSupplierResponse,
   onMarkOutcomeNoticeSent,
+  onMarkAllOutcomeNoticesSent,
   loading,
   onClose,
 }) {
@@ -5717,9 +5933,11 @@ function AwardWorkflowModal({
           formatMoney={formatMoney}
           formatEta={formatEta}
           openSupplierResultEmail={openSupplierResultEmail}
+          onOpenBulkUnsuccessfulBccEmail={onOpenBulkUnsuccessfulBccEmail}
           onMarkSelectedNoticeSent={onMarkSelectedNoticeSent}
           onRecordSupplierResponse={onRecordSupplierResponse}
           onMarkOutcomeNoticeSent={onMarkOutcomeNoticeSent}
+          onMarkAllOutcomeNoticesSent={onMarkAllOutcomeNoticesSent}
           loading={loading}
         />
       </div>

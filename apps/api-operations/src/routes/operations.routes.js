@@ -15,6 +15,91 @@ const normalizeDbStatus = (value = '') =>
     .replaceAll(' ', '_')
     .replaceAll('-', '_')
 
+
+const getSriLankaToday = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Colombo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+
+  const year = parts.find(
+    (part) => part.type === 'year'
+  )?.value
+
+  const month = parts.find(
+    (part) => part.type === 'month'
+  )?.value
+
+  const day = parts.find(
+    (part) => part.type === 'day'
+  )?.value
+
+  return `${year}-${month}-${day}`
+}
+
+const toDateOnly = (value) =>
+  String(value || '')
+    .trim()
+    .slice(0, 10)
+
+const validateOrderSchedule = ({
+  pickupDate,
+  expectedArrival,
+  checkPastDates = true,
+}) => {
+  const pickup = toDateOnly(pickupDate)
+  const arrival = toDateOnly(expectedArrival)
+  const today = getSriLankaToday()
+
+  if (!pickup || !arrival) {
+    return {
+      valid: false,
+      error:
+        'Pickup date and expected arrival date are required.',
+    }
+  }
+
+  if (arrival < pickup) {
+    return {
+      valid: false,
+      error:
+        'Expected arrival cannot be earlier than pickup date.',
+    }
+  }
+
+  if (checkPastDates && pickup < today) {
+    return {
+      valid: false,
+      error:
+        'Pickup date has already passed. Update the order schedule before continuing.',
+    }
+  }
+
+  if (checkPastDates && arrival < today) {
+    return {
+      valid: false,
+      error:
+        'Expected arrival date has already passed. Update the order schedule before continuing.',
+    }
+  }
+
+  return {
+    valid: true,
+    today,
+    pickup,
+    arrival,
+  }
+}
+
+const validateOrderScheduleForProgress = (order) =>
+  validateOrderSchedule({
+    pickupDate: order?.pickup_date,
+    expectedArrival: order?.expected_arrival,
+    checkPastDates: true,
+  })
+
 // Supported Sri Lankan container ports for the Operations import/export flow.
 // Import  = Port -> Inland/Warehouse
 // Export  = Inland/Warehouse -> Port
@@ -504,6 +589,77 @@ const getOutcomeNotificationRows = async (orderId) => {
   )
 }
 
+
+// After the winning supplier accepts, EVERY other bidder must receive the
+// final unsuccessful result, including suppliers that were never shortlisted.
+// This helper also repairs older completed award records that only created
+// notifications for shortlisted losing suppliers.
+const ensureAllLosingBidOutcomeNotifications = async (
+  orderId,
+  selectedBidId
+) => {
+  const numericOrderId = Number(orderId)
+  const numericSelectedBidId = Number(selectedBidId)
+
+  if (
+    !numericOrderId ||
+    Number.isNaN(numericOrderId) ||
+    !numericSelectedBidId ||
+    Number.isNaN(numericSelectedBidId)
+  ) {
+    return getOutcomeNotificationRows(orderId)
+  }
+
+  const { data: orderBids, error: orderBidsError } = await supabase
+    .from('bids')
+    .select('bid_id, supplier_id')
+    .eq('order_id', numericOrderId)
+
+  if (orderBidsError) {
+    throw new Error(orderBidsError.message)
+  }
+
+  const losingBids = (orderBids || []).filter(
+    (bid) => Number(bid.bid_id) !== numericSelectedBidId
+  )
+
+  const existingNotifications =
+    await getOutcomeNotificationRows(numericOrderId)
+
+  const existingBidIds = new Set(
+    existingNotifications
+      .map((item) => Number(item.bid_id))
+      .filter((id) => id > 0 && !Number.isNaN(id))
+  )
+
+  const now = new Date().toISOString()
+
+  const missingNotifications = losingBids
+    .filter(
+      (bid) => !existingBidIds.has(Number(bid.bid_id))
+    )
+    .map((bid) => ({
+      order_id: numericOrderId,
+      bid_id: Number(bid.bid_id),
+      supplier_id: bid.supplier_id || null,
+      notification_status: 'pending',
+      sent_at: null,
+      updated_at: now,
+    }))
+
+  if (missingNotifications.length > 0) {
+    const { error: insertError } = await supabase
+      .from('bid_outcome_notifications')
+      .insert(missingNotifications)
+
+    if (insertError) {
+      throw new Error(insertError.message)
+    }
+  }
+
+  return getOutcomeNotificationRows(numericOrderId)
+}
+
 const getAwardStateViewRow = async (orderId) => {
   const { data, error } = await supabase
     .from('operations_bid_award_state')
@@ -862,7 +1018,7 @@ const getAwardWorkflowPayload = async (order) => {
     order.order_id
   )
 
-  const outcomeNotifications =
+  let outcomeNotifications =
     await getOutcomeNotificationRows(
       order.order_id
     )
@@ -883,6 +1039,52 @@ const getAwardWorkflowPayload = async (order) => {
     selectedBid = await getBidWithSupplier(
       selectedBidId
     )
+  }
+
+  const normalizedAwardWorkflowState =
+    normalizeDbStatus(
+      awardState?.award_workflow_state
+    )
+
+  const normalizedSupplierConfirmation =
+    normalizeDbStatus(
+      awardState?.supplier_confirmation_status
+    )
+
+  const normalizedOrderStatus =
+    normalizeDbStatus(order.current_status)
+
+  const awardHasFinalWinner =
+    ['accepted', 'supplier_accepted'].includes(
+      normalizedSupplierConfirmation
+    ) ||
+    [
+      'unsuccessful_supplier_notifications_pending',
+      'award_completed',
+    ].includes(normalizedAwardWorkflowState) ||
+    [
+      'bid_accepted',
+      'driver_assigned',
+      'in_transit',
+      'at_freezone',
+      'at_port',
+      'completed',
+      'archived',
+    ].includes(normalizedOrderStatus)
+
+  if (selectedBidId > 0 && awardHasFinalWinner) {
+    try {
+      outcomeNotifications =
+        await ensureAllLosingBidOutcomeNotifications(
+          order.order_id,
+          selectedBidId
+        )
+    } catch (repairError) {
+      console.error(
+        'OUTCOME NOTIFICATION REPAIR ERROR:',
+        repairError.message
+      )
+    }
   }
 
   const fallbackWorkflowState = !sentToLogistics
@@ -1037,6 +1239,9 @@ router.get('/orders', async (req, res) => {
       .map((order) => order.order_id)
       .filter((orderId) => orderId !== null && orderId !== undefined)
 
+    // -----------------------------------------------------------------------
+    // Latest assignment data
+    // -----------------------------------------------------------------------
     const { data: assignments, error: assignmentsError } = await supabase
       .from('order_assignments')
       .select(
@@ -1059,13 +1264,132 @@ router.get('/orders', async (req, res) => {
 
     const safeAssignments = Array.isArray(assignments) ? assignments : []
 
+    // -----------------------------------------------------------------------
+    // Winner/selected supplier data
+    //
+    // IMPORTANT:
+    // At Bid Accepted stage the supplier is already known, but a driver
+    // assignment may not exist yet. Therefore the Orders API must NOT depend
+    // only on order_assignments to resolve the supplier name.
+    // -----------------------------------------------------------------------
+    const {
+      data: selectionRows,
+      error: selectionRowsError,
+    } = await supabase
+      .from('bid_selection')
+      .select(
+        'selection_id, order_id, bid_id, supplier_id, selection_status, selected, selected_at'
+      )
+      .in('order_id', orderIds)
+
+    if (selectionRowsError) {
+      return res.status(500).json({
+        error: selectionRowsError.message,
+      })
+    }
+
+    const safeSelections = Array.isArray(selectionRows)
+      ? selectionRows
+      : []
+
+    const selectionsByOrderId = new Map()
+
+    safeSelections.forEach((selection) => {
+      const key = String(selection.order_id)
+
+      if (!selectionsByOrderId.has(key)) {
+        selectionsByOrderId.set(key, [])
+      }
+
+      selectionsByOrderId.get(key).push(selection)
+    })
+
+    const selectedSelectionByOrderId = new Map()
+
+    selectionsByOrderId.forEach((rows, orderIdKey) => {
+      const selectedSelection =
+        getLogisticsSelectedSelection(rows)
+
+      if (selectedSelection) {
+        selectedSelectionByOrderId.set(
+          orderIdKey,
+          selectedSelection
+        )
+      }
+    })
+
+    // Fallback for older rows where bid_selection may not contain a selected
+    // row but the winning bid itself is already marked accepted.
+    const {
+      data: acceptedBidRows,
+      error: acceptedBidRowsError,
+    } = await supabase
+      .from('bids')
+      .select(
+        'bid_id, order_id, supplier_id, bid_status, updated_at'
+      )
+      .in('order_id', orderIds)
+      .eq('bid_status', 'accepted')
+
+    if (acceptedBidRowsError) {
+      return res.status(500).json({
+        error: acceptedBidRowsError.message,
+      })
+    }
+
+    const safeAcceptedBids = Array.isArray(acceptedBidRows)
+      ? acceptedBidRows
+      : []
+
+    const acceptedBidByOrderId = new Map()
+
+    safeAcceptedBids
+      .slice()
+      .sort((a, b) => {
+        const aTime = new Date(
+          a.updated_at || 0
+        ).getTime()
+        const bTime = new Date(
+          b.updated_at || 0
+        ).getTime()
+
+        if (aTime !== bTime) {
+          return bTime - aTime
+        }
+
+        return Number(b.bid_id || 0) - Number(a.bid_id || 0)
+      })
+      .forEach((bid) => {
+        const key = String(bid.order_id)
+
+        if (!acceptedBidByOrderId.has(key)) {
+          acceptedBidByOrderId.set(key, bid)
+        }
+      })
+
+    // Collect supplier IDs from BOTH assignment rows and selected/accepted
+    // winner rows so Bid Accepted orders can display their supplier.
     const supplierIds = [
       ...new Set(
-        safeAssignments
-          .map((assignment) => assignment.supplier_id)
-          .filter(
-            (supplierId) => supplierId !== null && supplierId !== undefined
-          )
+        [
+          ...safeAssignments.map(
+            (assignment) => assignment.supplier_id
+          ),
+          ...Array.from(
+            selectedSelectionByOrderId.values()
+          ).map(
+            (selection) => selection.supplier_id
+          ),
+          ...Array.from(
+            acceptedBidByOrderId.values()
+          ).map(
+            (bid) => bid.supplier_id
+          ),
+        ].filter(
+          (supplierId) =>
+            supplierId !== null &&
+            supplierId !== undefined
+        )
       ),
     ]
 
@@ -1136,15 +1460,39 @@ router.get('/orders', async (req, res) => {
     })
 
     const enrichedOrders = safeOrders.map((order) => {
+      const orderKey = String(order.order_id)
+
       const assignment =
-        latestAssignmentByOrderId.get(String(order.order_id)) || null
+        latestAssignmentByOrderId.get(orderKey) || null
+
+      const selectedSelection =
+        selectedSelectionByOrderId.get(orderKey) || null
+
+      const acceptedBid =
+        acceptedBidByOrderId.get(orderKey) || null
+
+      // Supplier resolution priority:
+      // 1. Actual assignment supplier (after driver assignment starts)
+      // 2. Logistics selected/accepted supplier
+      // 3. Accepted winning bid supplier (legacy/fallback)
+      // 4. Existing order.supplier_name
+      const resolvedSupplierId =
+        assignment?.supplier_id ??
+        selectedSelection?.supplier_id ??
+        acceptedBid?.supplier_id ??
+        null
 
       const supplier =
-        assignment?.supplier_id !== null &&
-        assignment?.supplier_id !== undefined
-          ? supplierById.get(String(assignment.supplier_id))
+        resolvedSupplierId !== null &&
+        resolvedSupplierId !== undefined
+          ? supplierById.get(
+              String(resolvedSupplierId)
+            )
           : null
 
+      // Driver still comes ONLY from order_assignments.
+      // This keeps Bid Accepted correct:
+      // supplier known, driver not assigned yet.
       const driver =
         assignment?.driver_id !== null &&
         assignment?.driver_id !== undefined
@@ -1159,16 +1507,31 @@ router.get('/orders', async (req, res) => {
         .join(' ')
         .trim()
 
+      const selectedBidId =
+        selectedSelection?.bid_id ??
+        acceptedBid?.bid_id ??
+        null
+
       return {
         ...order,
+
         supplier_name:
           supplier?.company_name ||
           order.supplier_name ||
           null,
+
         driver_name:
           driverName ||
           order.driver_name ||
           null,
+
+        // Useful winner metadata for frontend/debugging.
+        selected_supplier_id:
+          resolvedSupplierId,
+        selected_bid_id:
+          selectedBidId,
+
+        // Assignment metadata remains assignment-only.
         assignment_id:
           assignment?.assignment_id || null,
         assignment_status:
@@ -1277,9 +1640,16 @@ router.post('/orders', async (req, res) => {
       })
     }
 
-    if (String(expected_arrival) < String(pickup_date)) {
+    const scheduleValidation =
+      validateOrderSchedule({
+        pickupDate: pickup_date,
+        expectedArrival: expected_arrival,
+        checkPastDates: true,
+      })
+
+    if (!scheduleValidation.valid) {
       return res.status(400).json({
-        error: 'Expected arrival cannot be earlier than pickup date',
+        error: scheduleValidation.error,
       })
     }
 
@@ -1321,6 +1691,263 @@ router.post('/orders', async (req, res) => {
     })
   } catch (error) {
     return res.status(500).json({
+      error: error.message,
+    })
+  }
+})
+
+
+router.patch('/orders/:orderId/reschedule', async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId)
+
+    if (!orderId || Number.isNaN(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'A valid order ID is required.',
+      })
+    }
+
+    const {
+      pickup_date,
+      expected_arrival,
+    } = req.body || {}
+
+    const order = await getOrderById(orderId)
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found.',
+      })
+    }
+
+    const currentStatus =
+      normalizeDbStatus(order.current_status)
+
+    // Recovery is intentionally limited to the pre-award stages.
+    //
+    // Once a shortlist is sent to Logistics / a supplier is selected,
+    // changing dates silently would change the commercial terms after bids
+    // were evaluated. That needs a separate change-order workflow and is
+    // outside the current Operations flow.
+    if (
+      ![
+        'created',
+        'open_for_bids',
+      ].includes(currentStatus)
+    ) {
+      return res.status(409).json({
+        success: false,
+        error:
+          'This order can no longer be rescheduled by Operations. Rescheduling is allowed only while the order is in Created or Open for Bids stage.',
+      })
+    }
+
+    const scheduleValidation =
+      validateOrderSchedule({
+        pickupDate: pickup_date,
+        expectedArrival: expected_arrival,
+        checkPastDates: true,
+      })
+
+    if (!scheduleValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: scheduleValidation.error,
+      })
+    }
+
+    // Open-for-bids orders may be recovered only before the shortlist is
+    // handed over to Logistics. After handover the bidding stage is locked.
+    if (currentStatus === 'open_for_bids') {
+      const sentShortlist =
+        await getSentShortlist(order.order_id)
+
+      if (sentShortlist.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'This order cannot be rescheduled because its shortlist has already been sent to Logistics.',
+        })
+      }
+    }
+
+    const newPickupDate =
+      scheduleValidation.pickup
+
+    const newExpectedArrival =
+      scheduleValidation.arrival
+
+    const oldPickupDate =
+      toDateOnly(order.pickup_date)
+
+    const oldExpectedArrival =
+      toDateOnly(order.expected_arrival)
+
+    if (
+      oldPickupDate === newPickupDate &&
+      oldExpectedArrival === newExpectedArrival
+    ) {
+      return res.status(200).json({
+        success: true,
+        message:
+          'The order already has the requested schedule.',
+        order,
+      })
+    }
+
+    const now = new Date().toISOString()
+
+    const {
+      data: updatedOrder,
+      error: updateOrderError,
+    } = await supabase
+      .from('orders')
+      .update({
+        pickup_date: newPickupDate,
+        expected_arrival:
+          newExpectedArrival,
+        updated_at: now,
+      })
+      .eq('order_id', order.order_id)
+      .select()
+      .single()
+
+    if (updateOrderError) {
+      return res.status(500).json({
+        success: false,
+        error: updateOrderError.message,
+      })
+    }
+
+    const warnings = []
+
+    // If bidding is already open, suppliers must be informed because the
+    // pickup/arrival dates are part of the bidding context.
+    //
+    // Notification failure does NOT roll back the schedule recovery; the API
+    // returns a warning so Operations can still continue safely.
+    if (currentStatus === 'open_for_bids') {
+      try {
+        const {
+          data: activeSuppliers,
+          error: suppliersError,
+        } = await supabase
+          .from('suppliers')
+          .select(
+            'supplier_id, company_name'
+          )
+          .eq('status', 'active')
+
+        if (suppliersError) {
+          throw new Error(
+            suppliersError.message
+          )
+        }
+
+        const scheduleNotifications =
+          (activeSuppliers || []).map(
+            (supplier) => ({
+              supplier_id:
+                supplier.supplier_id,
+              order_id: order.order_id,
+              message:
+                `Schedule updated for order ${order.order_reference}. ` +
+                `New pickup date: ${newPickupDate}. ` +
+                `New expected arrival: ${newExpectedArrival}. ` +
+                'Please review the updated dates before submitting or relying on your bid.',
+              type:
+                'order_schedule_updated',
+              is_read: false,
+              created_at: now,
+            })
+          )
+
+        if (
+          scheduleNotifications.length > 0
+        ) {
+          const {
+            error: notificationError,
+          } = await supabase
+            .from('notifications')
+            .insert(
+              scheduleNotifications
+            )
+
+          if (notificationError) {
+            throw new Error(
+              notificationError.message
+            )
+          }
+        }
+      } catch (notificationError) {
+        console.error(
+          'ORDER RESCHEDULE NOTIFICATION ERROR:',
+          notificationError.message
+        )
+
+        warnings.push(
+          `Order dates were updated, but supplier schedule notifications could not be created: ${notificationError.message}`
+        )
+      }
+    }
+
+    try {
+      await publish(
+        'order.schedule.updated',
+        {
+          order_id: order.order_id,
+          order_reference:
+            order.order_reference,
+          current_status:
+            order.current_status,
+          previous_pickup_date:
+            oldPickupDate || null,
+          previous_expected_arrival:
+            oldExpectedArrival || null,
+          pickup_date:
+            newPickupDate,
+          expected_arrival:
+            newExpectedArrival,
+          updated_at: now,
+        }
+      )
+    } catch (publishError) {
+      console.error(
+        'ORDER RESCHEDULE EVENT PUBLISH ERROR:',
+        publishError.message
+      )
+
+      warnings.push(
+        `Order dates were updated, but the schedule-update event could not be published: ${publishError.message}`
+      )
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        currentStatus ===
+        'open_for_bids'
+          ? `Order ${order.order_reference} rescheduled successfully. Suppliers were informed of the updated schedule.`
+          : `Order ${order.order_reference} rescheduled successfully.`,
+      previous_schedule: {
+        pickup_date:
+          oldPickupDate || null,
+        expected_arrival:
+          oldExpectedArrival || null,
+      },
+      order: updatedOrder,
+      warnings,
+    })
+  } catch (error) {
+    console.error(
+      'RESCHEDULE OPERATIONS ORDER ERROR:',
+      error.message
+    )
+
+    return res.status(500).json({
+      success: false,
       error: error.message,
     })
   }
@@ -1395,6 +2022,128 @@ router.patch('/orders/:orderId/archive', async (req, res) => {
     console.error('ARCHIVE OPERATIONS ORDER ERROR:', error.message)
 
     return res.status(500).json({
+      error: error.message,
+    })
+  }
+})
+
+
+router.patch('/orders/:orderId/unarchive', async (req, res) => {
+  try {
+    const orderId = Number(req.params.orderId)
+
+    if (!orderId || Number.isNaN(orderId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'A valid order ID is required',
+      })
+    }
+
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select(
+        'order_id, order_reference, current_status, updated_at'
+      )
+      .eq('order_id', orderId)
+      .maybeSingle()
+
+    if (orderError) {
+      return res.status(500).json({
+        success: false,
+        error: orderError.message,
+      })
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      })
+    }
+
+    const currentStatus =
+      normalizeDbStatus(order.current_status)
+
+    if (currentStatus === 'completed') {
+      return res.status(200).json({
+        success: true,
+        message: `Order ${order.order_reference} is already active as Completed`,
+        order,
+      })
+    }
+
+    if (currentStatus !== 'archived') {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Only archived orders can be unarchived by Operations.',
+      })
+    }
+
+    const now = new Date().toISOString()
+
+    const {
+      data: restoredOrder,
+      error: unarchiveError,
+    } = await supabase
+      .from('orders')
+      .update({
+        current_status: 'completed',
+        updated_at: now,
+      })
+      .eq('order_id', orderId)
+      .select()
+      .single()
+
+    if (unarchiveError) {
+      return res.status(500).json({
+        success: false,
+        error: unarchiveError.message,
+      })
+    }
+
+    // IMPORTANT:
+    // Unarchive changes only the order lifecycle state.
+    // It intentionally does NOT modify or delete:
+    // - winning bid / bid selection
+    // - supplier assignment
+    // - driver assignment
+    // - vehicle assignment
+    // - container tracking
+    // - tracking history
+    // - award outcome notifications
+    //
+    // This preserves the completed shipment history exactly as it was.
+
+    try {
+      await publish('order.unarchived', {
+        order_id: restoredOrder.order_id,
+        order_reference:
+          restoredOrder.order_reference,
+        previous_status: 'archived',
+        current_status: 'completed',
+        updated_at: now,
+      })
+    } catch (publishError) {
+      console.error(
+        'ORDER UNARCHIVE EVENT PUBLISH ERROR:',
+        publishError.message
+      )
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Order ${order.order_reference} unarchived successfully`,
+      order: restoredOrder,
+    })
+  } catch (error) {
+    console.error(
+      'UNARCHIVE OPERATIONS ORDER ERROR:',
+      error.message
+    )
+
+    return res.status(500).json({
+      success: false,
       error: error.message,
     })
   }
@@ -1507,8 +2256,23 @@ router.get('/tracking', async (req, res) => {
       })
     }
 
+    const trackingAllowedStatuses = new Set([
+      'driver_assigned',
+      'in_transit',
+      'at_freezone',
+      'at_port',
+      'completed',
+      'archived',
+    ])
+
+    const allowedTrackingRows = (data || []).filter((row) =>
+      trackingAllowedStatuses.has(
+        normalizeDbStatus(row.orders?.current_status)
+      )
+    )
+
     return res.json(
-      normalizeTrackingRowsToSriLanka(data || [])
+      normalizeTrackingRowsToSriLanka(allowedTrackingRows)
     )
   } catch (error) {
     console.error('TRACKING ROUTE ERROR:', error.message)
@@ -1836,6 +2600,16 @@ router.post('/bidding/open', async (req, res) => {
       return res.status(400).json({
         error:
           'Bidding can be opened only while the order is in Created or Open for Bids stage.',
+      })
+    }
+
+
+    const scheduleValidation =
+      validateOrderScheduleForProgress(order)
+
+    if (!scheduleValidation.valid) {
+      return res.status(409).json({
+        error: scheduleValidation.error,
       })
     }
 
@@ -2522,6 +3296,19 @@ router.post(
         })
       }
 
+
+      const scheduleValidation =
+        validateOrderScheduleForProgress(order)
+
+      if (!scheduleValidation.valid) {
+        return res.status(409).json({
+          success: false,
+          error: scheduleValidation.error,
+          award_state:
+            awardPayload?.award_state || null,
+        })
+      }
+
       const selectedBidId = Number(
         awardPayload?.award_state
           ?.selected_bid_id ||
@@ -2717,6 +3504,22 @@ router.post(
           error:
             'The selected bid has changed. Refresh the page and try again.',
         })
+      }
+
+
+      if (responseValue === 'accepted') {
+        const scheduleValidation =
+          validateOrderScheduleForProgress(order)
+
+        if (!scheduleValidation.valid) {
+          return res.status(409).json({
+            success: false,
+            error:
+              `${scheduleValidation.error} The supplier cannot be accepted until the order dates are corrected.`,
+            award_state:
+              awardPayload?.award_state || null,
+          })
+        }
       }
 
       const attempt =
@@ -3063,8 +3866,28 @@ router.post(
         )
       }
 
+      // Once the selected supplier accepts, every OTHER bid for the order is
+      // final and unsuccessful, whether it was shortlisted or not.
+      const { data: allOrderBids, error: allOrderBidsError } =
+        await supabase
+          .from('bids')
+          .select('bid_id, supplier_id')
+          .eq('order_id', order.order_id)
+
+      if (allOrderBidsError) {
+        throw new Error(
+          allOrderBidsError.message
+        )
+      }
+
+      const allLosingBids = (allOrderBids || []).filter(
+        (bid) =>
+          Number(bid.bid_id) !==
+          selectedBidId
+      )
+
       const unsuccessfulBidIds =
-        otherShortlistedSelections
+        allLosingBids
           .map((item) => Number(item.bid_id))
           .filter(
             (id) =>
@@ -3106,50 +3929,10 @@ router.post(
         )
       }
 
-      const existingOutcomeNotifications =
-        await getOutcomeNotificationRows(
-          order.order_id
-        )
-
-      const existingBidIds = new Set(
-        existingOutcomeNotifications.map(
-          (item) => Number(item.bid_id)
-        )
+      await ensureAllLosingBidOutcomeNotifications(
+        order.order_id,
+        selectedBidId
       )
-
-      const notificationsToInsert =
-        otherShortlistedSelections
-          .filter(
-            (item) =>
-              !existingBidIds.has(
-                Number(item.bid_id)
-              )
-          )
-          .map((item) => ({
-            order_id: order.order_id,
-            bid_id: Number(item.bid_id),
-            supplier_id:
-              item.supplier_id || null,
-            notification_status: 'pending',
-            sent_at: null,
-            updated_at: now,
-          }))
-
-      if (
-        notificationsToInsert.length > 0
-      ) {
-        const {
-          error: insertOutcomeNotificationsError,
-        } = await supabase
-          .from('bid_outcome_notifications')
-          .insert(notificationsToInsert)
-
-        if (insertOutcomeNotificationsError) {
-          throw new Error(
-            insertOutcomeNotificationsError.message
-          )
-        }
-      }
 
       const refreshedOrder =
         await getOrderById(order.order_id)
@@ -3165,10 +3948,9 @@ router.post(
       return res.json({
         ...awardPayload,
         message:
-          notificationsToInsert.length > 0 ||
-          otherShortlistedSelections.length > 0
-            ? 'Supplier acceptance recorded. Unsuccessful supplier notifications are now pending.'
-            : 'Supplier acceptance recorded. Award completed because there are no other shortlisted suppliers to notify.',
+          unsuccessfulBidIds.length > 0
+            ? 'Supplier acceptance recorded. Result notifications are now pending for every unsuccessful bidder.'
+            : 'Supplier acceptance recorded. Award completed because there are no other bidders to notify.',
       })
     } catch (error) {
       console.error(
@@ -3378,6 +4160,17 @@ router.post('/bids/:orderId/shortlist-draft', async (req, res) => {
         success: false,
         error:
           'A shortlist draft can be edited only while the order is in Open for Bids stage.',
+      })
+    }
+
+
+    const scheduleValidation =
+      validateOrderScheduleForProgress(order)
+
+    if (!scheduleValidation.valid) {
+      return res.status(409).json({
+        success: false,
+        error: scheduleValidation.error,
       })
     }
 
@@ -3734,7 +4527,8 @@ router.post('/bids/send-to-logistics', async (req, res) => {
     if (uniqueBidIds.length === 0 || uniqueBidIds.length > 5) {
       return res.status(400).json({
         success: false,
-        error: 'Please shortlist between 1 and 5 suppliers.',
+        error:
+          'Please select at least one supplier and no more than 5 suppliers.',
       })
     }
 
@@ -3752,6 +4546,17 @@ router.post('/bids/send-to-logistics', async (req, res) => {
         success: false,
         error:
           'Shortlisted bids can be sent only while the order is in Open for Bids stage.',
+      })
+    }
+
+
+    const scheduleValidation =
+      validateOrderScheduleForProgress(order)
+
+    if (!scheduleValidation.valid) {
+      return res.status(409).json({
+        success: false,
+        error: scheduleValidation.error,
       })
     }
 
@@ -3823,7 +4628,41 @@ router.post('/bids/send-to-logistics', async (req, res) => {
       })
     }
 
-    const maximumAllowed = Math.min(5, totalAvailableBids)
+    // Dynamic shortlist rule:
+    // - 1 bid received  -> send that 1 bid
+    // - 2 bids received -> send both bids
+    // - 3+ bids received -> shortlist at least 3, maximum 5
+    const minimumRequired = Math.min(
+      3,
+      totalAvailableBids
+    )
+
+    const maximumAllowed = Math.min(
+      5,
+      totalAvailableBids
+    )
+
+    if (uniqueBidIds.length < minimumRequired) {
+      const errorMessage =
+        totalAvailableBids < 3
+          ? `This order received only ${totalAvailableBids} bid${
+              totalAvailableBids === 1 ? '' : 's'
+            }. Please shortlist all ${totalAvailableBids} available bid${
+              totalAvailableBids === 1 ? '' : 's'
+            } before sending to Logistics.`
+          : `Please shortlist at least ${minimumRequired} suppliers before sending to Logistics.`
+
+      return res.status(400).json({
+        success: false,
+        error: errorMessage,
+        minimum_shortlist_count:
+          minimumRequired,
+        maximum_shortlist_count:
+          maximumAllowed,
+        total_available_bids:
+          totalAvailableBids,
+      })
+    }
 
     if (uniqueBidIds.length > maximumAllowed) {
       return res.status(400).json({
@@ -3831,8 +4670,12 @@ router.post('/bids/send-to-logistics', async (req, res) => {
         error: `You can shortlist a maximum of ${maximumAllowed} supplier${
           maximumAllowed === 1 ? '' : 's'
         } for this order.`,
-        maximum_shortlist_count: maximumAllowed,
-        total_available_bids: totalAvailableBids,
+        minimum_shortlist_count:
+          minimumRequired,
+        maximum_shortlist_count:
+          maximumAllowed,
+        total_available_bids:
+          totalAvailableBids,
       })
     }
 
@@ -3938,6 +4781,7 @@ router.post('/bids/send-to-logistics', async (req, res) => {
         uniqueBidIds.length === 1 ? '' : 's'
       } sent to Logistics successfully`,
       count: insertedSelections?.length || uniqueBidIds.length,
+      minimum_shortlist_count: minimumRequired,
       maximum_shortlist_count: maximumAllowed,
       total_available_bids: totalAvailableBids,
       order_id: order.order_id,

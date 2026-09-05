@@ -399,7 +399,7 @@ function Dashboard({ onNavigate }) {
   const recentOrders = useMemo(() => {
     return sortedOrders.slice(
       0,
-      8
+      5
     );
   }, [sortedOrders]);
 
@@ -828,7 +828,7 @@ function Dashboard({ onNavigate }) {
                   "/create"
                 )
               }
-              className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#1E40AF] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E3A8A]"
+              className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#021024] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#052659]"
             >
               <Plus size={16} />
               Create New Order
@@ -955,20 +955,34 @@ function Dashboard({ onNavigate }) {
                 </p>
               </div>
 
-              {summaryFilter !==
-                "all" && (
+              <div className="flex flex-wrap items-center gap-2">
+                {summaryFilter !==
+                  "all" && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSummaryFilter(
+                        "all"
+                      )
+                    }
+                    className="w-fit rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#1E40AF] hover:bg-[#EFF6FF]"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={() =>
-                    setSummaryFilter(
-                      "all"
+                    onNavigate(
+                      "/orders"
                     )
                   }
-                  className="w-fit rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-[#1E40AF] hover:bg-[#EFF6FF]"
+                  className="w-fit rounded-lg bg-[#021024] px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#052659]"
                 >
-                  Clear Filter
+                  View All Orders
                 </button>
-              )}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
