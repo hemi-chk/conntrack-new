@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 
 import {
+    clearNotifications,
     createIssue,
     deleteDocument,
     finalizeOrder,
@@ -106,6 +107,7 @@ router.patch("/issues/:id/status", updateIssueStatus);
 router.get("/notifications", getNotifications);
 router.patch("/notifications/:id/read", markNotificationAsRead);
 router.patch("/notifications/read-all", markAllNotificationsAsRead);
+router.delete("/notifications", clearNotifications);
 
 router.post("/tracking/location", updateTrackingLocation);
 router.get("/orders/:orderId/tracking", getTrackingByOrderId);

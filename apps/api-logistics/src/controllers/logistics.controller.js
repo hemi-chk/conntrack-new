@@ -104,9 +104,13 @@ export const markNotificationAsRead = async (req, res) => {
 
         if (error) throw error;
 
+        if (!data?.length) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
         return res.status(200).json({
             success: true,
-            notifications: (data || []).map(normalizeNotificationRow),
+            notification: normalizeNotificationRow(data[0]),
         });
     } catch (error) {
         return res.status(500).json({ message: 'Failed to update notification', error: error.message });
@@ -135,8 +139,29 @@ export const markAllNotificationsAsRead = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            notifications: (data || []).map(normalizeNotificationRow),
+            updatedCount: data?.length || 0,
         });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to clear notifications', error: error.message });
+    }
+};
+
+export const clearNotifications = async (req, res) => {
+    const recipientId = req.user?.id || req.user?.uuid;
+
+    if (!recipientId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { error } = await supabase
+            .from('notifications_logistics')
+            .delete()
+            .eq('recipient_id', recipientId);
+
+        if (error) throw error;
+
+        return res.status(204).send();
     } catch (error) {
         return res.status(500).json({ message: 'Failed to clear notifications', error: error.message });
     }
@@ -604,6 +629,19 @@ export const updateTrackingLocation = async (req, res) => {
 
         if (error) throw error;
 
+        if (req.user?.id) {
+            await createLogisticsNotification({
+                recipient_id: req.user.id,
+                sender_id: req.user.id,
+                order_id: Number(order_id),
+                title: 'Tracking location updated',
+                message: `Shipment tracking was updated to ${current_location || 'a new location'}.`,
+                type: 'tracking',
+                priority: status === 'delayed' ? 'high' : 'medium',
+                action_url: `/orders/${order_id}`,
+            });
+        }
+
         res.status(200).json({
             success: true,
             data: data ? data[0] : null
@@ -713,6 +751,20 @@ export const updateIssueStatus = async (req, res) => {
     const { status } = req.body;
 
     try {
+        const { data: existingIssue, error: fetchError } = await supabase
+            .from('issues')
+            .select('issue_id, order_id, reported_by, status')
+            .eq('issue_id', id)
+            .maybeSingle();
+
+        if (fetchError) throw fetchError;
+        if (!existingIssue) {
+            return res.status(404).json({
+                success: false,
+                message: 'Issue not found'
+            });
+        }
+
         const updateData = { status };
         if (status === 'resolved') {
             updateData.resolved_at = new Date().toISOString();
@@ -725,6 +777,23 @@ export const updateIssueStatus = async (req, res) => {
             .select();
 
         if (error) throw error;
+
+        const issue = data?.[0];
+        const becameResolved = existingIssue.status !== 'resolved' && status === 'resolved';
+
+        if (becameResolved && issue?.reported_by) {
+            await createLogisticsNotification({
+                recipient_id: issue.reported_by,
+                sender_id: req.user?.id || null,
+                issue_id: issue.issue_id,
+                order_id: issue.order_id,
+                title: 'Issue resolved',
+                message: 'Your reported issue has been resolved.',
+                type: 'issue',
+                priority: 'medium',
+                action_url: '/issues',
+            });
+        }
 
         res.status(200).json({
             success: true,
@@ -846,6 +915,22 @@ export const uploadDocuments = async (req, res) => {
             }
 
             uploadedDocuments.push(insertedDoc);
+        }
+
+        const notificationRecipient = uploaded_by && uploaded_by !== 'temp-user-id'
+            ? uploaded_by
+            : req.user?.id;
+        if (notificationRecipient) {
+            await createLogisticsNotification({
+                recipient_id: notificationRecipient,
+                sender_id: req.user?.id || null,
+                order_id: Number(order_id),
+                title: 'Documents uploaded',
+                message: `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? '' : 's'} uploaded successfully.`,
+                type: 'document',
+                priority: 'medium',
+                action_url: `/orders/${order_id}`,
+            });
         }
 
         return res.status(201).json({

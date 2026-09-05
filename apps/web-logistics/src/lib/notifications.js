@@ -12,35 +12,21 @@ const normalizeNotification = (item = {}) => ({
 });
 
 export async function getNotifications() {
-  try {
-    const { data } = await api.get("/logistics/notifications");
-    return Array.isArray(data) ? data.map(normalizeNotification) : [];
-  } catch (error) {
-    console.error("Failed to fetch notifications:", error);
-    return [];
-  }
+  const { data } = await api.get("/logistics/notifications");
+  return Array.isArray(data) ? data.map(normalizeNotification) : [];
 }
 
 export async function markNotificationAsRead(id) {
-  try {
-    const { data } = await api.patch(`/logistics/notifications/${id}/read`);
-    const notifications = data?.notifications || [];
-    return notifications.map(normalizeNotification);
-  } catch (error) {
-    console.error("Failed to mark notification as read:", error);
-    return [];
-  }
+  const { data } = await api.patch(`/logistics/notifications/${id}/read`);
+  return data?.notification ? normalizeNotification(data.notification) : null;
 }
 
 export async function markAllNotificationsAsRead() {
-  try {
-    const { data } = await api.patch("/logistics/notifications/read-all");
-    const notifications = data?.notifications || [];
-    return notifications.map(normalizeNotification);
-  } catch (error) {
-    console.error("Failed to mark all notifications as read:", error);
-    return [];
-  }
+  await api.patch("/logistics/notifications/read-all");
+}
+
+export async function clearAllNotifications() {
+  await api.delete("/logistics/notifications");
 }
 
 export function getPriorityStyles(priority = "medium") {
