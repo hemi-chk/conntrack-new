@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+    clearAllNotifications,
     getNotifications,
     getPriorityStyles,
     markAllNotificationsAsRead,
@@ -39,14 +40,32 @@ const formatTime = (isoString) => {
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const loadNotifications = async () => {
-      const data = await getNotifications();
-      setNotifications(data);
+      try {
+        setError('');
+        setLoading(true);
+        const data = await getNotifications();
+        setNotifications(data);
+      } catch (loadError) {
+        console.error('Failed to load notifications:', loadError);
+        setError('Unable to load notifications. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+    window.addEventListener('visibilitychange', loadNotifications);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('visibilitychange', loadNotifications);
+    };
   }, []);
 
   const unreadCount = useMemo(
@@ -56,8 +75,18 @@ export default function NotificationsPage() {
 
   const handleOpen = async (notification) => {
     if (!notification.read) {
-      const updated = await markNotificationAsRead(notification.id);
-      setNotifications(updated);
+      try {
+        const updated = await markNotificationAsRead(notification.id);
+        if (updated) {
+          setNotifications((current) => current.map((item) => (
+            item.id === updated.id ? updated : item
+          )));
+        }
+      } catch (openError) {
+        console.error('Failed to mark notification as read:', openError);
+        setError('Unable to update notification.');
+        return;
+      }
     }
 
     if (notification.actionUrl) {
@@ -66,12 +95,23 @@ export default function NotificationsPage() {
   };
 
   const handleMarkAllRead = async () => {
-    const updated = await markAllNotificationsAsRead();
-    setNotifications(updated);
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+    } catch (markError) {
+      console.error('Failed to mark all notifications as read:', markError);
+      setError('Unable to update notifications.');
+    }
   };
 
-  const handleClearAll = () => {
-    setNotifications([]);
+  const handleClearAll = async () => {
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+    } catch (clearError) {
+      console.error('Failed to clear notifications:', clearError);
+      setError('Unable to clear notifications.');
+    }
   };
 
   return (
@@ -109,7 +149,16 @@ export default function NotificationsPage() {
         </div>
 
         <div className="p-5">
-          {notifications.length === 0 ? (
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          )}
+          {loading ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center text-sm text-slate-500">
+              Loading notifications...
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                 <Bell size={22} />

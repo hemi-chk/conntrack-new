@@ -83,7 +83,13 @@ const getStatusBadge = (status) => {
     );
 };
 
-// ---------------- MAIN COMPONENT ----------------
+// =========================================================
+// LOGISTICS ORDERS PAGE
+// ---------------------------------------------------------
+// This page lists import/export orders for the logistics interface. It lets the
+// user search, filter, and inspect active shipment records without mixing in
+// other app domains.
+// =========================================================
 export default function OrdersPage({ title, type }) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);

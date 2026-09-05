@@ -1,5 +1,15 @@
-import { supabase } from '@conntrack/database';
 import { publish } from '@conntrack/messaging';
+import PDFDocument from 'pdfkit';
+import { supabase } from '../config/supabase.js';
+
+// =========================================================
+// LOGISTICS API CONTROLLER
+// ---------------------------------------------------------
+// This file contains all business logic for the logistics interface.
+// It is intentionally separated from admin, supplier, and driver flows.
+// Each section below maps to a logistics feature: dashboard, orders,
+// tracking, documents, issues, notifications, and profile information.
+// =========================================================
 
 const normalizeNotificationRow = (row) => ({
     id: row.id,
@@ -95,9 +105,13 @@ export const markNotificationAsRead = async (req, res) => {
 
         if (error) throw error;
 
+        if (!data?.length) {
+            return res.status(404).json({ message: 'Notification not found' });
+        }
+
         return res.status(200).json({
             success: true,
-            notifications: (data || []).map(normalizeNotificationRow),
+            notification: normalizeNotificationRow(data[0]),
         });
     } catch (error) {
         return res.status(500).json({ message: 'Failed to update notification', error: error.message });
@@ -126,8 +140,29 @@ export const markAllNotificationsAsRead = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            notifications: (data || []).map(normalizeNotificationRow),
+            updatedCount: data?.length || 0,
         });
+    } catch (error) {
+        return res.status(500).json({ message: 'Failed to clear notifications', error: error.message });
+    }
+};
+
+export const clearNotifications = async (req, res) => {
+    const recipientId = req.user?.id || req.user?.uuid;
+
+    if (!recipientId) {
+        return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    try {
+        const { error } = await supabase
+            .from('notifications_logistics')
+            .delete()
+            .eq('recipient_id', recipientId);
+
+        if (error) throw error;
+
+        return res.status(204).send();
     } catch (error) {
         return res.status(500).json({ message: 'Failed to clear notifications', error: error.message });
     }
@@ -170,8 +205,11 @@ export const getMyProfile = async (req, res) => {
     }
 };
 
-// --- DASHBOARD METHODS ---
-
+// -----------------------------------------------------------------------------
+// DASHBOARD METHODS
+// -----------------------------------------------------------------------------
+// Used to power the logistics home page with the latest count summary and the
+// recent activity feed shown in the dashboard cards and table.
 export const getDashboardSummary = async (req, res) => {
     try {
         const [importRes, exportRes, inTransitRes, completedRes, activityRes] = await Promise.all([
@@ -208,8 +246,11 @@ export const getDashboardSummary = async (req, res) => {
     }
 };
 
-// --- BIDS ---
-
+// -----------------------------------------------------------------------------
+// BIDS
+// -----------------------------------------------------------------------------
+// These endpoints supply supplier bids for a logistics order so the user can
+// compare offers and finalize the assignment.
 export const getShortlistedBids = async (req, res) => {
     const { orderId } = req.params;
 
@@ -219,26 +260,28 @@ export const getShortlistedBids = async (req, res) => {
             .select(`
                 selection_id,
                 bid_id,
+                selection_status,
+                sent_to_logistics,
                 bids (
                     bid_id,
                     bid_amount,
                     eta,
-                    suppliers (company_name, rating),
-                    vehicles (vehicle_type)
+                    suppliers (company_name, rating)
                 )
             `)
             .eq('order_id', orderId)
-            .eq('selection_status', 'sent_to_logistics');
+            .eq('selection_status', 'shortlisted')
+            .eq('sent_to_logistics', true);
 
         if (error) throw error;
 
-        const formatted = data.map(item => ({
+        const formatted = (data || []).map(item => ({
             id: item.bid_id,
             selectionId: item.selection_id,
+            selectionStatus: item.selection_status,
             supplierName: item.bids?.suppliers?.company_name || "Unknown",
             amount: item.bids?.bid_amount,
             rating: item.bids?.suppliers?.rating || 0,
-            vehicle: item.bids?.vehicles?.vehicle_type || "N/A",
             eta: item.bids?.eta || "N/A"
         }));
 
@@ -249,8 +292,11 @@ export const getShortlistedBids = async (req, res) => {
     }
 };
 
-// --- FINALIZE ORDER ---
-
+// -----------------------------------------------------------------------------
+// FINALIZE ORDER
+// -----------------------------------------------------------------------------
+// Finalization confirms the winning supplier and marks the order as assigned in
+// the logistics workflow.
 export const finalizeOrder = async (req, res) => {
     const { orderId } = req.params;
     const { selectionId, bidId } = req.body;
@@ -266,20 +312,33 @@ export const finalizeOrder = async (req, res) => {
         const orderRef = orderData?.order_reference || `Order #${orderId}`;
 
         // 2️⃣ Accept selected bid_selection row
-        await supabase
+        const { error: selectedUpdateError } = await supabase
             .from('bid_selection')
-            .update({ selection_status: 'accepted', selected_by: userId || null })
+            .update({
+                selection_status: 'accepted',
+                selected: true,
+                selected_by: userId || null
+            })
             .eq('selection_id', selectionId);
 
+        if (selectedUpdateError) throw selectedUpdateError;
+
         // 3️⃣ Reject all other shortlisted bid_selection rows
-        await supabase
+        const { error: rejectedUpdateError } = await supabase
             .from('bid_selection')
-            .update({ selection_status: 'rejected' })
+            .update({ selection_status: 'rejected', selected: false })
             .eq('order_id', orderId)
             .neq('selection_id', selectionId);
 
+        if (rejectedUpdateError) throw rejectedUpdateError;
+
         // 4️⃣ Mark winning bid as accepted in bids table
-        await supabase.from('bids').update({ bid_status: 'accepted' }).eq('bid_id', bidId);
+        const { error: winningBidUpdateError } = await supabase
+            .from('bids')
+            .update({ bid_status: 'accepted' })
+            .eq('bid_id', bidId);
+
+        if (winningBidUpdateError) throw winningBidUpdateError;
 
         // 5️⃣ Mark all other bids for this order as rejected in bids table
         const { data: losingSelections } = await supabase
@@ -294,7 +353,12 @@ export const finalizeOrder = async (req, res) => {
         }
 
         // 6️⃣ Update order status
-        await supabase.from('orders').update({ current_status: 'bid_accepted' }).eq('order_id', orderId);
+        const { error: orderStatusError } = await supabase
+            .from('orders')
+            .update({ current_status: 'bid_accepted' })
+            .eq('order_id', orderId);
+
+        if (orderStatusError) throw orderStatusError;
 
         // 7️⃣ Create order_assignments row for the winning supplier (driver assigned later by Operations)
         if (winningBid?.supplier_id) {
@@ -586,6 +650,19 @@ export const updateTrackingLocation = async (req, res) => {
 
         if (error) throw error;
 
+        if (req.user?.id) {
+            await createLogisticsNotification({
+                recipient_id: req.user.id,
+                sender_id: req.user.id,
+                order_id: Number(order_id),
+                title: 'Tracking location updated',
+                message: `Shipment tracking was updated to ${current_location || 'a new location'}.`,
+                type: 'tracking',
+                priority: status === 'delayed' ? 'high' : 'medium',
+                action_url: `/orders/${order_id}`,
+            });
+        }
+
         res.status(200).json({
             success: true,
             data: data ? data[0] : null
@@ -595,8 +672,11 @@ export const updateTrackingLocation = async (req, res) => {
     }
 };
 
-// --- ISSUES ---
-
+// -----------------------------------------------------------------------------
+// ISSUES
+// -----------------------------------------------------------------------------
+// Issue creation is the escalation path when a shipment, vehicle, supplier, or
+// route problem must be reported for admin review and follow-up.
 export const createIssue = async (req, res) => {
     try {
         const {
@@ -694,6 +774,20 @@ export const updateIssueStatus = async (req, res) => {
     const { status } = req.body;
 
     try {
+        const { data: existingIssue, error: fetchError } = await supabase
+            .from('issues')
+            .select('issue_id, order_id, reported_by, status')
+            .eq('issue_id', id)
+            .maybeSingle();
+
+        if (fetchError) throw fetchError;
+        if (!existingIssue) {
+            return res.status(404).json({
+                success: false,
+                message: 'Issue not found'
+            });
+        }
+
         const updateData = { status };
         if (status === 'resolved') {
             updateData.resolved_at = new Date().toISOString();
@@ -706,6 +800,23 @@ export const updateIssueStatus = async (req, res) => {
             .select();
 
         if (error) throw error;
+
+        const issue = data?.[0];
+        const becameResolved = existingIssue.status !== 'resolved' && status === 'resolved';
+
+        if (becameResolved && issue?.reported_by) {
+            await createLogisticsNotification({
+                recipient_id: issue.reported_by,
+                sender_id: req.user?.id || null,
+                issue_id: issue.issue_id,
+                order_id: issue.order_id,
+                title: 'Issue resolved',
+                message: 'Your reported issue has been resolved.',
+                type: 'issue',
+                priority: 'medium',
+                action_url: '/issues',
+            });
+        }
 
         res.status(200).json({
             success: true,
@@ -722,47 +833,179 @@ export const updateIssueStatus = async (req, res) => {
 
 // --- REPORTS ---
 
+const getReportData = async (fromDate, toDate) => {
+    if (!fromDate || !toDate || Number.isNaN(Date.parse(fromDate)) || Number.isNaN(Date.parse(toDate))) {
+        throw new Error('Valid fromDate and toDate are required');
+    }
+
+    const { data: orders, error } = await supabase
+        .from('orders')
+        .select(`*, customers (customer_name)`)
+        .gte('created_at', `${fromDate}T00:00:00Z`)
+        .lte('created_at', `${toDate}T23:59:59Z`)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const normalizedOrders = (orders || []).map(order => ({
+        ...order,
+        customer_name: order.customers?.customer_name || 'Internal'
+    }));
+
+    const total = normalizedOrders.length;
+    const completedCount = normalizedOrders.filter(order => order.current_status === 'completed').length;
+    const imports = normalizedOrders.filter(order => order.order_type === 'import').length;
+    const exports = normalizedOrders.filter(order => order.order_type === 'export').length;
+
+    return {
+        orders: normalizedOrders,
+        stats: {
+            total,
+            completedCount,
+            imports,
+            exports,
+            successRate: total > 0 ? ((completedCount / total) * 100).toFixed(1) : '0'
+        }
+    };
+};
+
 export const getFilteredReports = async (req, res) => {
     const { fromDate, toDate } = req.query;
 
     try {
-        const { data: orders, error } = await supabase
-            .from('orders')
-            .select(`*, customers (customer_name)`)
-            .gte('created_at', `${fromDate}T00:00:00Z`)
-            .lte('created_at', `${toDate}T23:59:59Z`)
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const total = orders.length;
-        const completedCount = orders.filter(o => o.current_status === 'completed').length;
-        const imports = orders.filter(o => o.order_type === 'import').length;
-        const exports = orders.filter(o => o.order_type === 'export').length;
-
-        const successRate = total > 0
-            ? ((completedCount / total) * 100).toFixed(1)
-            : "0";
-
-        res.status(200).json({
-            orders: orders.map(order => ({
-                ...order,
-                customer_name: order.customers?.customer_name || 'Internal'
-            })),
-            stats: {
-                total,
-                completedCount,
-                imports,
-                exports,
-                successRate
-            }
-        });
+        res.status(200).json(await getReportData(fromDate, toDate));
 
     } catch (error) {
         res.status(500).json({
             message: "Failed to generate report",
             error: error.message
         });
+    }
+};
+
+export const downloadReportPdf = async (req, res) => {
+    const { fromDate, toDate } = req.query;
+
+    try {
+        const { orders, stats } = await getReportData(fromDate, toDate);
+        const document = new PDFDocument({
+            size: 'A4',
+            margins: { top: 42, right: 36, bottom: 42, left: 36 },
+            bufferPages: true
+        });
+
+        const safeDate = value => String(value).replace(/[^0-9-]/g, '');
+        const filename = `logistics-report-${safeDate(fromDate)}-to-${safeDate(toDate)}.pdf`;
+
+        res.status(200);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        document.pipe(res);
+
+        const navy = '#12355B';
+        const muted = '#64748B';
+        const light = '#E2E8F0';
+        const pageWidth = document.page.width - document.page.margins.left - document.page.margins.right;
+
+        const drawHeader = () => {
+            document.fillColor(navy).fontSize(18).font('Helvetica-Bold')
+                .text('LOGISTICS OPERATIONS REPORT');
+            document.fillColor(muted).fontSize(9).font('Helvetica')
+                .text('ConnTrack Integrated Logistics System');
+            document.moveDown(0.6);
+            document.moveTo(document.page.margins.left, document.y)
+                .lineTo(document.page.width - document.page.margins.right, document.y)
+                .strokeColor(navy).lineWidth(1.5).stroke();
+            document.moveDown(0.6);
+            document.fillColor(muted).fontSize(9)
+                .text(`Reporting period: ${fromDate} to ${toDate}`)
+                .text(`Generated: ${new Date().toLocaleString()}`);
+            document.moveDown(1);
+        };
+
+        const drawFooter = (pageNumber, pageCount) => {
+            const footerY = document.page.height - 28;
+            document.font('Helvetica').fontSize(8).fillColor(muted)
+                .text('Confidential logistics report', document.page.margins.left, footerY, { continued: true })
+                .text(`Page ${pageNumber} of ${pageCount}`, { align: 'right' });
+        };
+
+        const drawMetric = (label, value, x, y, width) => {
+            document.roundedRect(x, y, width, 48, 5).fillAndStroke('#F8FAFC', light);
+            document.fillColor(muted).font('Helvetica-Bold').fontSize(8).text(label.toUpperCase(), x + 10, y + 9, { width: width - 20 });
+            document.fillColor(navy).font('Helvetica-Bold').fontSize(17).text(String(value), x + 10, y + 24, { width: width - 20 });
+        };
+
+        drawHeader();
+        const metricGap = 8;
+        const metricWidth = (pageWidth - metricGap * 3) / 4;
+        const metricY = document.y;
+        drawMetric('Total orders', stats.total, document.page.margins.left, metricY, metricWidth);
+        drawMetric('Completed', stats.completedCount, document.page.margins.left + metricWidth + metricGap, metricY, metricWidth);
+        drawMetric('Imports', stats.imports, document.page.margins.left + (metricWidth + metricGap) * 2, metricY, metricWidth);
+        drawMetric('Exports', stats.exports, document.page.margins.left + (metricWidth + metricGap) * 3, metricY, metricWidth);
+        document.y = metricY + 70;
+
+        document.fillColor(navy).font('Helvetica-Bold').fontSize(12).text('Order Manifest');
+        document.moveDown(0.5);
+
+        const columns = [
+            { label: 'Order ID', width: 72 },
+            { label: 'Customer', width: 135 },
+            { label: 'Route', width: 155 },
+            { label: 'Date', width: 72 },
+            { label: 'Status', width: pageWidth - 434 }
+        ];
+        const tableX = document.page.margins.left;
+        const rowHeight = 26;
+        const drawTableHeader = () => {
+            let x = tableX;
+            document.rect(tableX, document.y, pageWidth, rowHeight).fill(navy);
+            columns.forEach(column => {
+                document.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8).text(column.label, x + 5, document.y + 9, { width: column.width - 10 });
+                x += column.width;
+            });
+            document.y += rowHeight;
+        };
+
+        drawTableHeader();
+        orders.forEach((order, index) => {
+            if (document.y > document.page.height - document.page.margins.bottom - 45) {
+                document.addPage();
+                drawHeader();
+                drawTableHeader();
+            }
+
+            const rowY = document.y;
+            if (index % 2 === 0) document.rect(tableX, rowY, pageWidth, rowHeight).fill('#F8FAFC');
+            document.rect(tableX, rowY, pageWidth, rowHeight).strokeColor(light).lineWidth(0.5).stroke();
+            const route = order.route || `${order.pickup_location || order.pickup_district || 'N/A'} -> ${order.destination_location || order.destination_district || 'N/A'}`;
+            const values = [
+                `#${String(order.order_id).padStart(5, '0')}`,
+                order.customer_name || 'Unknown Customer',
+                route,
+                order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A',
+                (order.current_status || 'created').replace(/_/g, ' ')
+            ];
+            let x = tableX;
+            values.forEach((value, valueIndex) => {
+                document.fillColor('#1E293B').font('Helvetica').fontSize(8).text(String(value), x + 5, rowY + 9, { width: columns[valueIndex].width - 10, height: rowHeight - 10, ellipsis: true });
+                x += columns[valueIndex].width;
+            });
+            document.y = rowY + rowHeight;
+        });
+
+        const range = document.bufferedPageRange();
+        for (let index = range.start; index < range.start + range.count; index += 1) {
+            document.switchToPage(index);
+            drawFooter(index + 1, range.count);
+        }
+
+        document.end();
+    } catch (error) {
+        if (!res.headersSent) {
+            res.status(500).json({ message: 'Failed to generate report PDF', error: error.message });
+        }
     }
 };
 
@@ -827,6 +1070,22 @@ export const uploadDocuments = async (req, res) => {
             }
 
             uploadedDocuments.push(insertedDoc);
+        }
+
+        const notificationRecipient = uploaded_by && uploaded_by !== 'temp-user-id'
+            ? uploaded_by
+            : req.user?.id;
+        if (notificationRecipient) {
+            await createLogisticsNotification({
+                recipient_id: notificationRecipient,
+                sender_id: req.user?.id || null,
+                order_id: Number(order_id),
+                title: 'Documents uploaded',
+                message: `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? '' : 's'} uploaded successfully.`,
+                type: 'document',
+                priority: 'medium',
+                action_url: `/orders/${order_id}`,
+            });
         }
 
         return res.status(201).json({

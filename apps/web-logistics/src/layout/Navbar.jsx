@@ -38,17 +38,29 @@ function LogoutModal({ onConfirm, onCancel }) {
   )
 }
 
+// =========================================================
+// LOGISTICS NAVBAR
+// ---------------------------------------------------------
+// The navbar is the top-level control bar for logistics users. It exposes
+// notifications, the active user profile, sign-out, and the dark mode toggle.
 export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick }) {
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [profile, setProfile] = useState(null);
+  const [notificationError, setNotificationError] = useState('');
 
   useEffect(() => {
     const loadNotifications = async () => {
-      const nextNotifications = await getNotifications();
-      setNotifications(nextNotifications);
+      try {
+        setNotificationError('');
+        const nextNotifications = await getNotifications();
+        setNotifications(nextNotifications);
+      } catch (error) {
+        console.error('Failed to load notifications:', error);
+        setNotificationError('Unable to refresh notifications.');
+      }
     };
 
     const loadProfile = async () => {
@@ -68,6 +80,15 @@ export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick
 
     loadNotifications();
     loadProfile();
+
+    const refreshNotifications = () => loadNotifications();
+    const interval = window.setInterval(refreshNotifications, 30000);
+    window.addEventListener('visibilitychange', refreshNotifications);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('visibilitychange', refreshNotifications);
+    };
   }, []);
 
   const userName = profile
@@ -87,8 +108,17 @@ export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick
 
   const handleNotificationClick = async (notification) => {
     if (!notification.read) {
-      const nextNotifications = await markNotificationAsRead(notification.id);
-      setNotifications(nextNotifications);
+      try {
+        const updatedNotification = await markNotificationAsRead(notification.id);
+        if (updatedNotification) {
+          setNotifications((current) => current.map((item) => (
+            item.id === updatedNotification.id ? updatedNotification : item
+          )));
+        }
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+        setNotificationError('Unable to update notification.');
+      }
     }
 
     setShowNotifications(false);
@@ -104,8 +134,13 @@ export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick
   };
 
   const handleMarkAllAsRead = async () => {
-    const nextNotifications = await markAllNotificationsAsRead();
-    setNotifications(nextNotifications);
+    try {
+      await markAllNotificationsAsRead();
+      setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+      setNotificationError('Unable to update notifications.');
+    }
   };
 
   return (
@@ -211,6 +246,11 @@ export default function Navbar({ isOpen, darkMode, onToggleDarkMode, onMenuClick
                 </div>
 
                 <div className="max-h-[360px] overflow-y-auto">
+                  {notificationError && (
+                    <div className="px-4 py-2 text-xs font-semibold text-red-600 bg-red-50">
+                      {notificationError}
+                    </div>
+                  )}
                   {notifications.length === 0 ? (
                     <div className="p-5 text-center text-sm text-slate-500">
                       No notifications yet.
