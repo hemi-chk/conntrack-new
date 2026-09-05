@@ -7,6 +7,7 @@
 import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
@@ -18,23 +19,23 @@ import { authFetch } from "../utils/authFetch";
 const { width } = Dimensions.get("window");
 
 const ISSUE_TYPES = [
-  { key: "Mechanical Breakdown", label: "Mechanical Breakdown", icon: "directions-car", color: "#EF4444" },
-  { key: "Traffic/Route Delay", label: "Traffic / Route Delay", icon: "schedule", color: "#F59E0B" },
-  { key: "Documentation Issue", label: "Documentation Issue", icon: "description", color: "#6366F1" },
-  { key: "Cargo Damage", label: "Cargo Damage", icon: "local-shipping", color: "#DC2626" },
-  { key: "Other", label: "Other", icon: "help-outline", color: "#64748B" },
+  { key: "Mechanical Breakdown", labelKey: "mechanical_breakdown", icon: "directions-car", color: "#EF4444" },
+  { key: "Traffic/Route Delay", labelKey: "traffic_route_delay", icon: "schedule", color: "#F59E0B" },
+  { key: "Documentation Issue", labelKey: "documentation_issue", icon: "description", color: "#6366F1" },
+  { key: "Cargo Damage", labelKey: "cargo_damage", icon: "local-shipping", color: "#DC2626" },
+  { key: "Other", labelKey: "other", icon: "help-outline", color: "#64748B" },
 ];
 
 const PRIORITIES = [
-  { key: "low", label: "Low", color: "#10B981" },
-  { key: "medium", label: "Medium", color: "#F59E0B" },
-  { key: "high", label: "High", color: "#EF4444" },
+  { key: "low", labelKey: "low", color: "#10B981" },
+  { key: "medium", labelKey: "medium", color: "#F59E0B" },
+  { key: "high", labelKey: "high", color: "#EF4444" },
 ];
 
 const ISSUE_STATUS_META = {
-  open: { label: "Not Reviewed", color: "#64748B", bg: "#F1F5F9", icon: "schedule" },
-  escalated: { label: "Reviewing", color: "#2563EB", bg: "#DBEAFE", icon: "visibility" },
-  resolved: { label: "Solved", color: "#059669", bg: "#D1FAE5", icon: "check-circle" },
+  open: { labelKey: "not_reviewed", color: "#64748B", bg: "#F1F5F9", icon: "schedule" },
+  escalated: { labelKey: "reviewing", color: "#2563EB", bg: "#DBEAFE", icon: "visibility" },
+  resolved: { labelKey: "solved", color: "#059669", bg: "#D1FAE5", icon: "check-circle" },
 };
 function issueStatusMeta(status) {
   return ISSUE_STATUS_META[status] || ISSUE_STATUS_META.open;
@@ -44,6 +45,7 @@ export default function Support({ route, navigation }) {
   const user = route?.params?.user || {};
   const activeMission = route?.params?.order || {};
   const { theme: activeTheme } = useTheme();
+  const { t } = useTranslation();
 
   const [showForm, setShowForm] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
@@ -289,11 +291,11 @@ export default function Support({ route, navigation }) {
 
   const handleSubmitIssue = async () => {
     if (!selectedType) {
-      Alert.alert("Missing Info", "Please select an issue type.");
+      Alert.alert(t("missing_info"), t("select_issue_type"));
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Missing Info", "Please describe the issue.");
+      Alert.alert(t("missing_info"), t("describe_issue_error"));
       return;
     }
 
@@ -318,23 +320,23 @@ export default function Support({ route, navigation }) {
       const result = await response.json();
 
       if (result.success) {
-        Alert.alert("Issue Reported", "Your issue has been submitted successfully. Our team will review it shortly.");
+        Alert.alert(t("issue_reported"), t("issue_submitted_success"));
         resetForm();
         fetchMyIssues();
       } else {
-        Alert.alert("Error", result.message || result.error || `Failed to submit issue (${response.status}).`);
+        Alert.alert(t("error"), result.message || result.error || t("failed_submit_issue", { status: response.status }));
       }
     } catch (error) {
       console.error("Report Issue Error:", error);
-      Alert.alert("Connection Error", "Could not connect to server. Please try again.");
+      Alert.alert(t("connection_error"), t("support_connection_error"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const faqs = [
-    { q: "How to update trip status?", a: "Go to active job and use the bottom action button." },
-    { q: "Issues with GPS tracking?", a: "Ensure location services are enabled and app has permission." },
+    { q: t("faq_update_trip_status"), a: t("faq_update_trip_status_answer") },
+    { q: t("faq_gps_tracking"), a: t("faq_gps_tracking_answer") },
   ];
 
   return (
@@ -357,8 +359,8 @@ export default function Support({ route, navigation }) {
           </SafeAreaView>
           
           <View style={styles.headerText}>
-            <Typography variant="h1" style={{ color: "#FFFFFF" }}>Help Center</Typography>
-            <Typography variant="body" style={{ color: "#FFFFFF", opacity: 0.9 }}>How can we assist you today?</Typography>
+            <Typography variant="h1" style={{ color: "#FFFFFF" }}>{t("help_center")}</Typography>
+            <Typography variant="body" style={{ color: "#FFFFFF", opacity: 0.9 }}>{t("help_center_subtitle")}</Typography>
           </View>
         </View>
 
@@ -366,7 +368,7 @@ export default function Support({ route, navigation }) {
 
           {/* ISSUE REPORTING SECTION: Collapsible form for structured problem reports */}
           <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
-            Report an Issue
+            {t("report_issue")}
           </Typography>
 
           {!showForm ? (
@@ -377,8 +379,8 @@ export default function Support({ route, navigation }) {
                     <MaterialIcons name="report-problem" size={24} color={activeTheme.colors.warning} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Typography variant="body" weight="bold">Having a problem?</Typography>
-                    <Typography variant="tiny" color="textMuted">Tap here to report a vehicle, delay, or document issue</Typography>
+                    <Typography variant="body" weight="bold">{t("having_problem")}</Typography>
+                    <Typography variant="tiny" color="textMuted">{t("report_issue_hint")}</Typography>
                   </View>
                 </View>
                 <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.border} />
@@ -388,7 +390,7 @@ export default function Support({ route, navigation }) {
             <Card elevation="md" style={styles.formCard}>
               {/* Type Selection */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10 }}>
-                What type of issue?
+                {t("issue_type_question")}
               </Typography>
               <View style={styles.typeGrid}>
                 {ISSUE_TYPES.map((type) => {
@@ -409,7 +411,7 @@ export default function Support({ route, navigation }) {
                         weight={isActive ? "bold" : "medium"}
                         style={{ marginLeft: 6, color: isActive ? type.color : activeTheme.colors.textMuted }}
                       >
-                        {type.label}
+                        {t(type.labelKey)}
                       </Typography>
                     </TouchableOpacity>
                   );
@@ -418,7 +420,7 @@ export default function Support({ route, navigation }) {
 
               {/* Priority Selection */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10, marginTop: 20 }}>
-                Priority
+                {t("priority")}
               </Typography>
               <View style={styles.priorityRow}>
                 {PRIORITIES.map((p) => {
@@ -439,7 +441,7 @@ export default function Support({ route, navigation }) {
                         weight={isActive ? "bold" : "medium"}
                         style={{ color: isActive ? p.color : activeTheme.colors.textMuted }}
                       >
-                        {p.label}
+                        {t(p.labelKey)}
                       </Typography>
                     </TouchableOpacity>
                   );
@@ -448,11 +450,11 @@ export default function Support({ route, navigation }) {
 
               {/* Detailed Description Input */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10, marginTop: 20 }}>
-                Describe the issue
+                {t("describe_issue")}
               </Typography>
               <TextInput
                 style={styles.textArea}
-                placeholder="Explain what happened..."
+                placeholder={t("issue_placeholder")}
                 placeholderTextColor={activeTheme.colors.textMuted}
                 multiline
                 numberOfLines={4}
@@ -468,7 +470,7 @@ export default function Support({ route, navigation }) {
                   onPress={resetForm}
                   activeOpacity={0.7}
                 >
-                  <Typography variant="caption" weight="semiBold" color="textMuted">Cancel</Typography>
+                  <Typography variant="caption" weight="semiBold" color="textMuted">{t("cancel")}</Typography>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -482,7 +484,7 @@ export default function Support({ route, navigation }) {
                   ) : (
                     <>
                       <MaterialIcons name="send" size={16} color="white" style={{ marginRight: 6 }} />
-                      <Typography variant="caption" weight="bold" style={{ color: "white" }}>Submit</Typography>
+                      <Typography variant="caption" weight="bold" style={{ color: "white" }}>{t("submit")}</Typography>
                     </>
                   )}
                 </TouchableOpacity>
@@ -492,7 +494,7 @@ export default function Support({ route, navigation }) {
 
           {/* MY REPORTED ISSUES: past reports and their review status */}
           <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
-            My Reported Issues
+            {t("my_reported_issues")}
           </Typography>
 
           {loadingIssues ? (
@@ -500,7 +502,7 @@ export default function Support({ route, navigation }) {
           ) : myIssues.length === 0 ? (
             <Card elevation="sm" style={styles.emptyIssuesCard}>
               <Typography variant="caption" color="textMuted" align="center">
-                You haven&apos;t reported any issues yet.
+                {t("no_reported_issues")}
               </Typography>
             </Card>
           ) : (
@@ -510,12 +512,12 @@ export default function Support({ route, navigation }) {
                 <Card key={issue.issue_id} elevation="sm" style={styles.issueCard}>
                   <View style={styles.issueCardHeader}>
                     <Typography variant="body" weight="bold" style={{ flex: 1 }}>
-                      {issue.issue_type || "Issue"}
+                      {issue.issue_type || t("issue_label")}
                     </Typography>
                     <View style={[styles.statusPill, { backgroundColor: statusMeta.bg }]}>
                       <MaterialIcons name={statusMeta.icon} size={12} color={statusMeta.color} />
                       <Typography variant="tiny" weight="bold" style={{ color: statusMeta.color, marginLeft: 4 }}>
-                        {statusMeta.label}
+                        {t(statusMeta.labelKey)}
                       </Typography>
                     </View>
                   </View>
@@ -524,7 +526,7 @@ export default function Support({ route, navigation }) {
                   </Typography>
                   {issue.orders?.order_reference && (
                     <Typography variant="tiny" color="textMuted" style={{ marginTop: 4 }}>
-                      Order: {issue.orders.order_reference}
+                      {t("order_label")}: {issue.orders.order_reference}
                     </Typography>
                   )}
                 </Card>
@@ -534,7 +536,7 @@ export default function Support({ route, navigation }) {
 
           {/* DIRECT SUPPORT CHANNELS */}
           <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
-            Direct Support
+            {t("direct_support")}
           </Typography>
           
           <View style={styles.contactGrid}>
@@ -543,8 +545,8 @@ export default function Support({ route, navigation }) {
                 <View style={[styles.iconCircle, { backgroundColor: `${activeTheme.colors.primary}15` }]}>
                   <MaterialIcons name="call" size={26} color={activeTheme.colors.primary} />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>Call Us</Typography>
-                <Typography variant="tiny" color="textMuted">Available 24/7</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("call_us")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("available_24_7")}</Typography>
               </Card>
             </TouchableOpacity>
 
@@ -553,8 +555,8 @@ export default function Support({ route, navigation }) {
                 <View style={[styles.iconCircle, { backgroundColor: "#25D36615" }]}>
                   <FontAwesome5 name="whatsapp" size={26} color="#25D366" />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>WhatsApp</Typography>
-                <Typography variant="tiny" color="textMuted">Instant Chat</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("whatsapp")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("instant_chat")}</Typography>
               </Card>
             </TouchableOpacity>
 
@@ -563,15 +565,15 @@ export default function Support({ route, navigation }) {
                 <View style={[styles.iconCircle, { backgroundColor: `${activeTheme.colors.accent}15` }]}>
                   <MaterialIcons name="email" size={26} color={activeTheme.colors.accent} />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>Email</Typography>
-                <Typography variant="tiny" color="textMuted">Quick Response</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("email_label")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("quick_response")}</Typography>
               </Card>
             </TouchableOpacity>
           </View>
 
           {/* FAQ SECTION */}
           <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
-            Frequently Asked Questions
+            {t("frequently_asked_questions")}
           </Typography>
 
           {faqs.map((faq, i) => (

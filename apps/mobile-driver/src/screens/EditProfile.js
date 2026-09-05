@@ -83,7 +83,7 @@ export default function EditProfile({ route, navigation }) {
 
   const handleSave = async () => {
     if (!firstName || !lastName || !phone) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert(t("error"), t("please_fill_all_fields"));
       return;
     }
 
@@ -104,14 +104,14 @@ export default function EditProfile({ route, navigation }) {
 
       const result = await response.json();
       if (result.success) {
-        Alert.alert("Success", "Profile updated successfully");
+        Alert.alert(t("success"), t("profile_updated_success"));
         navigation.goBack();
       } else {
-        Alert.alert("Error", "Failed to update profile");
+        Alert.alert(t("error"), t("failed_update_profile"));
       }
     } catch (error) {
       console.log("Update Error:", error);
-      Alert.alert("Error", "Could not connect to server");
+      Alert.alert(t("error"), t("could_not_connect_update_profile"));
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +134,7 @@ export default function EditProfile({ route, navigation }) {
             </Typography>
           </View>
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("first_name") || "First Name"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("first_name")}</Typography>
           <TextInput 
             value={firstName} 
             onChangeText={setFirstName} 
@@ -142,7 +142,7 @@ export default function EditProfile({ route, navigation }) {
             placeholderTextColor={activeTheme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("last_name") || "Last Name"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("last_name")}</Typography>
           <TextInput 
             value={lastName} 
             onChangeText={setLastName} 
@@ -159,18 +159,18 @@ export default function EditProfile({ route, navigation }) {
             placeholderTextColor={activeTheme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("emergency_contact") || "Emergency Contact"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("emergency_contact")}</Typography>
           <TextInput 
             value={emergencyContact} 
             onChangeText={setEmergencyContact} 
             style={styles.input} 
             keyboardType="phone-pad"
             placeholderTextColor={activeTheme.colors.textMuted}
-            placeholder={t("enter_emergency_contact") || "Emergency Contact Phone Number"}
+            placeholder={t("enter_emergency_contact")}
           />
 
           <Button 
-            title={isLoading ? "Saving..." : t("save_changes")}
+            title={isLoading ? t("saving") : t("save_changes")}
             style={styles.saveButton}
             disabled={isLoading}
             onPress={handleSave}

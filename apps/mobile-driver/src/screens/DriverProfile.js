@@ -34,13 +34,25 @@ export default function DriverProfile({ route, navigation }) {
   const { theme: activeTheme } = useTheme();
 
   const [isOnDuty, setIsOnDuty] = useState(user?.status === 'active');
-  const [workStatus, setWorkStatus] = useState(user?.availability_status || 'Available');
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profileImage, setProfileImage] = useState(user?.profile_photo_url || null);
 
   const { t } = useTranslation();
+  const availabilityStatus = String(user?.availability || user?.availability_status || "unavailable")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  const availabilityKey = availabilityStatus === "available"
+    ? "available"
+    : availabilityStatus === "ontrip"
+      ? "on_trip"
+      : "not_available";
+  const availabilityColor = availabilityKey === "available"
+    ? activeTheme.colors.success
+    : availabilityKey === "on_trip"
+      ? activeTheme.colors.warning
+      : activeTheme.colors.error;
 
   const styles = StyleSheet.create({
     container: {
@@ -94,7 +106,20 @@ export default function DriverProfile({ route, navigation }) {
       flexDirection: "row",
       justifyContent: "space-between",
       marginTop: activeTheme.spacing.sm,
-      alignItems: "center",
+      alignItems: "flex-start",
+    },
+    statusInfo: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: activeTheme.spacing.md,
+    },
+    statusAction: {
+      width: 120,
+      alignItems: "flex-end",
+    },
+    statusValue: {
+      flexShrink: 1,
+      textAlign: "center",
     },
     workStatusCard: {
       marginHorizontal: activeTheme.spacing.lg,
@@ -102,11 +127,13 @@ export default function DriverProfile({ route, navigation }) {
       backgroundColor: activeTheme.colors.surface,
     },
     statusBadge: {
+      maxWidth: 132,
       paddingHorizontal: activeTheme.spacing.md,
       paddingVertical: 4,
       borderRadius: activeTheme.roundness.full,
       borderWidth: 1,
       borderColor: 'transparent',
+      alignItems: "center",
     },
     menuCard: {
       marginHorizontal: activeTheme.spacing.lg,
@@ -146,11 +173,11 @@ export default function DriverProfile({ route, navigation }) {
       if (result.success) {
         setIsOnDuty(newValue);
       } else {
-        Alert.alert("Error", "Failed to update duty status");
+        Alert.alert(t("error"), t("failed_update_duty_status"));
       }
     } catch (error) {
       console.log("Toggle Error:", error);
-      Alert.alert("Error", "Could not connect to server");
+      Alert.alert(t("error"), t("could_not_connect_server"));
     } finally {
       setIsLoading(false);
     }
@@ -192,13 +219,13 @@ export default function DriverProfile({ route, navigation }) {
           if (user) {
             user.profile_photo_url = uploadResult.url;
           }
-          Alert.alert("Success", "Profile photo updated successfully!");
+          Alert.alert(t("success"), t("success_profile_photo_updated"));
         } else {
-          Alert.alert("Error", uploadResult.message || "Failed to upload photo.");
+          Alert.alert(t("error"), uploadResult.message || t("failed_upload_photo"));
         }
       } catch (error) {
         console.error("Upload Error:", error);
-        Alert.alert("Connection Error", "Could not connect to server to upload photo.");
+        Alert.alert(t("connection_error"), t("upload_photo_connection_error"));
       } finally {
         setIsUploadingPhoto(false);
       }
@@ -208,12 +235,12 @@ export default function DriverProfile({ route, navigation }) {
   const handleProfileImagePress = () => {
     if (profileImage) {
       Alert.alert(
-        "Profile Photo",
-        "What would you like to do?",
+        t("profile_photo"),
+        t("profile_photo_action"),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Remove Photo", onPress: removeProfileImage, style: "destructive" },
-          { text: "Change Photo", onPress: pickImage }
+          { text: t("cancel"), style: "cancel" },
+          { text: t("remove_photo"), onPress: removeProfileImage, style: "destructive" },
+          { text: t("change_photo"), onPress: pickImage }
         ]
       );
     } else {
@@ -239,13 +266,13 @@ export default function DriverProfile({ route, navigation }) {
         if (user) {
           user.profile_photo_url = null;
         }
-        Alert.alert("Success", "Profile photo removed successfully!");
+        Alert.alert(t("success"), t("success_profile_photo_removed"));
       } else {
-        Alert.alert("Error", result.message || "Failed to remove photo.");
+        Alert.alert(t("error"), result.message || t("failed_remove_photo"));
       }
     } catch (error) {
       console.error("Remove Error:", error);
-      Alert.alert("Connection Error", "Could not connect to server to remove photo.");
+      Alert.alert(t("connection_error"), t("remove_photo_connection_error"));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -324,22 +351,22 @@ export default function DriverProfile({ route, navigation }) {
         {/* DUTY STATUS: Manual control for shifts */}
         <Card elevation="sm" style={styles.availabilityCard}>
           <View style={styles.availabilityRow}>
-            <View>
+            <View style={styles.statusInfo}>
               <Typography variant="subtitle" weight="bold">
-                Duty Status
+                {t("duty_status")}
               </Typography>
               <Typography variant="caption" color="textMuted">
-                Toggle when starting/ending shift
+                {t("duty_status_hint")}
               </Typography>
             </View>
 
-            <View style={{ alignItems: 'flex-end' }}>
+            <View style={styles.statusAction}>
               <Typography
                 variant="subtitle"
                 weight="semiBold"
-                style={{ color: isOnDuty ? activeTheme.colors.success : activeTheme.colors.error, marginBottom: 4 }}
+                style={[styles.statusValue, { color: isOnDuty ? activeTheme.colors.success : activeTheme.colors.error, marginBottom: 4 }]}
               >
-                {isOnDuty ? "ON DUTY" : "OFF DUTY"}
+                {isOnDuty ? t("on_duty") : t("off_duty")}
               </Typography>
 
               <Switch
@@ -356,26 +383,28 @@ export default function DriverProfile({ route, navigation }) {
         {/* WORK STATUS: Informational badge based on mission state */}
         <Card elevation="sm" style={styles.workStatusCard}>
           <View style={styles.availabilityRow}>
-            <View>
+            <View style={styles.statusInfo}>
               <Typography variant="subtitle" weight="bold">
-                Current Work Status
+                {t("current_work_status")}
               </Typography>
               <Typography variant="caption" color="textMuted">
-                Automatically updated by system
+                {t("work_status_updated")}
               </Typography>
             </View>
 
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: workStatus === 'Available' ? `${activeTheme.colors.success}20` : `${activeTheme.colors.warning}20` }
-            ]}>
-              <Typography
-                variant="caption"
-                weight="bold"
-                style={{ color: workStatus === 'Available' ? activeTheme.colors.success : activeTheme.colors.warning }}
-              >
-                {workStatus.toUpperCase()}
-              </Typography>
+            <View style={styles.statusAction}>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: `${availabilityColor}20` }
+              ]}>
+                <Typography
+                  variant="caption"
+                  weight="bold"
+                  style={[styles.statusValue, { color: availabilityColor }]}
+                >
+                  {t(availabilityKey).toUpperCase()}
+                </Typography>
+              </View>
             </View>
           </View>
         </Card>
