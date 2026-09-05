@@ -1,35 +1,83 @@
-import { Bell, LogOut, Menu } from 'lucide-react'
+import {
+  Bell,
+  LogOut,
+  Menu,
+  Moon,
+  Sun,
+} from 'lucide-react'
+
 import { useState } from 'react'
 
-function LogoutModal({ onConfirm, onCancel }) {
+function LogoutModal({
+  onConfirm,
+  onCancel,
+  darkMode,
+}) {
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+      <div
+        className={`mx-4 w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl transition-colors duration-300 ${
+          darkMode
+            ? 'bg-[#052659]'
+            : 'bg-white'
+        }`}
+      >
         <div className="p-6">
-          <div className="w-12 h-12 bg-[#EBF4FF] rounded-xl flex items-center justify-center mb-4">
-            <LogOut size={22} className="text-[#052659]" />
+          <div
+            className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${
+              darkMode
+                ? 'bg-[#021024]'
+                : 'bg-[#EBF4FF]'
+            }`}
+          >
+            <LogOut
+              size={22}
+              className={
+                darkMode
+                  ? 'text-[#7DA0CA]'
+                  : 'text-[#052659]'
+              }
+            />
           </div>
 
-          <h2 className="text-lg font-bold text-[#021024] mb-1">
+          <h2
+            className={`mb-1 text-lg font-bold ${
+              darkMode
+                ? 'text-white'
+                : 'text-[#021024]'
+            }`}
+          >
             Sign out?
           </h2>
 
-          <p className="text-sm text-slate-500">
+          <p
+            className={`text-sm ${
+              darkMode
+                ? 'text-[#7DA0CA]'
+                : 'text-slate-500'
+            }`}
+          >
             Are you sure you want to log out of your operations account?
           </p>
         </div>
 
         <div className="flex gap-3 px-6 pb-6">
           <button
+            type="button"
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition"
+            className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+              darkMode
+                ? 'border-[#5483B3]/40 text-[#C1E8FF] hover:bg-[#021024]'
+                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
           >
             Cancel
           </button>
 
           <button
+            type="button"
             onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-[#052659] text-white text-sm font-semibold hover:bg-[#5483B3] transition"
+            className="flex-1 rounded-xl bg-[#052659] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#5483B3]"
           >
             Yes, Sign out
           </button>
@@ -39,61 +87,114 @@ function LogoutModal({ onConfirm, onCancel }) {
   )
 }
 
-function Navbar({ isOpen, onMenuClick }) {
+function Navbar({
+  isOpen,
+  onMenuClick,
+  onLogout,
+  darkMode,
+  onToggleDark,
+}) {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
-  const user = JSON.parse(
-    localStorage.getItem('user') || '{"name":"Operations"}'
-  )
+  let storedUser = {}
 
-  const userName = user.name || 'Operations'
+  try {
+    storedUser = JSON.parse(
+      localStorage.getItem('user') || '{}'
+    )
+  } catch {
+    storedUser = {}
+  }
+
+  const userName =
+    storedUser.name ||
+    storedUser.full_name ||
+    storedUser.username ||
+    'Ramaza'
+
+  const userRole =
+    storedUser.role ||
+    'Operations'
 
   const initials = userName
     .split(' ')
-    .map((n) => n[0])
+    .filter(Boolean)
+    .map((name) => name[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
 
   const confirmLogout = () => {
+    setShowLogoutModal(false)
+
+    if (onLogout) {
+      onLogout()
+      return
+    }
+
     localStorage.clear()
 
-    window.location.href = `${
-      import.meta.env.VITE_ADMIN_URL || 'http://127.0.0.1:5173'
-    }?logout=true`
+    const adminUrl =
+      import.meta.env.VITE_ADMIN_URL ||
+      'http://127.0.0.1:5173'
+
+    window.location.href =
+      `${adminUrl}?logout=true`
   }
+
+  const hoverBackground = darkMode
+    ? '#052659'
+    : '#EBF4FF'
 
   return (
     <>
       {showLogoutModal && (
         <LogoutModal
           onConfirm={confirmLogout}
-          onCancel={() => setShowLogoutModal(false)}
+          onCancel={() =>
+            setShowLogoutModal(false)
+          }
+          darkMode={darkMode}
         />
       )}
 
       <nav
-        className={`fixed top-0 right-0 h-16 flex items-center justify-between px-5 z-50 transition-all duration-300 ${
-          isOpen ? 'left-64' : 'left-0'
+        className={`fixed top-0 right-0 z-50 flex h-16 items-center justify-between px-5 transition-all duration-300 ${
+          isOpen
+            ? 'left-64'
+            : 'left-0'
         }`}
         style={{
-          background: '#ffffff',
-          borderBottom: '1px solid #C1E8FF',
-          boxShadow: '0 1px 6px rgba(2,16,36,0.08)',
+          background: darkMode
+            ? '#021024'
+            : '#ffffff',
+          borderBottom: darkMode
+            ? '1px solid #052659'
+            : '1px solid #C1E8FF',
+          boxShadow:
+            '0 1px 6px rgba(2,16,36,0.08)',
         }}
       >
-        {/* Left — hamburger + logo when collapsed */}
+        {/* Left */}
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={onMenuClick}
-            className="p-2 rounded-xl transition-all duration-200"
-            style={{ color: '#052659' }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = '#EBF4FF')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = 'transparent')
-            }
+            aria-label="Toggle menu"
+            className="rounded-xl p-2 transition-all duration-200"
+            style={{
+              color: darkMode
+                ? '#7DA0CA'
+                : '#052659',
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background =
+                hoverBackground
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background =
+                'transparent'
+            }}
           >
             <Menu size={20} />
           </button>
@@ -101,20 +202,24 @@ function Navbar({ isOpen, onMenuClick }) {
           {!isOpen && (
             <div className="flex items-center gap-2">
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center"
+                className="flex h-7 w-7 items-center justify-center rounded-lg"
                 style={{
                   background:
                     'linear-gradient(135deg, #052659, #5483B3)',
                 }}
               >
-                <span className="text-white font-extrabold text-xs">
+                <span className="text-xs font-extrabold text-white">
                   C
                 </span>
               </div>
 
               <span
-                className="font-bold text-base tracking-tight"
-                style={{ color: '#021024' }}
+                className="text-base font-bold tracking-tight"
+                style={{
+                  color: darkMode
+                    ? '#ffffff'
+                    : '#021024',
+                }}
               >
                 Con
                 <span style={{ color: '#5483B3' }}>
@@ -125,75 +230,145 @@ function Navbar({ isOpen, onMenuClick }) {
           )}
         </div>
 
-        {/* Right — Actions */}
-        <div className="flex items-center gap-1 ml-auto">
+        {/* Right */}
+        <div className="flex items-center gap-1">
+
+          {/* Dark / Light Mode */}
+          <button
+            type="button"
+            onClick={onToggleDark}
+            aria-label={
+              darkMode
+                ? 'Switch to light mode'
+                : 'Switch to dark mode'
+            }
+            title={
+              darkMode
+                ? 'Light mode'
+                : 'Dark mode'
+            }
+            className="rounded-xl p-2 transition-all duration-200"
+            style={{
+              color: darkMode
+                ? '#7DA0CA'
+                : '#5483B3',
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background =
+                hoverBackground
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background =
+                'transparent'
+            }}
+          >
+            {darkMode
+              ? <Sun size={19} />
+              : <Moon size={19} />
+            }
+          </button>
+
           {/* Notifications */}
           <button
-            className="relative p-2 rounded-xl transition-all duration-200"
-            style={{ color: '#5483B3' }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = '#EBF4FF')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = 'transparent')
-            }
+            type="button"
+            aria-label="Notifications"
+            className="relative rounded-xl p-2 transition-all duration-200"
+            style={{
+              color: darkMode
+                ? '#7DA0CA'
+                : '#5483B3',
+            }}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background =
+                hoverBackground
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background =
+                'transparent'
+            }}
           >
             <Bell size={19} />
 
             <span
-              className="absolute top-[9px] right-[9px] w-2 h-2 rounded-full ring-[1.5px] ring-white"
-              style={{ background: '#5483B3' }}
+              className={`absolute right-[9px] top-[9px] h-2 w-2 rounded-full ring-[1.5px] ${
+                darkMode
+                  ? 'ring-[#021024]'
+                  : 'ring-white'
+              }`}
+              style={{
+                background: '#5483B3',
+              }}
             />
           </button>
 
           {/* Divider */}
           <div
-            className="w-px h-7 mx-2"
-            style={{ background: '#C1E8FF' }}
+            className="mx-2 h-7 w-px"
+            style={{
+              background: darkMode
+                ? '#052659'
+                : '#C1E8FF',
+            }}
           />
 
-          {/* Profile */}
+          {/* User */}
           <div className="flex items-center gap-2.5">
-            <div className="text-right hidden sm:block">
+            <div className="hidden text-right sm:block">
               <p
                 className="text-sm font-semibold leading-tight"
-                style={{ color: '#021024' }}
+                style={{
+                  color: darkMode
+                    ? '#ffffff'
+                    : '#021024',
+                }}
               >
                 {userName}
               </p>
 
               <p
                 className="text-[11px] leading-tight"
-                style={{ color: '#5483B3' }}
+                style={{
+                  color: darkMode
+                    ? '#7DA0CA'
+                    : '#5483B3',
+                }}
               >
-                Operations
+                {userRole}
               </p>
             </div>
 
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md shrink-0"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-md"
               style={{
                 background:
                   'linear-gradient(135deg, #052659 0%, #5483B3 100%)',
               }}
             >
-              <span className="text-white text-sm font-bold">
-                {initials}
+              <span className="text-sm font-bold text-white">
+                {initials || 'R'}
               </span>
             </div>
           </div>
 
           {/* Logout */}
           <button
-            onClick={() => setShowLogoutModal(true)}
+            type="button"
+            onClick={() =>
+              setShowLogoutModal(true)
+            }
             title="Sign out"
-            className="ml-1 p-2 rounded-xl transition-all duration-200 text-red-400 hover:text-red-600"
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.background = '#FFF0F0')
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.background = 'transparent')
-            }
+            aria-label="Sign out"
+            className="ml-1 rounded-xl p-2 text-red-400 transition-all duration-200 hover:text-red-600"
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background =
+                darkMode
+                  ? 'rgba(239,68,68,0.10)'
+                  : '#FFF0F0'
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background =
+                'transparent'
+            }}
           >
             <LogOut size={18} />
           </button>

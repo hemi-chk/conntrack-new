@@ -1,17 +1,25 @@
 import { useState } from 'react'
+
 import Layout from './components/Layout'
-import Dashboard from './Dashboard'
+
+import Bidding from './Bidding'
 import CreateOrder from './CreateOrder'
+import Dashboard from './Dashboard'
+import Issues from './Issues'
 import Orders from './Orders'
 import Tracking from './Tracking'
-import Issues from './Issues'
-import Bidding from './Bidding'
 
 function App() {
   const [currentPath, setCurrentPath] = useState('/')
+  const [darkMode, setDarkMode] = useState(false)
 
   return (
-    <Layout currentPath={currentPath} onNavigate={setCurrentPath}>
+    <Layout
+      currentPath={currentPath}
+      onNavigate={setCurrentPath}
+      darkMode={darkMode}
+      onToggleDark={() => setDarkMode((current) => !current)}
+    >
       {currentPath === '/' && (
         <Dashboard onNavigate={setCurrentPath} />
       )}

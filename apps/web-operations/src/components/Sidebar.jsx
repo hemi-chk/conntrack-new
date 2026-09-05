@@ -1,11 +1,11 @@
 import {
-  LayoutDashboard,
-  PlusSquare,
-  Package,
-  Truck,
   AlertCircle,
-  Gavel,
   ChevronRight,
+  Gavel,
+  LayoutDashboard,
+  Package,
+  PlusSquare,
+  Truck,
 } from 'lucide-react'
 
 const menuItems = [
@@ -21,19 +21,60 @@ function NavItem({ item, isActive, onNavigate }) {
   return (
     <button
       onClick={() => onNavigate(item.path)}
-      className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
-        isActive ? 'text-white' : 'text-[#7DA0CA] hover:text-white'
+      className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+        isActive
+          ? 'text-white'
+          : 'text-[#7DA0CA] hover:text-white'
       }`}
-      style={{ background: isActive ? '#052659' : 'transparent' }}
-      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(5,38,89,0.55)' }}
-      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+      style={{
+        background: isActive
+          ? 'var(--sidebar-active-bg, #052659)'
+          : 'transparent',
+      }}
+      onMouseEnter={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background =
+            'var(--sidebar-hover-bg, rgba(5,38,89,0.55))'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isActive) {
+          e.currentTarget.style.background = 'transparent'
+        }
+      }}
     >
       {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full" style={{ background: '#5483B3' }} />
+        <span
+          className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full"
+          style={{
+            background: 'var(--sidebar-accent, #5483B3)',
+          }}
+        />
       )}
-      <item.icon size={17} style={{ color: isActive ? '#7DA0CA' : undefined }} />
-      <span className="whitespace-nowrap">{item.label}</span>
-      {isActive && <ChevronRight size={13} className="ml-auto" style={{ color: '#7DA0CA', opacity: 0.6 }} />}
+
+      <item.icon
+        size={17}
+        style={{
+          color: isActive
+            ? 'var(--sidebar-icon-active, #7DA0CA)'
+            : undefined,
+        }}
+      />
+
+      <span className="whitespace-nowrap">
+        {item.label}
+      </span>
+
+      {isActive && (
+        <ChevronRight
+          size={13}
+          className="ml-auto"
+          style={{
+            color: 'var(--sidebar-icon-active, #7DA0CA)',
+            opacity: 0.6,
+          }}
+        />
+      )}
     </button>
   )
 }
@@ -41,32 +82,52 @@ function NavItem({ item, isActive, onNavigate }) {
 function Sidebar({ isOpen, currentPath, onNavigate }) {
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen z-40 flex flex-col overflow-hidden transition-all duration-300 ${
+      className={`fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden transition-all duration-300 ${
         isOpen ? 'w-64' : 'w-0'
       }`}
-      style={{ background: '#021024' }}
+      style={{
+        background: 'var(--sidebar-bg, #021024)',
+        borderRight:
+          '1px solid var(--sidebar-border, rgba(84,131,179,0.12))',
+      }}
     >
       {/* Logo */}
       <div
-        className="h-16 flex items-center px-5 shrink-0"
-        style={{ borderBottom: '1px solid rgba(84,131,179,0.15)' }}
+        className="flex h-16 shrink-0 items-center px-5"
+        style={{
+          borderBottom:
+            '1px solid var(--sidebar-divider, rgba(84,131,179,0.15))',
+        }}
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
-            style={{ background: 'linear-gradient(135deg, #052659 0%, #5483B3 100%)' }}
+            className="flex h-8 w-8 items-center justify-center rounded-lg shadow-lg"
+            style={{
+              background:
+                'linear-gradient(135deg, #052659 0%, #5483B3 100%)',
+            }}
           >
-            <span className="text-white font-extrabold text-sm">C</span>
+            <span className="text-sm font-extrabold text-white">
+              C
+            </span>
           </div>
-          <span className="font-bold text-[17px] text-white tracking-tight whitespace-nowrap">
-            Con<span style={{ color: '#7DA0CA' }}>Track</span>
+
+          <span className="whitespace-nowrap text-[17px] font-bold tracking-tight text-white">
+            Con
+            <span
+              style={{
+                color: 'var(--sidebar-brand-accent, #7DA0CA)',
+              }}
+            >
+              Track
+            </span>
           </span>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 flex flex-col justify-center overflow-y-auto overflow-x-hidden px-3 py-4 space-y-0.5">
-        {menuItems.map(item => (
+      {/* Navigation */}
+      <nav className="flex flex-1 flex-col justify-center space-y-0.5 overflow-x-hidden overflow-y-auto px-3 py-4">
+        {menuItems.map((item) => (
           <NavItem
             key={item.path}
             item={item}
@@ -78,12 +139,38 @@ function Sidebar({ isOpen, currentPath, onNavigate }) {
 
       {/* Footer */}
       <div
-        className="px-3 pb-4 shrink-0"
-        style={{ borderTop: '1px solid rgba(84,131,179,0.15)' }}
+        className="shrink-0 px-3 pb-4"
+        style={{
+          borderTop:
+            '1px solid var(--sidebar-divider, rgba(84,131,179,0.15))',
+        }}
       >
-        <div className="mt-3 px-3 py-2.5 rounded-xl" style={{ background: '#052659' }}>
-          <p className="text-xs font-semibold whitespace-nowrap" style={{ color: '#7DA0CA' }}>ConTrack v1.0.0</p>
-          <p className="text-[11px] mt-0.5 whitespace-nowrap" style={{ color: '#5483B3' }}>Operations Portal</p>
+        <div
+          className="mt-3 rounded-xl px-3 py-2.5"
+          style={{
+            background:
+              'var(--sidebar-footer-bg, #052659)',
+          }}
+        >
+          <p
+            className="whitespace-nowrap text-xs font-semibold"
+            style={{
+              color:
+                'var(--sidebar-footer-primary, #7DA0CA)',
+            }}
+          >
+            ConTrack v1.0.0
+          </p>
+
+          <p
+            className="mt-0.5 whitespace-nowrap text-[11px]"
+            style={{
+              color:
+                'var(--sidebar-footer-secondary, #5483B3)',
+            }}
+          >
+            Operations Portal
+          </p>
         </div>
       </div>
     </aside>
