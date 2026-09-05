@@ -407,7 +407,11 @@ export default function DriverProfile({ route, navigation }) {
           <Button
             title={t("logout")}
             onPress={async () => {
+              const driverId = user?.driver_id || user?.emp_id;
               await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+              if (driverId) {
+                await SecureStore.deleteItemAsync(`saved_password_${driverId}`);
+              }
               await AsyncStorage.removeItem("saved_user");
               await AsyncStorage.removeItem("saved_driver_id");
               await AsyncStorage.removeItem("remember_me");

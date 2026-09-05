@@ -254,6 +254,12 @@ export default function LoginScreen({ navigation }) {
 
         navigation.navigate("Dashboard", { user: result.user });
       } else {
+        if (rememberMe) {
+          await SecureStore.deleteItemAsync(`saved_password_${loginDriverId}`);
+          await AsyncStorage.setItem("remember_me", "false");
+          setRememberMe(false);
+          setPassword("");
+        }
         Alert.alert("Login Failed", result.message || "Invalid credentials");
       }
     } catch (error) {
