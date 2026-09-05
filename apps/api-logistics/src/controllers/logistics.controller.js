@@ -261,6 +261,7 @@ export const getShortlistedBids = async (req, res) => {
                 selection_id,
                 bid_id,
                 selection_status,
+                sent_to_logistics,
                 bids (
                     bid_id,
                     bid_amount,
@@ -269,7 +270,8 @@ export const getShortlistedBids = async (req, res) => {
                 )
             `)
             .eq('order_id', orderId)
-            .in('selection_status', ['sent_to_logistics', 'accepted']);
+            .eq('selection_status', 'shortlisted')
+            .eq('sent_to_logistics', true);
 
         if (error) throw error;
 
@@ -310,20 +312,33 @@ export const finalizeOrder = async (req, res) => {
         const orderRef = orderData?.order_reference || `Order #${orderId}`;
 
         // 2️⃣ Accept selected bid_selection row
-        await supabase
+        const { error: selectedUpdateError } = await supabase
             .from('bid_selection')
-            .update({ selection_status: 'accepted', selected_by: userId || null })
+            .update({
+                selection_status: 'accepted',
+                selected: true,
+                selected_by: userId || null
+            })
             .eq('selection_id', selectionId);
 
+        if (selectedUpdateError) throw selectedUpdateError;
+
         // 3️⃣ Reject all other shortlisted bid_selection rows
-        await supabase
+        const { error: rejectedUpdateError } = await supabase
             .from('bid_selection')
-            .update({ selection_status: 'rejected' })
+            .update({ selection_status: 'rejected', selected: false })
             .eq('order_id', orderId)
             .neq('selection_id', selectionId);
 
+        if (rejectedUpdateError) throw rejectedUpdateError;
+
         // 4️⃣ Mark winning bid as accepted in bids table
-        await supabase.from('bids').update({ bid_status: 'accepted' }).eq('bid_id', bidId);
+        const { error: winningBidUpdateError } = await supabase
+            .from('bids')
+            .update({ bid_status: 'accepted' })
+            .eq('bid_id', bidId);
+
+        if (winningBidUpdateError) throw winningBidUpdateError;
 
         // 5️⃣ Mark all other bids for this order as rejected in bids table
         const { data: losingSelections } = await supabase
@@ -338,7 +353,12 @@ export const finalizeOrder = async (req, res) => {
         }
 
         // 6️⃣ Update order status
-        await supabase.from('orders').update({ current_status: 'bid_accepted' }).eq('order_id', orderId);
+        const { error: orderStatusError } = await supabase
+            .from('orders')
+            .update({ current_status: 'bid_accepted' })
+            .eq('order_id', orderId);
+
+        if (orderStatusError) throw orderStatusError;
 
         // 7️⃣ Create order_assignments row for the winning supplier (driver assigned later by Operations)
         if (winningBid?.supplier_id) {
