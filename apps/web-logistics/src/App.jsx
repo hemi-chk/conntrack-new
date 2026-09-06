@@ -5,7 +5,6 @@ import Layout from "./layout/Layout";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Issues from "./pages/issues/Issues";
 import NotificationsPage from "./pages/notifications/NotificationsPage";
-import BidSelectionPage from "./pages/orderDetails/BidSelectionPage";
 import DocumentsPage from "./pages/orderDetails/DocumentsPage";
 import OrderDetails from "./pages/orderDetails/OrderDetails";
 import OrdersPage from "./pages/orders/Orders";
@@ -34,7 +33,6 @@ export default function App() {
           <Route path="/orders/:id" element={<OrderDetails />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/orders/:id/bids" element={<BidSelectionPage />} />
           <Route path="/orders/:id/documents" element={<DocumentsPage />} />
         </Route>
       </Routes>

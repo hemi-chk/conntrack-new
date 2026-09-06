@@ -5,16 +5,14 @@ import {
     ArrowLeft,
     Briefcase,
     Calendar,
-    CheckCircle2,
     ChevronRight,
-    FileText,
     Info,
     Loader2,
     MapPin,
     Package,
     Truck,
     User,
-    Weight,
+    Weight
 } from "lucide-react";
 
 import { Button } from "@/ui";
@@ -535,155 +533,6 @@ export default function OrderDetails() {
                     </div>
 
                 </section>
-
-
-                {/* =====================================================
-                    OPERATIONAL ACTIONS
-                ====================================================== */}
-                <section className="
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-slate-200/80
-                    bg-white
-                    shadow-sm
-                ">
-
-                    <div className="
-                        flex
-                        flex-col
-                        gap-5
-                        p-5
-                        md:p-6
-                        lg:flex-row
-                        lg:items-center
-                        lg:justify-between
-                    ">
-
-                        {/* Information */}
-                        <div className="flex items-start gap-3">
-
-                            <div className="
-                                flex
-                                h-10
-                                w-10
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-xl
-                                bg-slate-100
-                            ">
-                                <Package
-                                    size={17}
-                                    className="text-slate-600"
-                                />
-                            </div>
-
-                            <div>
-
-                                <h2 className="
-                                    text-sm
-                                    font-extrabold
-                                    text-slate-900
-                                ">
-                                    Operational Actions
-                                </h2>
-
-                                <p className="
-                                    mt-1
-                                    max-w-xl
-                                    text-[11px]
-                                    font-medium
-                                    leading-relaxed
-                                    text-slate-500
-                                ">
-                                    Review carrier bids or manage the
-                                    required shipment documentation.
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-                        {/* Action Buttons */}
-                        <div className="
-                            flex
-                            flex-wrap
-                            gap-2
-                        ">
-
-                            {/* Bid Selection */}
-                            <Button
-                                variant="outline"
-                                className="
-                                    h-10
-                                    gap-2
-                                    rounded-xl
-                                    border-emerald-200
-                                    bg-emerald-50
-                                    px-4
-                                    text-[11px]
-                                    font-extrabold
-                                    text-emerald-700
-                                    shadow-none
-                                    transition-all
-                                    hover:border-emerald-300
-                                    hover:bg-emerald-100
-                                "
-                                onClick={() =>
-                                    navigate(
-                                        `/orders/${order.order_id}/bids`
-                                    )
-                                }
-                            >
-                                <CheckCircle2
-                                    size={15}
-                                    className="text-emerald-600"
-                                />
-
-                                Bid Selection
-                            </Button>
-
-
-                            {/* Documents */}
-                            <Button
-                                variant="outline"
-                                className="
-                                    h-10
-                                    gap-2
-                                    rounded-xl
-                                    border-blue-200
-                                    bg-blue-50
-                                    px-4
-                                    text-[11px]
-                                    font-extrabold
-                                    text-blue-700
-                                    shadow-none
-                                    transition-all
-                                    hover:border-blue-300
-                                    hover:bg-blue-100
-                                "
-                                onClick={() =>
-                                    navigate(
-                                        `/orders/${order.order_id}/documents`
-                                    )
-                                }
-                            >
-                                <FileText
-                                    size={15}
-                                    className="text-blue-600"
-                                />
-
-                                Documents
-                            </Button>
-
-                        </div>
-
-                    </div>
-
-                </section>
-
             </div>
         </div>
     );

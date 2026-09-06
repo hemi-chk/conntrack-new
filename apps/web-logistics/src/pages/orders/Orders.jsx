@@ -12,7 +12,6 @@ import {
     FileText,
     MapPin,
     Package,
-    Tag,
 } from "lucide-react";
 
 // Shadcn components
@@ -151,83 +150,45 @@ export default function OrdersPage({ title, type }) {
         <div className="min-h-screen bg-slate-50/60 p-6 md:p-8 space-y-7 dark:bg-[#021024]">
 
             {/* ================= HEADER ================= */}
-            <section className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+            <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
 
                 {/* Subtle decorative elements */}
-                <div className="absolute -right-20 -top-32 h-80 w-80 rounded-full bg-blue-50 blur-3xl pointer-events-none dark:bg-blue-950/40" />
+                <div className="absolute -right-20 -top-32 h-60 w-60 rounded-full bg-blue-50 blur-3xl pointer-events-none dark:bg-blue-950/40" />
 
-                <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-indigo-50 blur-3xl pointer-events-none dark:bg-indigo-950/30" />
+                <div className="absolute -bottom-32 -left-20 h-60 w-60 rounded-full bg-indigo-50 blur-3xl pointer-events-none dark:bg-indigo-950/30" />
 
-                <div className="relative z-10 p-6 md:p-8">
+                <div className="relative z-10 px-5 py-4.5 md:px-6 md:py-4">
 
-                    <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-row items-center justify-between gap-4">
 
                         {/* ================= TITLE ================= */}
-                        <div>
-
-                            <div className="mb-3 flex items-center gap-2">
-
-                                <span className="rounded-lg bg-blue-50 p-2 dark:bg-blue-950/50">
-                                    <Package
-                                        size={17}
-                                        className="text-blue-600 dark:text-blue-400"
-                                    />
-                                </span>
-
-                                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-                                    Logistics Management
-                                </span>
-
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+                                <Package size={20} />
                             </div>
-
-                            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl dark:text-slate-50">
+                            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 md:text-2xl dark:text-slate-50">
                                 {title || "Logistics Orders"}
                             </h1>
-
-                            <p className="mt-2 max-w-xl text-xs leading-relaxed text-slate-500 dark:text-slate-300">
-                                View, monitor and manage your
-                                active logistics orders and
-                                shipment records.
-                            </p>
-
                         </div>
 
                         {/* ================= RECORD COUNT ================= */}
-                        <div className="min-w-[190px] rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
-
-                            <div className="flex items-center gap-3">
-
-                                <div className="rounded-xl bg-blue-50 p-3 dark:bg-blue-950/60">
-                                    <Package
-                                        size={20}
-                                        className="text-blue-600 dark:text-blue-400"
-                                    />
-                                </div>
-
-                                <div>
-
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
-                                        Total Records
-                                    </p>
-
-                                    <p className="mt-0.5 text-lg font-extrabold text-slate-900 dark:text-white">
-                                        {orders.length}
-                                    </p>
-
-                                </div>
-
+                        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-2 dark:border-slate-700 dark:bg-slate-950/60">
+                            <div className="rounded-lg bg-blue-100/70 p-2 dark:bg-blue-950/60">
+                                <Package
+                                    size={16}
+                                    className="text-blue-600 dark:text-blue-400"
+                                />
                             </div>
 
-                            {type && (
-                                <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                    Total Records
+                                </p>
 
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                                        {type} Orders
-                                    </span>
-
-                                </div>
-                            )}
-
+                                <p className="text-base font-extrabold leading-none text-slate-900 dark:text-white">
+                                    {orders.length}
+                                </p>
+                            </div>
                         </div>
 
                     </div>
@@ -250,7 +211,7 @@ export default function OrdersPage({ title, type }) {
 
                         <input
                             type="text"
-                            placeholder="Search by order reference or ID..."
+                            placeholder="Search by order ID..."
                             value={search}
                             onChange={(e) =>
                                 setSearch(e.target.value)
@@ -356,19 +317,10 @@ export default function OrdersPage({ title, type }) {
                             Order Records
                         </h2>
 
-                        <p className="mt-0.5 text-[11px] text-slate-400">
-                            Current logistics shipment overview
-                        </p>
-
                     </div>
 
                     <div className="hidden items-center gap-2 sm:flex">
 
-                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                            Live Records
-                        </span>
 
                     </div>
 
@@ -499,9 +451,7 @@ export default function OrdersPage({ title, type }) {
                                                         {order.order_reference}
                                                     </p>
 
-                                                    <p className="mt-0.5 font-mono text-[10px] text-slate-400">
-                                                        ID #{order.order_id}
-                                                    </p>
+                                                
 
                                                 </div>
 
@@ -593,35 +543,7 @@ export default function OrdersPage({ title, type }) {
 
                                                 </Link>
 
-                                                {/* Bids */}
-                                                <Link
-                                                    to={`/orders/${order.order_id}/bids`}
-                                                    className="
-                                                        inline-flex
-                                                        items-center
-                                                        gap-1.5
-                                                        rounded-xl
-                                                        border
-                                                        border-blue-200
-                                                        bg-blue-50
-                                                        px-3
-                                                        py-2
-                                                        text-[11px]
-                                                        font-bold
-                                                        text-blue-700
-                                                        transition-all
-                                                        hover:bg-blue-600
-                                                        hover:text-white
-                                                    "
-                                                >
 
-                                                    <Tag size={13} />
-
-                                                    Bids
-
-                                                </Link>
-
-                                                {/* Documents */}
                                                 <Link
                                                     to={`/orders/${order.order_id}/documents`}
                                                     className="

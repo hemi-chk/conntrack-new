@@ -3,28 +3,16 @@ import {
   CheckCircle2,
   Container,
   Info,
-  Map,
   Package,
   Truck,
   User,
   Weight
 } from "lucide-react";
 
-import { Badge, Button, Card, CardContent } from "@conntrack/ui/shadcn";
-import { useNavigate } from "react-router-dom";
+import { Badge, Card, CardContent } from "@conntrack/ui/shadcn";
 
 export default function OrderSummary({ order }) {
-  const navigate = useNavigate();
-
   if (!order) return null;
-
-  const isAssigned = [
-    "bid_accepted",
-    "driver_assigned",
-    "in_transit",
-    "at_port",
-    "completed",
-  ].includes(order.current_status);
 
   const orderAssignment = order.order_assignments?.[0];
 
@@ -93,37 +81,8 @@ export default function OrderSummary({ order }) {
               </div>
             </div>
 
-            <Badge
-              variant="outline"
-              className={`shrink-0 text-[10px] font-bold rounded-full px-2.5 py-1 ${currentStatusStyle}`}
-            >
-              {formatStatus(order.current_status)}
-            </Badge>
+            {/* Status badge removed to avoid duplicate/stale status label */}
           </div>
-
-          {/* Live Tracking */}
-
-          {isAssigned && (
-            <Button
-              variant="outline"
-              onClick={() =>
-                navigate(`/tracking/${order.order_id}`)
-              }
-              className="
-                w-full mt-4
-                h-10
-                rounded-xl
-                border-blue-200
-                text-[#052659]
-                hover:bg-blue-50
-                hover:border-blue-300
-                font-bold text-xs
-              "
-            >
-              <Map size={15} className="mr-2" />
-              View Live Tracking
-            </Button>
-          )}
         </div>
       </div>
 
@@ -175,7 +134,7 @@ export default function OrderSummary({ order }) {
                 </p>
 
                 <p className="text-sm font-bold text-slate-800 mt-0.5">
-                  {order.pickup_state || "N/A"}
+                  {order.pickup_location || order.pickup_state || order.pickup_district || "N/A"}
                   {order.pickup_country
                     ? `, ${order.pickup_country}`
                     : ""}
@@ -201,7 +160,7 @@ export default function OrderSummary({ order }) {
                 </p>
 
                 <p className="text-sm font-bold text-slate-800 mt-0.5">
-                  {order.destination_state || "N/A"}
+                  {order.destination_location || order.destination_state || order.destination_district || "N/A"}
                   {order.destination_country
                     ? `, ${order.destination_country}`
                     : ""}
