@@ -45,8 +45,6 @@ import api from "../../config/api";
 
 const STATUS_COLORS = {
     created: "#64748B",
-    open_for_bids: "#F59E0B",
-    bid_accepted: "#8B5CF6",
     driver_assigned: "#06B6D4",
     in_transit: "#3B82F6",
     completed: "#10B981",
@@ -55,8 +53,6 @@ const STATUS_COLORS = {
 
 const STATUS_ORDER = [
     "created",
-    "open_for_bids",
-    "bid_accepted",
     "driver_assigned",
     "in_transit",
     "completed",
@@ -65,8 +61,6 @@ const STATUS_ORDER = [
 
 const STATUS_LABELS = {
     created: "Created",
-    open_for_bids: "Open Bids",
-    bid_accepted: "Bid Accepted",
     driver_assigned: "Driver Assigned",
     in_transit: "In Transit",
     completed: "Completed",

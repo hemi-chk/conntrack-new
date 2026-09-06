@@ -1,15 +1,13 @@
 import {
     Activity,
     AlertTriangle,
-    ArrowRight,
     ArrowUpRight,
     Calendar,
-    CheckCircle2,
     Clock3,
     Loader2,
     Package,
     RefreshCcw,
-    Truck,
+    Truck
 } from "lucide-react";
 
 import { useCallback, useEffect, useState } from "react";
@@ -100,9 +98,12 @@ export default function Dashboard() {
         importOrdersCount: 0,
         exportOrdersCount: 0,
         recentActivity: [],
+        recentIssues: [],
         stats: {
             inTransitCount: 0,
             completedOrders: 0,
+            atPortCount: 0,
+            pendingCount: 0,
         },
     });
 
@@ -134,12 +135,21 @@ export default function Dashboard() {
                 recentActivity:
                     result?.recentActivity || [],
 
+                recentIssues:
+                    result?.recentIssues || [],
+
                 stats: {
                     inTransitCount:
                         result?.stats?.inTransitCount ?? 0,
 
                     completedOrders:
                         result?.stats?.completedOrders ?? 0,
+
+                    atPortCount:
+                        result?.stats?.atPortCount ?? 0,
+
+                    pendingCount:
+                        result?.stats?.pendingCount ?? 0,
                 },
             });
         } catch (err) {
@@ -150,7 +160,7 @@ export default function Dashboard() {
 
             setError(
                 err.response?.data?.message ||
-                    "Failed to connect to the logistics server."
+                "Failed to connect to the logistics server."
             );
         } finally {
             setLoading(false);
@@ -179,24 +189,17 @@ export default function Dashboard() {
        METRIC CARDS
     ===================================================== */
 
-    const totalActiveOrders =
+    const totalOrders =
         (data.importOrdersCount || 0) +
         (data.exportOrdersCount || 0);
 
-    const attentionItems = (data.recentActivity || []).filter(
-        (order) => {
-            const status = (order.current_status || "").toLowerCase();
-            return ["pending", "created", "at_port", "in_transit"].includes(status);
-        }
-    );
-
-    const needsAttentionCount = attentionItems.length;
+    const needsAttentionCount = (data.recentIssues || []).length;
 
     const cards = [
         {
-            label: "Active Orders",
-            value: totalActiveOrders,
-            description: "Open logistics movements",
+            label: "Total Orders",
+            value: totalOrders,
+            description: "Orders in the system",
             icon: Activity,
             color: "text-blue-700",
             bg: "bg-blue-50",
@@ -218,26 +221,6 @@ export default function Dashboard() {
             value: data.exportOrdersCount,
             description: "Outbound shipments",
             icon: Truck,
-            color: "text-emerald-700",
-            bg: "bg-emerald-50",
-            border: "border-emerald-100",
-        },
-
-        {
-            label: "In Transit",
-            value: data.stats.inTransitCount,
-            description: "Currently moving",
-            icon: ArrowUpRight,
-            color: "text-amber-700",
-            bg: "bg-amber-50",
-            border: "border-amber-100",
-        },
-
-        {
-            label: "Completed",
-            value: data.stats.completedOrders,
-            description: "Successfully delivered",
-            icon: CheckCircle2,
             color: "text-emerald-700",
             bg: "bg-emerald-50",
             border: "border-emerald-100",
@@ -404,15 +387,11 @@ export default function Dashboard() {
                             <h2 className="text-sm font-bold text-slate-900">
                                 Operations Overview
                             </h2>
-
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                Current shipment statistics
-                            </p>
                         </div>
 
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
 
                         {cards.map((card) => {
                             const Icon = card.icon;
@@ -455,47 +434,7 @@ export default function Dashboard() {
 
                 </section>
 
-                <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900">Priority Actions</h3>
-                                <p className="text-[11px] text-slate-500 mt-0.5">Operational items needing attention</p>
-                            </div>
-                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                {needsAttentionCount} items
-                            </span>
-                        </div>
-
-                        <div className="space-y-3">
-                            {(data.recentActivity || []).slice(0, 3).map((order) => {
-                                const status = (order.current_status || "pending").toLowerCase();
-                                const tone =
-                                    status === "completed"
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : status === "in_transit"
-                                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : "bg-amber-50 text-amber-700 border-amber-200";
-
-                                return (
-                                    <div
-                                        key={order.order_id}
-                                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="truncate text-sm font-bold text-slate-800">{order.order_reference || `ORD-${order.order_id}`}</p>
-                                            <p className="text-[11px] text-slate-500">{order.customer || "Internal"}</p>
-                                        </div>
-
-                                        <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${tone}`}>
-                                            {status.replace(/_/g, " ")}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
+                <section>
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                         <h3 className="text-sm font-bold text-slate-900">Operations Summary</h3>
                         <p className="text-[11px] text-slate-500 mt-0.5">Current operational status</p>
@@ -509,7 +448,7 @@ export default function Dashboard() {
                                 <div className="h-2.5 rounded-full bg-slate-100">
                                     <div
                                         className="h-full rounded-full bg-blue-500"
-                                        style={{ width: `${Math.min((data.stats.inTransitCount / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
+                                        style={{ width: `${Math.min((data.stats.inTransitCount / Math.max(totalOrders, 1)) * 100, 100)}%` }}
                                     />
                                 </div>
                             </div>
@@ -522,20 +461,7 @@ export default function Dashboard() {
                                 <div className="h-2.5 rounded-full bg-slate-100">
                                     <div
                                         className="h-full rounded-full bg-emerald-500"
-                                        style={{ width: `${Math.min((data.stats.completedOrders / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="mb-1 flex items-center justify-between text-xs font-bold text-slate-600">
-                                    <span>Needs attention</span>
-                                    <span>{needsAttentionCount}</span>
-                                </div>
-                                <div className="h-2.5 rounded-full bg-slate-100">
-                                    <div
-                                        className="h-full rounded-full bg-amber-500"
-                                        style={{ width: `${Math.min((needsAttentionCount / Math.max(totalActiveOrders, 1)) * 100, 100)}%` }}
+                                        style={{ width: `${Math.min((data.stats.completedOrders / Math.max(totalOrders, 1)) * 100, 100)}%` }}
                                     />
                                 </div>
                             </div>
@@ -566,23 +492,12 @@ export default function Dashboard() {
                                 <h2 className="text-sm font-bold text-slate-900">
                                     Recent Activity
                                 </h2>
-
                                 <p className="text-[11px] text-slate-500 mt-0.5">
                                     Latest shipment records across your orders
                                 </p>
                             </div>
 
                         </div>
-
-                        <button
-                            onClick={() =>
-                                navigate("/orders")
-                            }
-                            className="self-start sm:self-auto text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 transition-colors"
-                        >
-                            View all orders
-                            <ArrowRight size={13} />
-                        </button>
 
                     </div>
 
@@ -815,11 +730,10 @@ function OrderTypeBadge({ type }) {
     return (
         <Badge
             variant="secondary"
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                isImport
+            className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${isImport
                     ? "bg-purple-50 text-purple-700 border-purple-200"
                     : "bg-sky-50 text-sky-700 border-sky-200"
-            }`}
+                }`}
         >
             {normalized.charAt(0).toUpperCase() +
                 normalized.slice(1)}

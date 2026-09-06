@@ -15,36 +15,28 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem("token");
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
-}, (error) => {
-    return Promise.reject(error);
-});
+}, (error) => Promise.reject(error));
 
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-
         if (error.response?.status !== 401 || originalRequest?._retry) {
             return Promise.reject(error);
         }
 
         const refreshToken = localStorage.getItem("refresh_token");
-        if (!refreshToken) {
-            return Promise.reject(error);
-        }
+        if (!refreshToken) return Promise.reject(error);
 
         originalRequest._retry = true;
+
         const { data, error: refreshError } = await authClient.auth.refreshSession({
             refresh_token: refreshToken,
         });
 
-        if (refreshError || !data.session) {
-            return Promise.reject(error);
-        }
+        if (refreshError || !data.session) return Promise.reject(error);
 
         localStorage.setItem("token", data.session.access_token);
         localStorage.setItem("refresh_token", data.session.refresh_token);
