@@ -10,6 +10,16 @@ import { supabase } from '../config/supabase.js';
 // tracking, documents, issues, notifications, and profile information.
 // =========================================================
 
+// =========================================================
+// NOTIFICATION UTILITIES & ENDPOINTS
+// ---------------------------------------------------------
+// Standalone notification handlers for the logistics module.
+// Stores records in `notifications_logistics` table.
+// =========================================================
+
+/**
+ * Normalizes DB notification row format to match frontend object schema.
+ */
 const normalizeNotificationRow = (row) => ({
     id: row.id,
     title: row.title,
@@ -24,6 +34,10 @@ const normalizeNotificationRow = (row) => ({
     action_url: row.action_url || null,
 });
 
+/**
+ * Helper function to create a new logistics notification record in Supabase.
+ * Can be called internally whenever key events occur (tracking updates, issue reports, bid finalization, doc upload/deletion).
+ */
 export const createLogisticsNotification = async ({
     recipient_id,
     sender_id = null,
@@ -61,6 +75,10 @@ export const createLogisticsNotification = async ({
     return data;
 };
 
+/**
+ * GET /logistics/notifications
+ * Retrieves all notifications for the authenticated logistics user, ordered newest first.
+ */
 export const getNotifications = async (req, res) => {
     const recipientId = req.user?.id || req.user?.uuid;
 
@@ -83,6 +101,10 @@ export const getNotifications = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /logistics/notifications/:id/read
+ * Marks a single logistics notification as read for the caller.
+ */
 export const markNotificationAsRead = async (req, res) => {
     const { id } = req.params;
     const recipientId = req.user?.id || req.user?.uuid;
@@ -117,6 +139,10 @@ export const markNotificationAsRead = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /logistics/notifications/read-all
+ * Marks all unread notifications for the caller as read.
+ */
 export const markAllNotificationsAsRead = async (req, res) => {
     const recipientId = req.user?.id || req.user?.uuid;
 
@@ -146,6 +172,10 @@ export const markAllNotificationsAsRead = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /logistics/notifications
+ * Deletes all notifications for the authenticated logistics user.
+ */
 export const clearNotifications = async (req, res) => {
     const recipientId = req.user?.id || req.user?.uuid;
 
