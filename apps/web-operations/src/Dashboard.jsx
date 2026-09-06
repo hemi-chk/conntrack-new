@@ -1,4 +1,4 @@
-﻿import {
+import {
   AlertCircle,
   ArrowRight,
   CheckCircle,
@@ -1070,7 +1070,7 @@ function Dashboard({ onNavigate }) {
 
                             <td className="px-5 py-4 text-slate-600">
                               {order.pickup}{" "}
-                              â†’{" "}
+                              →{" "}
                               {
                                 order.destination
                               }
@@ -1237,7 +1237,7 @@ function Dashboard({ onNavigate }) {
                               "issue"
                                 ? `${formatIssueCategory(
                                     item.category
-                                  )} â€¢ ${formatStatus(
+                                  )} • ${formatStatus(
                                     item.status
                                   )}`
                                 : attentionMessage(
@@ -1344,7 +1344,7 @@ function Dashboard({ onNavigate }) {
                           <p className="text-xs text-slate-500">
                             {record.current_location ||
                               "Unknown location"}{" "}
-                            â€¢{" "}
+                            •{" "}
                             {formatStatus(
                               record.status
                             )}
@@ -1850,7 +1850,7 @@ function attentionMessage(
     status ===
     "created"
   ) {
-    return "Order created â€¢ bidding not started";
+    return "Order created • bidding not started";
   }
 
   if (
@@ -1859,19 +1859,19 @@ function attentionMessage(
     status ===
       "bidding_open"
   ) {
-    return "Bidding active â€¢ review supplier bids";
+    return "Bidding active • review supplier bids";
   }
 
   if (
     status ===
     "bid_accepted"
   ) {
-    return "Bid accepted â€¢ review bidding result";
+    return "Bid accepted • review bidding result";
   }
 
   return `${formatStatus(
     order.status
-  )} â€¢ ${getCarrierStageLabel(
+  )} • ${getCarrierStageLabel(
     order
   )}`;
 }
