@@ -30,6 +30,10 @@ export default function Tracking({ route, navigation }) {
   const assignmentId = activeMission.assignment_id || activeMission.id;
   const dbOrderId = activeMission.order_id || activeMission.orders?.order_id;
   const { isTracking, lastLocationUpdate, setOrderStatus } = useOrder();
+  const pickupLatitude = Number(activeMission.orders?.origin_latitude || activeMission.orders?.pickup_latitude);
+  const pickupLongitude = Number(activeMission.orders?.origin_longitude || activeMission.orders?.pickup_longitude);
+  const destinationLatitude = Number(activeMission.orders?.destination_latitude || activeMission.orders?.dropoff_latitude);
+  const destinationLongitude = Number(activeMission.orders?.destination_longitude || activeMission.orders?.dropoff_longitude);
 
   const [stages, setStages] = useState([]);
   const [isLoadingStages, setIsLoadingStages] = useState(true);
@@ -231,6 +235,41 @@ export default function Tracking({ route, navigation }) {
     return index === -1 ? 0 : index;
   };
 
+  const distanceInMeters = (firstLatitude, firstLongitude, secondLatitude, secondLongitude) => {
+    const earthRadius = 6371000;
+    const latitudeDifference = (secondLatitude - firstLatitude) * Math.PI / 180;
+    const longitudeDifference = (secondLongitude - firstLongitude) * Math.PI / 180;
+    const latitude = firstLatitude * Math.PI / 180;
+    const secondLatitudeRadians = secondLatitude * Math.PI / 180;
+    const haversine = Math.sin(latitudeDifference / 2) ** 2
+      + Math.cos(latitude) * Math.cos(secondLatitudeRadians) * Math.sin(longitudeDifference / 2) ** 2;
+
+    return 2 * earthRadius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  };
+
+  const getArrivalTarget = (stageName) => {
+    const normalizedStage = String(stageName || '').trim().toLowerCase();
+    const isImport = orderType === "import";
+    const isPortStage = normalizedStage.includes("port");
+    const isYardStage = normalizedStage.includes("yard");
+    const isPickupStage = normalizedStage.includes("pickup")
+      || (isImport && isPortStage)
+      || (!isImport && isYardStage);
+    const isDestinationStage = normalizedStage.includes("destination")
+      || normalizedStage.includes("delivery")
+      || normalizedStage.includes("delivered")
+      || (isImport && isYardStage)
+      || (!isImport && isPortStage);
+
+    if (isDestinationStage) {
+      return { latitude: destinationLatitude, longitude: destinationLongitude, label: 'destination' };
+    }
+    if (isPickupStage) {
+      return { latitude: pickupLatitude, longitude: pickupLongitude, label: 'pickup' };
+    }
+    return null;
+  };
+
   useEffect(() => {
     if (stages.length > 0) {
       setCurrentStep(getInitialStep());
@@ -274,6 +313,24 @@ export default function Tracking({ route, navigation }) {
         }
 
         const { latitude, longitude } = location.coords;
+
+        const arrivalTarget = getArrivalTarget(nextStageName);
+        if (arrivalTarget && Number.isFinite(arrivalTarget.latitude) && Number.isFinite(arrivalTarget.longitude)) {
+          const distance = distanceInMeters(latitude, longitude, arrivalTarget.latitude, arrivalTarget.longitude);
+          if (distance > 200) {
+            Alert.alert(
+              `Not at ${arrivalTarget.label} yet`,
+              `You are approximately ${(distance / 1000).toFixed(1)} km away. Reach the assigned ${arrivalTarget.label} location before completing this stage.`,
+            );
+            return;
+          }
+        } else if (arrivalTarget) {
+          Alert.alert(
+            "Location unavailable",
+            `The assigned ${arrivalTarget.label} does not have GPS coordinates. This stage cannot be completed until the order location is configured.`,
+          );
+          return;
+        }
 
         const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
         const locationName = geocode[0] ? `${geocode[0].city || geocode[0].region}, ${geocode[0].country}` : "Live Update";

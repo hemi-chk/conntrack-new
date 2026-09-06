@@ -97,14 +97,14 @@ export default function MapScreen({ route, navigation }) {
     pickup: {
       name: orderData.origin_name || "Freezone Warehouse",
       address: orderData.origin_address || "Katunayake, Sri Lanka",
-      latitude: Number(orderData.origin_latitude || orderData.pickup_latitude || 6.933),
-      longitude: Number(orderData.origin_longitude || orderData.pickup_longitude || 79.85)
+      latitude: Number(orderData.origin_latitude ?? orderData.pickup_latitude),
+      longitude: Number(orderData.origin_longitude ?? orderData.pickup_longitude)
     },
     drop: {
       name: orderData.destination_name || "Colombo Port Terminal",
       address: orderData.destination_address || "Colombo, Sri Lanka",
-      latitude: Number(orderData.destination_latitude || orderData.dropoff_latitude || 6.948),
-      longitude: Number(orderData.destination_longitude || orderData.dropoff_longitude || 79.873)
+      latitude: Number(orderData.destination_latitude ?? orderData.dropoff_latitude),
+      longitude: Number(orderData.destination_longitude ?? orderData.dropoff_longitude)
     }
   };
 
@@ -193,7 +193,7 @@ export default function MapScreen({ route, navigation }) {
   }, [currentLocation, isHeadingToPickup, order.pickup.latitude, order.pickup.longitude, order.drop.latitude, order.drop.longitude]);
 
   useEffect(() => {
-    if (mapRef.current && order.pickup.latitude && order.drop.latitude) {
+    if (mapRef.current && Number.isFinite(order.pickup.latitude) && Number.isFinite(order.drop.latitude)) {
       const timer = setTimeout(() => {
         mapRef.current.fitToCoordinates(
           [
@@ -214,6 +214,10 @@ export default function MapScreen({ route, navigation }) {
 
   const handleOpenNavigation = () => {
     const { latitude, longitude } = currentTarget;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      Alert.alert("Location unavailable", "This order does not have GPS coordinates for the next location.");
+      return;
+    }
     const label = encodeURIComponent(currentTarget.name);
     const url = Platform.select({
       ios: `maps://app?daddr=${latitude},${longitude}&q=${label}`,
@@ -259,17 +263,17 @@ export default function MapScreen({ route, navigation }) {
           longitudeDelta: 0.2,
         }}
       >
-        <Marker coordinate={order.pickup}>
+        {Number.isFinite(order.pickup.latitude) && Number.isFinite(order.pickup.longitude) && <Marker coordinate={order.pickup}>
           <View style={styles.markerContainer}>
             <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.primary }]} />
           </View>
-        </Marker>
+        </Marker>}
 
-        <Marker coordinate={order.drop}>
+        {Number.isFinite(order.drop.latitude) && Number.isFinite(order.drop.longitude) && <Marker coordinate={order.drop}>
           <View style={styles.markerContainer}>
             <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.accent }]} />
           </View>
-        </Marker>
+        </Marker>}
 
         {routeLegs.toPickup.length > 1 && (
           <Polyline
@@ -327,4 +331,4 @@ export default function MapScreen({ route, navigation }) {
       </Card>
     </View>
   );
-}
+}

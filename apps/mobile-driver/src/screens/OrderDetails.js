@@ -25,6 +25,9 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   // Get real order data from Dashboard
   const activeMission = navRoute?.params?.order || {};
   const orderData = activeMission.orders || {};
+  const displayedOrderStatus = activeMission.status
+    ? String(activeMission.status).trim().toLowerCase()
+    : orderStatus;
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -274,14 +277,14 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     pickup: {
       name: orderData.origin_name || t("freezone_warehouse"),
       address: orderData.origin_address || t("katunayake_address"),
-      latitude: Number(orderData.origin_latitude || orderData.pickup_latitude || 6.933),
-      longitude: Number(orderData.origin_longitude || orderData.pickup_longitude || 79.85)
+      latitude: Number(orderData.origin_latitude ?? orderData.pickup_latitude),
+      longitude: Number(orderData.origin_longitude ?? orderData.pickup_longitude)
     },
     drop: {
       name: orderData.destination_name || t("colombo_port_terminal"),
       address: orderData.destination_address || t("colombo_port_address"),
-      latitude: Number(orderData.destination_latitude || orderData.dropoff_latitude || 6.948),
-      longitude: Number(orderData.destination_longitude || orderData.dropoff_longitude || 79.873)
+      latitude: Number(orderData.destination_latitude ?? orderData.dropoff_latitude),
+      longitude: Number(orderData.destination_longitude ?? orderData.dropoff_longitude)
     },
     instructions: orderData.special_instructions || orderData.instructions || t("temp_sensitive_cargo"),
     eta: "45 mins",
@@ -336,7 +339,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
 
   // Auto-fit coordinates to see both markers
   useEffect(() => {
-    if (mapRef.current && order.pickup.latitude && order.drop.latitude) {
+    if (mapRef.current && Number.isFinite(order.pickup.latitude) && Number.isFinite(order.drop.latitude)) {
       const timer = setTimeout(() => {
         mapRef.current.fitToCoordinates(
           [
@@ -354,7 +357,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   }, [order.pickup.latitude, order.drop.latitude]);
 
   const getStatusBadgeVariant = () => {
-    switch (orderStatus) {
+    switch (displayedOrderStatus) {
       case "assigned": return "secondary";
       case "started": 
       case "heading to pickup": return "secondary";
@@ -368,7 +371,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   };
 
   const getStatusInfo = () => {
-    switch (orderStatus) {
+    switch (displayedOrderStatus) {
       case "assigned": return { label: t("assigned"), color: activeTheme.colors.secondary, icon: "assignment" };
       case "started": 
       case "heading to pickup": return { label: t("heading_to_pickup"), color: activeTheme.colors.secondary, icon: "directions-car" };
@@ -384,7 +387,10 @@ export default function OrderDetails({ route: navRoute, navigation }) {
   const statusInfo = getStatusInfo();
 
   const handleOpenNavigation = () => {
-    const isHeadingToPickup = !orderStatus || orderStatus === "assigned" || orderStatus === "started" || orderStatus === "heading to pickup";
+    const isHeadingToPickup = !displayedOrderStatus
+      || displayedOrderStatus === "assigned"
+      || displayedOrderStatus === "started"
+      || displayedOrderStatus === "heading to pickup";
     const target = isHeadingToPickup ? order.pickup : order.drop;
     const label = encodeURIComponent(target.name);
     const url = Platform.select({
@@ -419,31 +425,33 @@ export default function OrderDetails({ route: navRoute, navigation }) {
     try {
       setIsUpdating(true);
       
-      let latitude = 6.9271;
-      let longitude = 79.8612;
-      let locationName = "Manual Update";
+      let latitude;
+      let longitude;
+      let locationName;
 
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const location = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-            timeout: 5000
-          });
-          if (location) {
-            latitude = location.coords.latitude;
-            longitude = location.coords.longitude;
-            
-            const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-            if (geocode && geocode[0]) {
-              locationName = `${geocode[0].city || geocode[0].region || "Colombo"}, ${geocode[0].country || "Sri Lanka"}`;
-            } else {
-              locationName = "Live Update";
-            }
-          }
+        if (status !== 'granted') {
+          Alert.alert("Permission Denied", "Location permission is required to update the trip stage.");
+          return;
         }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+        latitude = location.coords.latitude;
+        longitude = location.coords.longitude;
+
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        locationName = geocode?.[0]
+          ? `${geocode[0].city || geocode[0].region || "Unknown location"}, ${geocode[0].country || ""}`.trim().replace(/,$/, "")
+          : "Live GPS update";
       } catch (err) {
         console.warn("Could not retrieve GPS coordinates:", err);
+        Alert.alert("Location Error", "Could not get your current GPS location. The trip stage was not updated.");
+        return;
       }
 
       const response = await authFetch(`${API_BASE_URL}/api/driver/update-status`, {
@@ -463,10 +471,17 @@ export default function OrderDetails({ route: navRoute, navigation }) {
       if (result.success) {
         setOrderStatus(nextStatus);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        
-        navigation.navigate("Tracking", { 
-          order: { ...activeMission, status: nextStatus } 
-        });
+
+        if (nextStatus === "started") {
+          navigation.navigate("Map", {
+            order: { ...activeMission, status: nextStatus },
+            autoStartNavigation: true,
+          });
+        } else {
+          navigation.navigate("Tracking", {
+            order: { ...activeMission, status: nextStatus }
+          });
+        }
       } else {
         Alert.alert("Server Error", result.message || "Failed to update status on server");
       }
@@ -492,17 +507,17 @@ export default function OrderDetails({ route: navRoute, navigation }) {
           longitudeDelta: 0.04
         }}
       >
-        <Marker coordinate={order.pickup}>
+        {Number.isFinite(order.pickup.latitude) && Number.isFinite(order.pickup.longitude) && <Marker coordinate={order.pickup}>
           <View style={styles.markerContainer}>
             <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.primary }]} />
           </View>
-        </Marker>
+        </Marker>}
 
-        <Marker coordinate={order.drop}>
+        {Number.isFinite(order.drop.latitude) && Number.isFinite(order.drop.longitude) && <Marker coordinate={order.drop}>
           <View style={styles.markerContainer}>
             <View style={[styles.markerDot, { backgroundColor: activeTheme.colors.accent }]} />
           </View>
-        </Marker>
+        </Marker>}
 
         <Polyline
           coordinates={route}
@@ -672,7 +687,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
 
         {/* COMPACT FIXED ACTION BUTTON */}
         <View style={styles.footer}>
-          {(!orderStatus || orderStatus === "assigned" || orderStatus === "Assigned") ? (
+          {(!displayedOrderStatus || displayedOrderStatus === "assigned") ? (
             <Button
               title={t("start_trip")}
               icon="play-arrow"
@@ -680,7 +695,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               loading={isUpdating}
               style={styles.actionButton}
             />
-          ) : (orderStatus === "started" || orderStatus === "heading to pickup") ? (
+          ) : (displayedOrderStatus === "started" || displayedOrderStatus === "heading to pickup") ? (
             <Button
               title={t("arrived_at_pickup")}
               icon="local-shipping"
@@ -689,7 +704,7 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               loading={isUpdating}
               style={styles.actionButton}
             />
-          ) : (orderStatus === "picked" || orderStatus === "picked up") ? (
+          ) : (displayedOrderStatus === "picked" || displayedOrderStatus === "picked up") ? (
             <Button
               title={t("start_delivery")}
               icon="navigation"
@@ -697,25 +712,16 @@ export default function OrderDetails({ route: navRoute, navigation }) {
               loading={isUpdating}
               style={styles.actionButton}
             />
-          ) : (orderStatus === "transit" || orderStatus === "in transit") ? (
-            <>
-              <Button
-                title={t("start_trip")}
-                icon="play-arrow"
-                onPress={() => syncStatusWithDb("started")}
-                loading={isUpdating}
-                style={styles.actionButton}
-              />
-              <Button
-                title={t("mark_delivered")}
-                icon="check-circle"
-                variant="success"
-                onPress={() => syncStatusWithDb("delivered")}
-                loading={isUpdating}
-                style={[styles.actionButton, { marginTop: activeTheme.spacing.sm }]}
-              />
-            </>
-          ) : orderStatus === "delivered" ? (
+          ) : (displayedOrderStatus === "transit" || displayedOrderStatus === "in transit") ? (
+            <Button
+              title={t("mark_delivered")}
+              icon="check-circle"
+              variant="success"
+              onPress={() => syncStatusWithDb("delivered")}
+              loading={isUpdating}
+              style={styles.actionButton}
+            />
+          ) : displayedOrderStatus === "delivered" ? (
             <View style={styles.completedBox}>
               <MaterialIcons name="check-circle" size={24} color={activeTheme.colors.success} />
               <Typography variant="body" weight="bold" color="success" style={{ marginLeft: 8 }}>
