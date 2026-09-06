@@ -11,24 +11,20 @@ function AwardWorkflowModal({
   formatEta,
   openSupplierResultEmail,
   onOpenBulkUnsuccessfulBccEmail,
-  onMarkSelectedNoticeSent,
-  onRecordSupplierResponse,
-  onMarkOutcomeNoticeSent,
-  onMarkAllOutcomeNoticesSent,
   loading,
   onClose,
 }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200]">
-      <div className="bg-white rounded-2xl shadow-lg w-[900px] max-w-[94vw] max-h-[90vh] overflow-y-auto p-6">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+      <div className="max-h-[90vh] w-[900px] max-w-[94vw] overflow-y-auto rounded-2xl bg-white p-6 shadow-lg">
 
-        <div className="flex justify-between items-start gap-4 mb-5">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold text-[#1E293B]">
               Supplier Award Center
             </h3>
 
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="mt-1 text-sm text-slate-500">
               {orderReference} · {workflowLabel}
             </p>
           </div>
@@ -37,7 +33,7 @@ function AwardWorkflowModal({
             type="button"
             onClick={onClose}
             aria-label="Close award center"
-            className="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50"
           >
             ×
           </button>
@@ -54,18 +50,6 @@ function AwardWorkflowModal({
           openSupplierResultEmail={openSupplierResultEmail}
           onOpenBulkUnsuccessfulBccEmail={
             onOpenBulkUnsuccessfulBccEmail
-          }
-          onMarkSelectedNoticeSent={
-            onMarkSelectedNoticeSent
-          }
-          onRecordSupplierResponse={
-            onRecordSupplierResponse
-          }
-          onMarkOutcomeNoticeSent={
-            onMarkOutcomeNoticeSent
-          }
-          onMarkAllOutcomeNoticesSent={
-            onMarkAllOutcomeNoticesSent
           }
           loading={loading}
         />

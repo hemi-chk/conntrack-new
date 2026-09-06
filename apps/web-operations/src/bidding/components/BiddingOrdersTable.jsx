@@ -127,23 +127,25 @@ function BiddingOrdersTable({
       className =
         "bg-green-100 text-[#16A34A]";
     } else if (
-      [
-        "alternate_supplier_selection_required",
-        "bidding_closed_no_bids",
-      ].includes(workflowState)
+      workflowState ===
+      "no_bids_received"
     ) {
       className =
         "bg-red-100 text-[#DC2626]";
     } else if (
       [
         "shortlisting_required",
-        "shortlist_ready_to_send",
         "selected_supplier_notice_pending",
-        "unsuccessful_supplier_notifications_pending",
       ].includes(workflowState)
     ) {
       className =
         "bg-orange-100 text-[#EA580C]";
+    } else if (
+      workflowState ===
+      "winner_selection_required"
+    ) {
+      className =
+        "bg-blue-100 text-[#1E40AF]";
     }
 
     return {
@@ -558,20 +560,17 @@ function BiddingOrdersTable({
                             ?.awardWorkflowState
                         );
 
-                      const rowSupplierConfirmed =
-                        rowAwardState
-                          ?.supplierConfirmationStatus ===
-                          "accepted" ||
+                      const winnerSelected =
                         [
-                          "unsuccessful_supplier_notifications_pending",
+                          "selected_supplier_notice_pending",
                           "award_completed",
                         ].includes(
                           rowWorkflowState
                         );
 
-                      const previousSelectionDeclined =
+                      const awardCompleted =
                         rowWorkflowState ===
-                        "alternate_supplier_selection_required";
+                        "award_completed";
 
                       return (
                         <tr
@@ -662,7 +661,8 @@ function BiddingOrdersTable({
 
                               <td className="px-4 py-3 border-t border-slate-100">
 
-                                {winner?.supplier ? (
+                                {winner?.supplier &&
+                                winnerSelected ? (
                                   <div>
 
                                     <span className="font-semibold text-[#1E293B]">
@@ -673,30 +673,21 @@ function BiddingOrdersTable({
 
                                     <p
                                       className={`text-[11px] mt-0.5 font-medium ${
-                                        previousSelectionDeclined
-                                          ? "text-[#DC2626]"
-                                          : rowSupplierConfirmed
+                                        awardCompleted
                                           ? "text-[#16A34A]"
                                           : "text-[#1E40AF]"
                                       }`}
                                     >
-                                      {previousSelectionDeclined
-                                        ? "Previous Selection - Declined"
-                                        : rowSupplierConfirmed
-                                        ? "Confirmed Supplier"
+                                      {awardCompleted
+                                        ? "Awarded Supplier"
                                         : "Selected by Operations"}
                                     </p>
 
                                   </div>
                                 ) : rowWorkflowState ===
-                                  "awaiting_logistics_selection" ? (
-                                  <span className="inline-flex px-2.5 py-1 rounded-full bg-orange-50 text-[#EA580C] text-xs font-medium">
+                                  "winner_selection_required" ? (
+                                  <span className="inline-flex px-2.5 py-1 rounded-full bg-blue-50 text-[#1E40AF] text-xs font-medium">
                                     Winner Selection Required
-                                  </span>
-                                ) : rowWorkflowState ===
-                                  "alternate_supplier_selection_required" ? (
-                                  <span className="inline-flex px-2.5 py-1 rounded-full bg-red-50 text-[#DC2626] text-xs font-medium">
-                                    Alternate Winner Selection Required
                                   </span>
                                 ) : (
                                   <span className="text-slate-400 text-xs">
@@ -707,7 +698,8 @@ function BiddingOrdersTable({
                               </td>
 
                               <td className="px-4 py-3 border-t border-slate-100 text-[#16A34A] font-semibold whitespace-nowrap">
-                                {winner
+                                {winner &&
+                                winnerSelected
                                   ? formatMoney(
                                       winner.amount
                                     )

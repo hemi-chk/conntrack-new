@@ -21,11 +21,11 @@ export default function useBiddingController({
   initialOrder = null,
 }) {
   const API_BASE_URL = getOperationsApiBaseUrl();
-  // Main UI states for bidding, sorting, shortlisted bids, and logistics submission
+  // Main UI states for bidding, sorting, shortlisted bids, and shortlist finalization
   const [activeTab, setActiveTab] = useState("Open");
   const [sortBy, setSortBy] = useState("Lowest Price");
   const [shortlistedBidIds, setShortlistedBidIds] = useState([]);
-  const [sentToLogistics, setSentToLogistics] = useState(false);
+  const [shortlistFinalized, setShortlistFinalized] = useState(false);
 
   // Bidding timer states
   const [isBiddingOpen, setIsBiddingOpen] = useState(false);
@@ -38,8 +38,8 @@ export default function useBiddingController({
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [selectedBidForDetails, setSelectedBidForDetails] = useState(null);
 
-  // The supplier currently selected by Logistics. This is NOT treated as a
-  // confirmed winner until the supplier accepts the award.
+  // The winning supplier selected by Operations. Once selected, this bid is
+  // accepted immediately and every other bid for the order is rejected.
   const [winningBid, setWinningBid] = useState(null);
   const [showWinnerPopup, setShowWinnerPopup] = useState(false);
 
@@ -69,7 +69,7 @@ export default function useBiddingController({
   const [bidCountByOrder, setBidCountByOrder] = useState({});
   const [winnerByOrder, setWinnerByOrder] = useState({});
   const [biddingStateByOrder, setBiddingStateByOrder] = useState({});
-  const [logisticsStateByOrder, setLogisticsStateByOrder] = useState({});
+  const [selectionStateByOrder, setSelectionStateByOrder] = useState({});
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [showCreatedOrders, setShowCreatedOrders] = useState(true);
   const [showOpenBiddingOrders, setShowOpenBiddingOrders] = useState(true);
@@ -167,9 +167,9 @@ export default function useBiddingController({
     return key ? biddingStateByOrder[key] || null : null;
   };
 
-  const getLogisticsStateForOrder = (order) => {
+  const getSelectionStateForOrder = (order) => {
     const key = getBidCountKey(order);
-    return key ? logisticsStateByOrder[key] || null : null;
+    return key ? selectionStateByOrder[key] || null : null;
   };
 
   const normalizeWorkflowValue = (value) =>
@@ -194,12 +194,6 @@ export default function useBiddingController({
       source.award_workflow_state ||
         source.workflow_state ||
         result.award_workflow_state
-    );
-
-    const confirmationStatus = normalizeWorkflowValue(
-      source.supplier_confirmation_status ||
-        source.confirmation_status ||
-        result.supplier_confirmation_status
     );
 
     const rawNotifications =
@@ -246,10 +240,13 @@ export default function useBiddingController({
         source.winning_bid_amount ??
         source.bid_amount ??
         null,
-      supplierConfirmationStatus: confirmationStatus,
-      sentToLogistics:
-        source.sent_to_logistics === true ||
-        source.sentToLogistics === true,
+      shortlistFinalized:
+        source.shortlist_finalized === true ||
+        source.shortlistFinalized === true,
+      selectedNoticeSentAt:
+        source.selected_notice_sent_at ||
+        source.selectedNoticeSentAt ||
+        null,
       pendingUnsuccessfulNotices: Number(
         source.pending_unsuccessful_notices ||
           source.pending_notifications ||
@@ -262,27 +259,10 @@ export default function useBiddingController({
       ),
       totalBids: Number(source.total_bids || 0),
       draftShortlistCount: Number(source.draft_shortlist_count || 0),
-      sentShortlistCount: Number(source.sent_shortlist_count || 0),
+      finalizedShortlistCount: Number(source.finalized_shortlist_count || 0),
       biddingStatus: normalizeWorkflowValue(source.bidding_status || ""),
       biddingEndTime: source.bidding_end_time || null,
       outcomeNotifications,
-      awardAttempts: (Array.isArray(source.award_attempts)
-        ? source.award_attempts
-        : Array.isArray(result.award_attempts)
-        ? result.award_attempts
-        : []
-      ).map((item) => ({
-        ...item,
-        bidId: item.bid_id || item.bidId || null,
-        responseStatus: normalizeWorkflowValue(
-          item.workflow_status ||
-            item.supplier_response ||
-            item.response_status ||
-            item.supplier_confirmation_status ||
-            item.status ||
-            ""
-        ),
-      })),
     };
   };
 
@@ -295,16 +275,10 @@ export default function useBiddingController({
     const state = normalizeWorkflowValue(value);
 
     const labels = {
-      bidding_closed_no_bids: "No Bids Received",
+      no_bids_received: "No Bids Received",
       shortlisting_required: "Shortlisting Required",
-      shortlist_ready_to_send: "Shortlist Ready - Finalize",
-      awaiting_logistics_selection: "Winner Selection Required",
+      winner_selection_required: "Winner Selection Required",
       selected_supplier_notice_pending: "Selected Supplier Notice Pending",
-      awaiting_supplier_response: "Awaiting Supplier Response",
-      alternate_supplier_selection_required:
-        "Alternate Winner Selection Required",
-      unsuccessful_supplier_notifications_pending:
-        "Unsuccessful Supplier Notifications Pending",
       award_completed: "Award Completed",
     };
 
@@ -322,26 +296,18 @@ export default function useBiddingController({
       return "bg-green-100 text-[#16A34A]";
     }
 
-    if (
-      state === "alternate_supplier_selection_required" ||
-      state === "bidding_closed_no_bids"
-    ) {
+    if (state === "no_bids_received") {
       return "bg-red-100 text-[#DC2626]";
     }
 
     if (
       state === "shortlisting_required" ||
-      state === "shortlist_ready_to_send" ||
-      state === "selected_supplier_notice_pending" ||
-      state === "unsuccessful_supplier_notifications_pending"
+      state === "selected_supplier_notice_pending"
     ) {
       return "bg-orange-100 text-[#EA580C]";
     }
 
-    if (
-      state === "awaiting_logistics_selection" ||
-      state === "awaiting_supplier_response"
-    ) {
+    if (state === "winner_selection_required") {
       return "bg-blue-100 text-[#1E40AF]";
     }
 
@@ -420,7 +386,7 @@ export default function useBiddingController({
 
       if (setCurrent) {
         setAwardState(normalized);
-        setSentToLogistics(normalized?.sentToLogistics === true);
+        setShortlistFinalized(normalized?.shortlistFinalized === true);
       }
 
       if (updateMap && key) {
@@ -453,7 +419,6 @@ export default function useBiddingController({
       bidId: persistedAwardState.selectedBidId,
       supplier: persistedAwardState.selectedSupplier,
       amount: persistedAwardState.selectedBidAmount,
-      confirmationStatus: persistedAwardState.supplierConfirmationStatus,
     };
   };
 
@@ -579,7 +544,7 @@ export default function useBiddingController({
       setBidCountByOrder(counts);
 
       const biddingStates = {};
-      const logisticsStates = {};
+      const selectionStates = {};
       const awardStates = {};
       const resolvedWinners = {};
 
@@ -691,11 +656,11 @@ export default function useBiddingController({
                   .filter(Boolean)
               : [];
 
-            const sentToLogistics = Array.isArray(shortlistResult.selections)
+            const shortlistFinalized = Array.isArray(shortlistResult.selections)
               ? shortlistResult.selections.some(
-                  (item) => item?.sent_to_logistics === true
+                  (item) => item?.shortlist_finalized === true
                 )
-              : shortlistResult.sent_to_logistics === true;
+              : shortlistResult.shortlist_finalized === true;
 
             const winnerBidId = Number(
               shortlistResult.winner_bid_id ||
@@ -706,8 +671,8 @@ export default function useBiddingController({
             const hasWinner =
               !Number.isNaN(winnerBidId) && winnerBidId > 0;
 
-            logisticsStates[key] = {
-              sentToLogistics,
+            selectionStates[key] = {
+              shortlistFinalized,
               hasWinner,
               winnerBidId: hasWinner ? winnerBidId : null,
             };
@@ -743,7 +708,7 @@ export default function useBiddingController({
             }
           } catch (shortlistError) {
             console.error(
-              `Could not load Logistics state for ${
+              `Could not load selection state for ${
                 reference || databaseId
               }:` ,
               shortlistError
@@ -765,8 +730,6 @@ export default function useBiddingController({
                   bidId: currentAwardState.selectedBidId,
                   supplier: currentAwardState.selectedSupplier,
                   amount: currentAwardState.selectedBidAmount,
-                  confirmationStatus:
-                    currentAwardState.supplierConfirmationStatus,
                 };
               }
             }
@@ -795,7 +758,7 @@ export default function useBiddingController({
 
       setWinnerByOrder(resolvedWinners);
       setBiddingStateByOrder(biddingStates);
-      setLogisticsStateByOrder(logisticsStates);
+      setSelectionStateByOrder(selectionStates);
       setAwardStateByOrder(awardStates);
 
       return ordersResult;
@@ -805,7 +768,7 @@ export default function useBiddingController({
       setBidCountByOrder({});
       setWinnerByOrder({});
       setBiddingStateByOrder({});
-      setLogisticsStateByOrder({});
+      setSelectionStateByOrder({});
       setAwardStateByOrder({});
 
       return [];
@@ -1162,11 +1125,11 @@ export default function useBiddingController({
   };
 
   // =========================================================
-  // LOAD SAVED SHORTLIST + LOGISTICS DECISION FROM BACKEND
+  // LOAD SAVED SHORTLIST + AWARD DECISION FROM BACKEND
   //
   // This reads bid_selection through the Operations backend.
   // It keeps the exact shortlist after refresh and detects the
-  // selected supplier chosen by Logistics without connecting to their PC.
+  // selected supplier chosen by Operations from the finalized shortlist.
   // =========================================================
   const fetchShortlistStatus = async (order = null) => {
     try {
@@ -1190,7 +1153,7 @@ export default function useBiddingController({
       // Do not restore any stale shortlist/winner rows for it.
       if (currentStatus === "created") {
         setShortlistedBidIds([]);
-        setSentToLogistics(false);
+        setShortlistFinalized(false);
         setWinningBid(null);
         return;
       }
@@ -1243,12 +1206,12 @@ export default function useBiddingController({
 
       const alreadySent = Array.isArray(result.selections)
         ? result.selections.some(
-            (item) => item?.sent_to_logistics === true
+            (item) => item?.shortlist_finalized === true
           )
-        : result.sent_to_logistics === true;
+        : result.shortlist_finalized === true;
 
       setShortlistedBidIds(savedBidIds);
-      setSentToLogistics(alreadySent);
+      setShortlistFinalized(alreadySent);
 
       const winnerBidId = Number(
         result.winner_bid_id ||
@@ -1272,7 +1235,7 @@ export default function useBiddingController({
         setTimeLeft(0);
         setActiveTab("Closed");
 
-        // Logistics has selected a supplier.
+        // Operations has selected a supplier.
         // Keep polling silent so the full orders table does not reload.
       } else {
         setWinningBid(null);
@@ -1520,7 +1483,7 @@ export default function useBiddingController({
     // The server will restore all persisted workflow data.
     setBids([]);
     setShortlistedBidIds([]);
-    setSentToLogistics(false);
+    setShortlistFinalized(false);
     setWinningBid(null);
     setAwardState(null);
     setSelectedBidForDetails(null);
@@ -1594,7 +1557,9 @@ export default function useBiddingController({
       setTimeLeft(0);
       setBiddingStatusLoaded(true);
 
-      await fetchBiddingOrders();
+      if (!detailMode) {
+        await fetchBiddingOrders();
+      }
     };
 
     initialiseBiddingPage();
@@ -1604,10 +1569,10 @@ export default function useBiddingController({
     };
   }, []);
 
-  // sentToLogistics is restored from backend/Supabase data.
+  // shortlistFinalized is restored from backend/Supabase data.
   // Once true, the bidding stage is locked in the Operations UI.
   useEffect(() => {
-    if (!sentToLogistics) {
+    if (!shortlistFinalized) {
       return;
     }
 
@@ -1631,7 +1596,7 @@ export default function useBiddingController({
       setShowCloseConfirm(false);
     }
   }, [
-    sentToLogistics,
+    shortlistFinalized,
     isBiddingOpen,
     timeLeft,
     activeTab,
@@ -1640,8 +1605,8 @@ export default function useBiddingController({
   ]);
 
   // Poll the persistent award workflow while the award is still active.
-  // This lets Operations see a Logistics selection/alternate selection even
-  // after refresh without any frontend-to-frontend connection.
+  // This lets Operations see the saved shortlist/winner state after refresh
+  // without creating workflow state in React.
   useEffect(() => {
     if (!selectedOrder || !awardState?.awardWorkflowState) {
       return;
@@ -1829,12 +1794,12 @@ export default function useBiddingController({
     }, [bids]);
 
   // Dynamic shortlist rule:
-  // 1 bid  -> send 1
-  // 2 bids -> send both
+  // 1 bid  -> shortlist 1
+  // 2 bids -> shortlist both
   // 3+ bids -> minimum 3, maximum 5
   //
   // Draft selection can still be built one supplier at a time.
-  // The minimum is enforced only when sending to Logistics.
+  // The minimum is enforced only when sending.
   const minShortlistCount = useMemo(
     () => Math.min(3, bids.length),
     [bids]
@@ -2054,25 +2019,25 @@ export default function useBiddingController({
     const isSelected = resultType === "selected";
 
     const subjectText = isSelected
-      ? `Bid Selected - ${orderReference}`
+      ? `Bid Awarded - ${orderReference}`
       : `Bid Result - ${orderReference}`;
 
     const bodyText = isSelected
       ? `Dear ${bid.supplier},
 
-Your bid has been selected as the preferred bid for order ${orderReference}.
+Your bid has been selected as the winning bid for order ${orderReference}.
 
 Bid Amount: ${formatMoney(bid.amount)}
 ETA: ${formatEta(bid.eta)}
 
-Please confirm whether you accept this award. The award will only be finalized after your acceptance.
+Your bid has been accepted.
 
 Thank you.`
       : `Dear ${bid.supplier},
 
 Thank you for submitting your bid for order ${orderReference}.
 
-After the selected supplier confirmed the award, we regret to inform you that your bid was not selected for this order.
+We regret to inform you that your bid was not selected for this order.
 
 We appreciate your participation and look forward to working with you on future opportunities.
 
@@ -2094,12 +2059,20 @@ Thank you.`;
 
   // Opens one Gmail compose window for every supplier who did NOT win.
   // Addresses are placed in BCC so suppliers cannot see each other's email.
-  // This includes shortlisted losers, rejected/declined bids, and bids that
-  // were not shortlisted. The confirmed/selected supplier is excluded.
+  // This is available after Operations has selected the winner.
   const openBulkUnsuccessfulBccEmail = () => {
-    if (!isSupplierConfirmed) {
+    const workflowState = normalizeWorkflowValue(
+      awardState?.awardWorkflowState
+    );
+
+    if (
+      ![
+        "selected_supplier_notice_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
       alert(
-        "Bulk unsuccessful email is available only after the selected supplier accepts the award."
+        "Unsuccessful supplier results are available only after Operations selects the winner."
       );
       return;
     }
@@ -2217,9 +2190,9 @@ Thank you.`;
 
   const openTimerPopup =
     () => {
-      if (sentToLogistics) {
+      if (shortlistFinalized) {
         alert(
-          "Bidding is locked because the shortlist has already been sent to Logistics."
+          "Bidding is locked because the shortlist has already been finalized."
         );
         return;
       }
@@ -2260,9 +2233,9 @@ Thank you.`;
 
   const closeBidding =
     () => {
-      if (sentToLogistics) {
+      if (shortlistFinalized) {
         alert(
-          "Bidding is locked because the shortlist has already been sent to Logistics."
+          "Bidding is locked because the shortlist has already been finalized."
         );
         return;
       }
@@ -2274,10 +2247,10 @@ Thank you.`;
 
   const confirmCloseBidding =
     async () => {
-      if (sentToLogistics) {
+      if (shortlistFinalized) {
         setShowCloseConfirm(false);
         alert(
-          "Bidding is locked because the shortlist has already been sent to Logistics."
+          "Bidding is locked because the shortlist has already been finalized."
         );
         return;
       }
@@ -2350,7 +2323,9 @@ Thank you.`;
           selectedOrder
         );
         await fetchAwardState(selectedOrder);
+        if (!detailMode) {
         await fetchBiddingOrders();
+      }
       } catch (error) {
         alert(
           error.message
@@ -2360,9 +2335,20 @@ Thank you.`;
 
   const extendTimerPopup =
     () => {
-      if (sentToLogistics) {
+      if (shortlistFinalized) {
         alert(
-          "Bidding is locked because the shortlist has already been sent to Logistics."
+          "Bidding is locked because the shortlist has already been finalized."
+        );
+        return;
+      }
+
+      const workflowState = normalizeWorkflowValue(
+        awardState?.awardWorkflowState
+      );
+
+      if (workflowState !== "no_bids_received") {
+        alert(
+          "Bidding time can only be extended from the No Bids Received stage."
         );
         return;
       }
@@ -2378,10 +2364,10 @@ Thank you.`;
 
   const confirmTimer =
     async () => {
-      if (sentToLogistics) {
+      if (shortlistFinalized) {
         setShowTimerPopup(false);
         alert(
-          "Bidding is locked because the shortlist has already been sent to Logistics."
+          "Bidding is locked because the shortlist has already been finalized."
         );
         return;
       }
@@ -2503,7 +2489,9 @@ Thank you.`;
           selectedOrder
         );
         await fetchAwardState(selectedOrder);
+        if (!detailMode) {
         await fetchBiddingOrders();
+      }
       } catch (error) {
         alert(
           error.message
@@ -2511,7 +2499,7 @@ Thank you.`;
       }
     };
 
-  // PERSISTENT SHORTLIST DRAFT BEFORE SENDING TO LOGISTICS
+  // PERSISTENT SHORTLIST DRAFT BEFORE FINALIZATION
   // Every shortlist change is saved through the Operations API into Supabase.
   // React does not derive or persist the workflow state locally.
   const saveShortlistDraft = async (nextBidIds, bidIdBeingSaved) => {
@@ -2580,9 +2568,9 @@ Thank you.`;
   };
 
   const toggleShortlist = async (bidId) => {
-    if (sentToLogistics) {
+    if (shortlistFinalized) {
       alert(
-        "Shortlist has already been sent to Logistics and is locked."
+        "Shortlist has already been finalized and is locked."
       );
       return;
     }
@@ -2626,17 +2614,17 @@ Thank you.`;
     await saveShortlistDraft(nextBidIds, bidId);
   };
 
-  const sendShortlistedToLogistics = async () => {
-    if (sentToLogistics) {
+  const finalizeShortlist = async () => {
+    if (shortlistFinalized) {
       alert(
-        "Shortlist has already been sent to Logistics for this order."
+        "Shortlist has already been finalized for this order."
       );
       return;
     }
 
     if (isBiddingOpen) {
       alert(
-        "Bidding is still open. Please close bidding before sending the shortlist."
+        "Bidding is still open. Please close bidding before finalizing the shortlist."
       );
       return;
     }
@@ -2655,11 +2643,11 @@ Thank you.`;
             bids.length === 1 ? "" : "s"
           }. Please shortlist all ${bids.length} available bid${
             bids.length === 1 ? "" : "s"
-          } before sending to Logistics.`
+          } before finalizing the shortlist.`
         );
       } else {
         alert(
-          `Please shortlist at least ${minShortlistCount} suppliers before sending to Logistics.`
+          `Please shortlist at least ${minShortlistCount} suppliers before finalizing the shortlist.`
         );
       }
 
@@ -2668,9 +2656,9 @@ Thank you.`;
 
     if (shortlistedBidIds.length > maxShortlistCount) {
       alert(
-        `You can send a maximum of ${maxShortlistCount} shortlisted supplier${
+        `You can finalize a maximum of ${maxShortlistCount} shortlisted supplier${
           maxShortlistCount === 1 ? "" : "s"
-        } to Logistics.`
+        }.`
       );
       return;
     }
@@ -2712,7 +2700,7 @@ Thank you.`;
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/operations/bids/send-to-logistics`,
+        `${API_BASE_URL}/api/operations/bids/finalize-shortlist`,
         {
           method: "POST",
           headers: {
@@ -2747,23 +2735,25 @@ Thank you.`;
         throw new Error(
           result.error ||
             result.message ||
-            "Failed to send shortlisted bids to Logistics"
+            "Failed to finalize shortlist"
         );
       }
 
       alert(
         `${shortlistedBidIds.length} shortlisted supplier${
           shortlistedBidIds.length === 1 ? "" : "s"
-        } shortlist finalized successfully. You can now select the winning supplier.`
+        } finalized successfully. You can now select the winning supplier.`
       );
 
       await fetchBids(selectedOrder);
       await fetchShortlistStatus(selectedOrder);
       await fetchAwardState(selectedOrder);
-      await fetchBiddingOrders();
+      if (!detailMode) {
+        await fetchBiddingOrders();
+      }
     } catch (error) {
       console.error(
-        "Send to Logistics error:",
+        "Finalize shortlist error:",
         error
       );
 
@@ -2840,7 +2830,9 @@ Thank you.`;
       }
 
       await fetchShortlistStatus(selectedOrder);
-      await fetchBiddingOrders();
+      if (!detailMode) {
+        await fetchBiddingOrders();
+      }
       return result;
     } catch (error) {
       console.error(`Award action ${action} failed:`, error);
@@ -2862,8 +2854,7 @@ Thank you.`;
       return;
     }
 
-    const databaseId =
-      getOrderDatabaseId(selectedOrder);
+    const databaseId = getOrderDatabaseId(selectedOrder);
 
     const bidId = Number(
       bid.id ||
@@ -2885,48 +2876,32 @@ Thank you.`;
       return;
     }
 
-    const workflowState =
-      normalizeWorkflowValue(
-        awardState?.awardWorkflowState
-      );
+    const workflowState = normalizeWorkflowValue(
+      awardState?.awardWorkflowState
+    );
 
-    if (
-      ![
-        "awaiting_logistics_selection",
-        "alternate_supplier_selection_required",
-      ].includes(workflowState)
-    ) {
+    if (workflowState !== "winner_selection_required") {
       alert(
         "Winner selection is not available at the current award stage."
       );
       return;
     }
 
-    const isAlternate =
-      workflowState ===
-      "alternate_supplier_selection_required";
-
-    const confirmationMessage = isAlternate
-      ? `Select ${bid.supplier} as the alternate supplier?`
-      : `Select ${bid.supplier} as the winning supplier?`;
-
-    const confirmed =
-      window.confirm(
-        confirmationMessage
-      );
+    const confirmed = window.confirm(
+      `Select ${bid.supplier} as the winning supplier? The winning bid will be accepted immediately and all other bids will be rejected.`
+    );
 
     if (!confirmed) {
       return;
     }
 
-    const result =
-      await postAwardAction(
-        "select-winner",
-        {
-          bid_id: bidId,
-          selected_bid_id: bidId,
-        }
-      );
+    const result = await postAwardAction(
+      "select-winner",
+      {
+        bid_id: bidId,
+        selected_bid_id: bidId,
+      }
+    );
 
     if (!result) {
       return;
@@ -2938,16 +2913,15 @@ Thank you.`;
     setActiveTab("Closed");
 
     alert(
-      isAlternate
-        ? `${bid.supplier} selected as the alternate supplier. Send the selected supplier notice next.`
-        : `${bid.supplier} selected successfully. Send the selected supplier notice next.`
+      `${bid.supplier} selected successfully. The winning bid is accepted and all other bids are rejected. Send the supplier result notices next.`
     );
   };
+
   const markSelectedSupplierNoticeSent = async () => {
     const selectedBid = getFreshWinningBid();
 
     if (!selectedBid) {
-      alert("No supplier is currently selected by Logistics.");
+      alert("No supplier is currently selected.");
       return;
     }
 
@@ -2960,33 +2934,6 @@ Thank you.`;
     }
   };
 
-  const recordSupplierResponse = async (responseValue) => {
-    const normalizedResponse = normalizeWorkflowValue(responseValue);
-
-    if (!["accepted", "rejected"].includes(normalizedResponse)) {
-      return;
-    }
-
-    const selectedBid = getFreshWinningBid();
-
-    if (!selectedBid) {
-      alert("No supplier is currently awaiting a response.");
-      return;
-    }
-
-    const result = await postAwardAction("supplier-response", {
-      selected_bid_id: selectedBid.id || selectedBid.bidId,
-      response: normalizedResponse,
-    });
-
-    if (result) {
-      alert(
-        normalizedResponse === "accepted"
-          ? "Supplier acceptance recorded successfully."
-          : "Supplier rejection recorded. Logistics must select an alternate supplier."
-      );
-    }
-  };
 
   const markOutcomeNoticeSent = async (bid) => {
     if (!bid) return;
@@ -3017,6 +2964,22 @@ Thank you.`;
     if (!databaseId) {
       alert(
         "The selected order does not contain its database order ID."
+      );
+      return;
+    }
+
+    const workflowState = normalizeWorkflowValue(
+      awardState?.awardWorkflowState
+    );
+
+    if (
+      ![
+        "selected_supplier_notice_pending",
+        "award_completed",
+      ].includes(workflowState)
+    ) {
+      alert(
+        "Unsuccessful supplier notifications are available only after a winner has been selected."
       );
       return;
     }
@@ -3074,7 +3037,9 @@ Thank you.`;
 
       await fetchAwardState(selectedOrder);
       await fetchShortlistStatus(selectedOrder);
-      await fetchBiddingOrders();
+      if (!detailMode) {
+        await fetchBiddingOrders();
+      }
 
       alert(
         `${pendingBids.length} unsuccessful supplier notification${
@@ -3153,31 +3118,17 @@ Thank you.`;
   const isOutcomeNoticeSent = (bid) =>
     getOutcomeNotificationForBid(bid)?.status === "sent";
 
-  const getAwardAttemptForBid = (bid) =>
-    awardState?.awardAttempts?.find(
-      (item) => Number(item.bidId) === Number(bid?.id || bid?.bidId)
-    ) || null;
-
-  const wasSupplierDeclinedEarlier = (bid) =>
-    [
-      "rejected",
-      "declined",
-      "supplier_rejected",
-    ].includes(
-      getAwardAttemptForBid(bid)?.responseStatus
-    );
-
-  // Suppliers only become unsuccessful AFTER a supplier accepts.
-  // At that point EVERY non-winning bidder must receive the final result,
-  // including suppliers that were never shortlisted.
+  // After Operations selects the winner, every other bid is rejected.
+  // Notifications are handled inside Selected Supplier Notice Pending; there
+  // is no supplier acceptance/rejection stage.
   const getUnsuccessfulBids = () => {
     const workflowState = awardState?.awardWorkflowState;
 
     if (
       ![
-        "unsuccessful_supplier_notifications_pending",
+        "selected_supplier_notice_pending",
         "award_completed",
-      ].includes(workflowState)
+      ].includes(normalizeWorkflowValue(workflowState))
     ) {
       return [];
     }
@@ -3283,80 +3234,41 @@ Thank you.`;
   const getBidStatus = (bid) => {
     const selectedBid = getFreshWinningBid();
     const isSelectedSupplier =
-      selectedBid && Number(selectedBid.id) === Number(bid.id);
+      selectedBid &&
+      Number(selectedBid.id || selectedBid.bidId) ===
+        Number(bid.id || bid.bidId);
 
     const isShortlisted = shortlistedBidIds.some(
       (id) => Number(id) === Number(bid.id)
     );
 
-    const workflowState =
-      awardState?.awardWorkflowState || "";
+    const workflowState = normalizeWorkflowValue(
+      awardState?.awardWorkflowState
+    );
 
-    if (isSelectedSupplier) {
-      if (
-        awardState?.supplierConfirmationStatus === "accepted" ||
-        workflowState === "unsuccessful_supplier_notifications_pending" ||
-        workflowState === "award_completed"
-      ) {
-        return "Confirmed Supplier";
-      }
-
-      if (workflowState === "alternate_supplier_selection_required") {
-        return "Supplier Declined";
-      }
-
-      if (workflowState === "awaiting_supplier_response") {
-        return "Awaiting Response";
-      }
-
-      if (workflowState === "selected_supplier_notice_pending") {
-        return "Selected by Operations";
-      }
-
-      return "Selected by Operations";
-    }
-
-    // After the winner accepts, every other bidder has a final unsuccessful
-    // outcome, even if that supplier was never shortlisted.
     if (
-      !isSelectedSupplier &&
       [
-        "unsuccessful_supplier_notifications_pending",
+        "selected_supplier_notice_pending",
         "award_completed",
       ].includes(workflowState)
     ) {
-      return isOutcomeNoticeSent(bid)
-        ? "Unsuccessful - Notified"
-        : "Unsuccessful";
+      return isSelectedSupplier
+        ? "Accepted"
+        : "Rejected";
     }
 
     if (
-      isShortlisted &&
-      wasSupplierDeclinedEarlier(bid) &&
-      ![
-        "unsuccessful_supplier_notifications_pending",
-        "award_completed",
-      ].includes(workflowState)
+      workflowState === "winner_selection_required" &&
+      isShortlisted
     ) {
-      return "Declined Earlier";
-    }
-
-    if (
-      isShortlisted &&
-      workflowState === "alternate_supplier_selection_required"
-    ) {
-      return "Available for Alternate";
-    }
-
-    if (sentToLogistics && isShortlisted) {
       return "Winner Selection Required";
     }
 
-    if (!sentToLogistics && isShortlisted) {
+    if (!shortlistFinalized && isShortlisted) {
       return "Shortlisted";
     }
 
-    if (sentToLogistics && !isShortlisted) {
+    if (shortlistFinalized && !isShortlisted) {
       return "Not Shortlisted";
     }
 
@@ -3366,70 +3278,44 @@ Thank you.`;
   const getNotificationStatus = (bid) => {
     const selectedBid = getFreshWinningBid();
     const isSelectedSupplier =
-      selectedBid && Number(selectedBid.id) === Number(bid.id);
+      selectedBid &&
+      Number(selectedBid.id || selectedBid.bidId) ===
+        Number(bid.id || bid.bidId);
+
     const isShortlisted = shortlistedBidIds.some(
       (id) => Number(id) === Number(bid.id)
     );
-    const workflowState =
-      awardState?.awardWorkflowState || "";
 
-    if (isSelectedSupplier) {
-      if (workflowState === "selected_supplier_notice_pending") {
-        return "Selected Notice Pending";
-      }
+    const workflowState = normalizeWorkflowValue(
+      awardState?.awardWorkflowState
+    );
 
-      if (workflowState === "awaiting_supplier_response") {
-        return "Selected Notice Sent";
-      }
-
-      if (workflowState === "alternate_supplier_selection_required") {
-        return "Supplier Declined";
-      }
-
-      if (
-        awardState?.supplierConfirmationStatus === "accepted" ||
-        workflowState === "unsuccessful_supplier_notifications_pending" ||
-        workflowState === "award_completed"
-      ) {
-        return "Supplier Confirmed";
-      }
+    if (workflowState === "award_completed") {
+      return isSelectedSupplier
+        ? "Selected Notice Sent"
+        : "Result Sent";
     }
 
-    if (
-      !isSelectedSupplier &&
-      [
-        "unsuccessful_supplier_notifications_pending",
-        "award_completed",
-      ].includes(workflowState)
-    ) {
+    if (workflowState === "selected_supplier_notice_pending") {
+      if (isSelectedSupplier) {
+        return awardState?.selectedNoticeSentAt
+          ? "Selected Notice Sent"
+          : "Selected Notice Pending";
+      }
+
       return isOutcomeNoticeSent(bid)
         ? "Result Sent"
         : "Result Pending";
     }
 
     if (
-      isShortlisted &&
-      wasSupplierDeclinedEarlier(bid) &&
-      ![
-        "unsuccessful_supplier_notifications_pending",
-        "award_completed",
-      ].includes(workflowState)
+      workflowState === "winner_selection_required" &&
+      isShortlisted
     ) {
-      return "Declined - No Final Result";
-    }
-
-    if (
-      isShortlisted &&
-      workflowState === "alternate_supplier_selection_required"
-    ) {
-      return "No Result Yet";
-    }
-
-    if (sentToLogistics && isShortlisted) {
       return "Winner Selection Required";
     }
 
-    if (sentToLogistics && !isShortlisted) {
+    if (shortlistFinalized && !isShortlisted) {
       return "Not Shortlisted";
     }
 
@@ -3651,12 +3537,6 @@ Thank you.`;
   const currentAwardWorkflowLabel = getAwardStateLabel(
     currentAwardWorkflowState
   );
-  const isSupplierConfirmed =
-    awardState?.supplierConfirmationStatus === "accepted" ||
-    [
-      "unsuccessful_supplier_notifications_pending",
-      "award_completed",
-    ].includes(currentAwardWorkflowState);
   const isAwardCompleted = currentAwardWorkflowState === "award_completed";
 
   const isBidResultOrder = bidResultStatuses.has(selectedOrderStatus);
@@ -3682,13 +3562,10 @@ Thank you.`;
   );
 
   const isBiddingFinalized =
-    awardState?.sentToLogistics === true ||
+    awardState?.shortlistFinalized === true ||
     [
-      "awaiting_logistics_selection",
+      "winner_selection_required",
       "selected_supplier_notice_pending",
-      "awaiting_supplier_response",
-      "alternate_supplier_selection_required",
-      "unsuccessful_supplier_notifications_pending",
       "award_completed",
     ].includes(currentAwardWorkflowState) ||
     hasSelectedWinner;
@@ -3725,7 +3602,7 @@ Thank you.`;
     getBidCountForOrder,
     getBidStatus,
     getComplianceClass,
-    getLogisticsStateForOrder,
+    getSelectionStateForOrder,
     getNotificationStatus,
     getOrderReference,
     getRecommendation,
@@ -3740,7 +3617,6 @@ Thank you.`;
     isLoading,
     isOrdersLoading,
     isOutcomeNoticeSent,
-    isSupplierConfirmed,
     lowestPriceBid,
     markAllOutcomeNoticesSent,
     markOutcomeNoticeSent,
@@ -3753,7 +3629,6 @@ Thank you.`;
     openSupplierResultEmail,
     openTimerPopup,
     orders,
-    recordSupplierResponse,
     renderStars,
     savingShortlistBidId,
     selectBiddingOrder,
@@ -3763,8 +3638,8 @@ Thank you.`;
     selectedOrderReference,
     selectedOrderStatus,
     selectedWinnerSummary,
-    sendShortlistedToLogistics,
-    sentToLogistics,
+    finalizeShortlist,
+    shortlistFinalized,
     setSelectedBidForDetails,
     setShowBidAcceptedOrders,
     setShowCloseConfirm,
@@ -3792,3 +3667,4 @@ Thank you.`;
     toggleShortlist,
   };
 }
+

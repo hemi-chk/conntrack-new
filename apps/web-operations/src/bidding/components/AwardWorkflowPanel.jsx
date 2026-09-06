@@ -4,7 +4,6 @@ import {
   CircleCheck,
   Clock3,
   Mail,
-  Send,
 } from "lucide-react";
 
 import InfoMini from "./InfoMini";
@@ -14,41 +13,17 @@ function AwardWorkflowPanel({
   workflowState,
   workflowLabel,
   selectedBid,
-  shortlistedCount = 0,
   unsuccessfulBids = [],
   formatMoney,
   formatEta,
   openSupplierResultEmail,
   onOpenBulkUnsuccessfulBccEmail,
   onMarkSelectedNoticeSent,
-  onRecordSupplierResponse,
   onMarkOutcomeNoticeSent,
   onMarkAllOutcomeNoticesSent,
   loading,
 }) {
-  const state = String(
-    workflowState || ""
-  ).toLowerCase();
-
-  const pendingCount = Number(
-    awardState?.pendingUnsuccessfulNotices ||
-      unsuccessfulBids.filter(
-        (bid) =>
-          bid.outcomeNotification?.status !==
-          "sent"
-      ).length ||
-      0
-  );
-
-  const sentCount = Number(
-    awardState?.sentUnsuccessfulNotices ||
-      unsuccessfulBids.filter(
-        (bid) =>
-          bid.outcomeNotification?.status ===
-          "sent"
-      ).length ||
-      0
-  );
+  const state = String(workflowState || "").toLowerCase();
 
   const selectedSupplierName =
     selectedBid?.supplier ||
@@ -61,42 +36,55 @@ function AwardWorkflowPanel({
     null;
 
   const noBidsReceived =
-    state === "bidding_closed_no_bids";
+    state === "no_bids_received";
 
   const shortlistingRequired =
     state === "shortlisting_required";
 
-  const shortlistReady =
-    state === "shortlist_ready_to_send";
-
   const winnerSelectionRequired =
-    !state ||
-    state === "awaiting_logistics_selection";
+    state === "winner_selection_required";
 
-  const selectedNoticePending =
-    state ===
-    "selected_supplier_notice_pending";
-
-  const awaitingResponse =
-    state === "awaiting_supplier_response";
-
-  const alternateRequired =
-    state ===
-    "alternate_supplier_selection_required";
-
-  const unsuccessfulPending =
-    state ===
-    "unsuccessful_supplier_notifications_pending";
+  const selectedSupplierNoticePending =
+    state === "selected_supplier_notice_pending";
 
   const completed =
     state === "award_completed";
 
+  const winnerNoticeSent = Boolean(
+    awardState?.selectedNoticeSentAt ||
+      awardState?.selected_notice_sent_at ||
+      awardState?.raw?.selected_notice_sent_at ||
+      awardState?.raw?.selectedNoticeSentAt
+  );
+
+  const isOutcomeNoticeSent = (bid) => {
+    const status = String(
+      bid?.outcomeNotification?.status ||
+        bid?.outcomeNotification?.notification_status ||
+        bid?.notificationStatus ||
+        bid?.notification_status ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+    return status === "sent";
+  };
+
+  const pendingUnsuccessfulBids =
+    unsuccessfulBids.filter(
+      (bid) => !isOutcomeNoticeSent(bid)
+    );
+
+  /*
+   * 1. NO BIDS RECEIVED
+   */
   if (noBidsReceived) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
         <div className="flex items-start gap-3">
           <AlertTriangle
-            className="text-[#DC2626] mt-0.5"
+            className="mt-0.5 text-[#DC2626]"
             size={20}
           />
 
@@ -105,10 +93,14 @@ function AwardWorkflowPanel({
               No Bids Received
             </h3>
 
-            <p className="text-sm text-slate-600 mt-1">
-              Bidding has closed, but no supplier
-              bids were received for this order.
-              There is nothing to shortlist yet.
+            <p className="mt-1 text-sm text-slate-600">
+              Bidding has closed, but no supplier bids were
+              received for this order.
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-[#DC2626]">
+              Operations can extend the bidding period to allow
+              suppliers more time to submit bids.
             </p>
           </div>
         </div>
@@ -116,12 +108,15 @@ function AwardWorkflowPanel({
     );
   }
 
+  /*
+   * 2. SHORTLISTING REQUIRED
+   */
   if (shortlistingRequired) {
     return (
-      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+      <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4">
         <div className="flex items-start gap-3">
           <CircleAlert
-            className="text-[#EA580C] mt-0.5"
+            className="mt-0.5 text-[#EA580C]"
             size={20}
           />
 
@@ -130,11 +125,15 @@ function AwardWorkflowPanel({
               Shortlisting Required
             </h3>
 
-            <p className="text-sm text-slate-600 mt-1">
-              Bidding is closed. Operations must
-              review the supplier bids below and
-              create the required shortlist before
-              continuing.
+            <p className="mt-1 text-sm text-slate-600">
+              Bidding is closed and supplier bids are available.
+              Operations must review the submitted bids and
+              create the shortlist.
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-[#EA580C]">
+              After the shortlist is finalized, the order moves
+              to Winner Selection Required.
             </p>
           </div>
         </div>
@@ -142,41 +141,15 @@ function AwardWorkflowPanel({
     );
   }
 
-  if (shortlistReady) {
-    return (
-      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
-        <div className="flex items-start gap-3">
-          <Send
-            className="text-[#EA580C] mt-0.5"
-            size={20}
-          />
-
-          <div>
-            <h3 className="text-base font-semibold text-[#1E293B]">
-              Shortlist Ready - Finalize
-            </h3>
-
-            <p className="text-sm text-slate-600 mt-1">
-              {Number(shortlistedCount || 0)}{" "}
-              supplier
-              {Number(shortlistedCount || 0) === 1
-                ? ""
-                : "s"}{" "}
-              shortlisted. Finalize the shortlist
-              to continue to winner selection.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  /*
+   * 3. WINNER SELECTION REQUIRED
+   */
   if (winnerSelectionRequired) {
     return (
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
         <div className="flex items-start gap-3">
           <Clock3
-            className="text-[#1E40AF] mt-0.5"
+            className="mt-0.5 text-[#1E40AF]"
             size={20}
           />
 
@@ -185,12 +158,16 @@ function AwardWorkflowPanel({
               Winner Selection Required
             </h3>
 
-            <p className="text-sm text-slate-600 mt-1">
-              The shortlist has been finalized.
-              Operations must now select the winning
-              supplier from the shortlisted bids.
-              Supplier result notifications must not
-              be sent yet.
+            <p className="mt-1 text-sm text-slate-600">
+              The shortlist has been finalized. Operations must
+              review the shortlisted bids and select the winning
+              supplier.
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-[#1E40AF]">
+              Once Operations selects the winner, the winning bid
+              is accepted immediately and all remaining bids are
+              rejected.
             </p>
           </div>
         </div>
@@ -198,315 +175,219 @@ function AwardWorkflowPanel({
     );
   }
 
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        completed
-          ? "bg-green-50 border-green-200"
-          : alternateRequired
-          ? "bg-red-50 border-red-200"
-          : "bg-white border-slate-200"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-            Award Workflow
-          </p>
-
-          <h3 className="text-lg font-bold text-[#1E293B] mt-1">
-            {workflowLabel}
-          </h3>
-
-          {selectedSupplierName !== "-" && (
-            <p className="text-sm text-slate-600 mt-1">
-              Selected supplier:{" "}
-              {selectedSupplierName}
+  /*
+   * 4. SELECTED SUPPLIER NOTICE PENDING
+   */
+  if (selectedSupplierNoticePending) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Award Result
             </p>
-          )}
-        </div>
 
-        <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-            completed
-              ? "bg-green-100 text-[#16A34A]"
-              : alternateRequired
-              ? "bg-red-100 text-[#DC2626]"
-              : selectedNoticePending ||
-                unsuccessfulPending
-              ? "bg-orange-100 text-[#EA580C]"
-              : "bg-blue-100 text-[#1E40AF]"
-          }`}
-        >
-          {completed ? (
-            <CircleCheck size={14} />
-          ) : (
+            <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
+              <Mail
+                size={20}
+                className="text-[#D97706]"
+              />
+              Selected Supplier Notice Pending
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-600">
+              Operations has selected the winning supplier. The
+              winning bid is accepted and all remaining bids are
+              rejected.
+            </p>
+
+            <p className="mt-2 text-xs font-medium text-[#D97706]">
+              Inform the selected supplier and every unsuccessful
+              supplier. The award completes automatically when
+              all required notices are marked as sent.
+            </p>
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-[#B45309]">
             <Clock3 size={14} />
-          )}
-
-          {workflowLabel}
-        </span>
-      </div>
-
-      {selectedBid && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-white/70 border border-slate-100 rounded-xl p-4">
-          <InfoMini
-            label="Supplier"
-            value={selectedSupplierName}
-          />
-
-          <InfoMini
-            label="Bid Amount"
-            value={
-              selectedAmount !== null &&
-              selectedAmount !== undefined
-                ? formatMoney(selectedAmount)
-                : "-"
-            }
-            green={
-              completed ||
-              unsuccessfulPending
-            }
-          />
-
-          <InfoMini
-            label="ETA"
-            value={formatEta(
-              selectedBid?.eta || "-"
-            )}
-          />
-
-          <InfoMini
-            label="Supplier Response"
-            value={
-              awardState?.supplierConfirmationStatus
-                ? awardState.supplierConfirmationStatus
-                    .replaceAll("_", " ")
-                    .replace(
-                      /\b\w/g,
-                      (char) =>
-                        char.toUpperCase()
-                    )
-                : awaitingResponse
-                ? "Pending"
-                : "-"
-            }
-          />
+            {workflowLabel || "Notice Pending"}
+          </span>
         </div>
-      )}
 
-      {selectedNoticePending &&
-        selectedBid && (
-          <div className="mt-4 border-t border-slate-200 pt-4">
-            <p className="text-sm font-semibold text-[#1E293B]">
-              Operations action required
-            </p>
+        {selectedBid && (
+          <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-amber-100 bg-white/80 p-4 md:grid-cols-4">
+            <InfoMini
+              label="Winning Supplier"
+              value={selectedSupplierName}
+            />
 
-            <p className="text-sm text-slate-600 mt-1">
-              Send the selected supplier notice.
-              Opening Gmail alone does not mark the
-              notice as sent.
-            </p>
+            <InfoMini
+              label="Winning Bid"
+              value={
+                selectedAmount !== null &&
+                selectedAmount !== undefined
+                  ? formatMoney(selectedAmount)
+                  : "-"
+              }
+              green
+            />
 
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                type="button"
-                onClick={() =>
-                  openSupplierResultEmail(
-                    selectedBid,
-                    "selected"
-                  )
-                }
-                className="px-4 py-2 rounded-lg border border-[#1E40AF] text-[#1E40AF] bg-white text-sm font-semibold hover:bg-[#EFF6FF]"
-              >
-                <Mail
-                  size={15}
-                  className="inline mr-2"
-                />
-                Open Email
-              </button>
+            <InfoMini
+              label="ETA"
+              value={formatEta(
+                selectedBid?.eta || "-"
+              )}
+            />
 
-              <button
-                type="button"
-                disabled={loading}
-                onClick={
-                  onMarkSelectedNoticeSent
-                }
-                className="px-4 py-2 rounded-lg bg-[#052659] text-white text-sm font-semibold disabled:opacity-50"
-              >
-                <CircleCheck
-                  size={15}
-                  className="inline mr-2"
-                />
-
-                {loading
-                  ? "Saving..."
-                  : "Mark Selected Notice as Sent"}
-              </button>
-            </div>
+            <InfoMini
+              label="Bid Status"
+              value="Accepted"
+              green
+            />
           </div>
         )}
 
-      {awaitingResponse && (
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <p className="text-sm font-semibold text-[#1E293B]">
-            Awaiting Supplier Response
-          </p>
-
-          <p className="text-sm text-slate-600 mt-1">
-            Record the response only after the
-            selected supplier actually accepts or
-            rejects the award. Do not notify
-            unsuccessful suppliers yet.
-          </p>
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() =>
-                onRecordSupplierResponse(
-                  "accepted"
-                )
-              }
-              className="px-4 py-2 rounded-lg bg-[#16A34A] text-white text-sm font-semibold disabled:opacity-50"
-            >
-              Record Accepted
-            </button>
-
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() =>
-                onRecordSupplierResponse(
-                  "rejected"
-                )
-              }
-              className="px-4 py-2 rounded-lg bg-[#DC2626] text-white text-sm font-semibold disabled:opacity-50"
-            >
-              Record Rejected
-            </button>
-          </div>
-        </div>
-      )}
-
-      {alternateRequired && (
-        <div className="mt-4 bg-white border border-red-100 rounded-xl p-4">
-          <div className="flex gap-3 items-start">
-            <AlertTriangle
-              className="text-[#DC2626] mt-0.5"
-              size={20}
-            />
-
-            <div>
-              <p className="text-sm font-semibold text-[#DC2626]">
-                Supplier Declined
-              </p>
-
-              <p className="text-sm text-slate-600 mt-1">
-                The previously selected supplier
-                declined the award. Operations must
-                now select an alternate supplier
-                from the remaining shortlisted
-                bids. Do not send unsuccessful
-                supplier notifications yet.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {(unsuccessfulPending ||
-        completed) && (
-        <div className="mt-4 border-t border-slate-200 pt-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="mt-4 border-t border-amber-200 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-semibold text-[#1E293B]">
-                Unsuccessful Supplier Notifications
+                Supplier Result Notifications
               </p>
 
-              <p className="text-xs text-slate-500 mt-1">
-                {completed
-                  ? "All required result notifications have been completed."
-                  : `${pendingCount} notification${
-                      pendingCount === 1
-                        ? ""
-                        : "s"
-                    } remaining · ${sentCount} sent`}
+              <p className="mt-1 text-xs text-slate-500">
+                Send the result email, then mark the corresponding
+                notice as sent.
               </p>
             </div>
 
-            {!completed && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={
-                    onOpenBulkUnsuccessfulBccEmail
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-[#052659] bg-white px-4 py-2 text-xs font-semibold text-[#052659] transition hover:bg-[#EFF6FF]"
-                  title="Open one BCC email for all unsuccessful suppliers"
-                >
-                  <Mail size={15} />
-                  Email All (BCC)
-                </button>
-
-                {pendingCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedBid &&
+                openSupplierResultEmail && (
                   <button
                     type="button"
                     disabled={loading}
-                    onClick={
-                      onMarkAllOutcomeNoticesSent
+                    onClick={() =>
+                      openSupplierResultEmail(
+                        selectedBid,
+                        "selected"
+                      )
                     }
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5483B3] disabled:cursor-not-allowed disabled:opacity-50"
-                    title="Mark every pending unsuccessful supplier notification as sent"
+                    className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-white px-4 py-2 text-xs font-semibold text-[#16A34A] transition hover:bg-green-50 disabled:opacity-50"
                   >
-                    <CircleCheck
-                      size={15}
-                    />
-
-                    {loading
-                      ? "Saving..."
-                      : "Mark All as Sent"}
+                    <Mail size={15} />
+                    Winner Email
                   </button>
                 )}
-              </div>
-            )}
+
+              {selectedBid &&
+                winnerNoticeSent && (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-xs font-semibold text-[#16A34A]">
+                    <CircleCheck size={15} />
+                    Winner Notice Sent
+                  </span>
+                )}
+
+              {selectedBid &&
+                !winnerNoticeSent &&
+                onMarkSelectedNoticeSent && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={onMarkSelectedNoticeSent}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5483B3] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CircleCheck size={15} />
+                    {loading
+                      ? "Saving..."
+                      : "Mark Winner Notice Sent"}
+                  </button>
+                )}
+            </div>
           </div>
 
-          <div className="mt-3 space-y-2">
-            {unsuccessfulBids.length ===
-            0 ? (
-              <p className="text-sm text-slate-500">
-                No unsuccessful supplier
-                notification records were returned
-                by the backend.
+          {unsuccessfulBids.length === 0 ? (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-3">
+              <p className="text-sm text-slate-600">
+                There are no unsuccessful suppliers to notify.
+                After the winner notice is marked as sent, the
+                award will complete automatically.
               </p>
-            ) : (
-              unsuccessfulBids.map(
-                (bid) => {
+            </div>
+          ) : (
+            <>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-[#1E293B]">
+                    Unsuccessful Suppliers
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    {pendingUnsuccessfulBids.length} notification
+                    {pendingUnsuccessfulBids.length === 1
+                      ? ""
+                      : "s"}{" "}
+                    still pending.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {onOpenBulkUnsuccessfulBccEmail && (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={
+                        onOpenBulkUnsuccessfulBccEmail
+                      }
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#052659] bg-white px-4 py-2 text-xs font-semibold text-[#052659] transition hover:bg-[#EFF6FF] disabled:opacity-50"
+                    >
+                      <Mail size={15} />
+                      Email Unsuccessful Suppliers
+                    </button>
+                  )}
+
+                  {pendingUnsuccessfulBids.length > 0 &&
+                    onMarkAllOutcomeNoticesSent && (
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={
+                          onMarkAllOutcomeNoticesSent
+                        }
+                        className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5483B3] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <CircleCheck size={15} />
+                        {loading
+                          ? "Saving..."
+                          : "Mark All Unsuccessful Sent"}
+                      </button>
+                    )}
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {unsuccessfulBids.map((bid) => {
                   const sent =
-                    bid.outcomeNotification
-                      ?.status === "sent";
+                    isOutcomeNoticeSent(bid);
 
                   return (
                     <div
-                      key={bid.id}
-                      className="bg-white border border-slate-200 rounded-xl px-3 py-3 flex items-center justify-between gap-3 flex-wrap"
+                      key={bid.id || bid.bidId}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3"
                     >
                       <div>
                         <p className="text-sm font-semibold text-[#1E293B]">
                           {bid.supplier}
                         </p>
 
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <p className="mt-0.5 text-xs text-slate-500">
                           {bid.supplierEmail ||
                             "No email"}
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                             sent
                               ? "bg-green-100 text-[#16A34A]"
                               : "bg-orange-100 text-[#EA580C]"
@@ -518,46 +399,144 @@ function AwardWorkflowPanel({
                         </span>
 
                         {!sent &&
-                          !completed && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  openSupplierResultEmail(
-                                    bid,
-                                    "rejected"
-                                  )
-                                }
-                                className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-[#DC2626] text-xs font-semibold hover:bg-red-100"
-                              >
-                                Open Email
-                              </button>
+                          openSupplierResultEmail && (
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() =>
+                                openSupplierResultEmail(
+                                  bid,
+                                  "rejected"
+                                )
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-[#DC2626] transition hover:bg-red-100 disabled:opacity-50"
+                            >
+                              <Mail size={14} />
+                              Open Email
+                            </button>
+                          )}
 
-                              <button
-                                type="button"
-                                disabled={
-                                  loading
-                                }
-                                onClick={() =>
-                                  onMarkOutcomeNoticeSent(
-                                    bid
-                                  )
-                                }
-                                className="px-3 py-1.5 rounded-lg bg-[#052659] text-white text-xs font-semibold disabled:opacity-50"
-                              >
-                                Mark as Sent
-                              </button>
-                            </>
+                        {!sent &&
+                          onMarkOutcomeNoticeSent && (
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() =>
+                                onMarkOutcomeNoticeSent(
+                                  bid
+                                )
+                              }
+                              className="inline-flex items-center gap-2 rounded-lg bg-[#052659] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#5483B3] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <CircleCheck
+                                size={14}
+                              />
+                              Mark as Sent
+                            </button>
                           )}
                       </div>
                     </div>
                   );
-                }
-              )
-            )}
-          </div>
+                })}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
+
+  /*
+   * 5. AWARD COMPLETED
+   */
+  if (completed) {
+    return (
+      <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Award Result
+            </p>
+
+            <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
+              <CircleCheck
+                size={20}
+                className="text-[#16A34A]"
+              />
+              Award Completed
+            </h3>
+
+            <p className="mt-1 text-sm text-slate-600">
+              Operations has completed the bidding and supplier
+              award process for this order.
+            </p>
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-[#16A34A]">
+            <CircleCheck size={14} />
+            {workflowLabel || "Award Completed"}
+          </span>
+        </div>
+
+        {selectedBid && (
+          <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-green-100 bg-white/80 p-4 md:grid-cols-4">
+            <InfoMini
+              label="Winning Supplier"
+              value={selectedSupplierName}
+            />
+
+            <InfoMini
+              label="Winning Bid"
+              value={
+                selectedAmount !== null &&
+                selectedAmount !== undefined
+                  ? formatMoney(selectedAmount)
+                  : "-"
+              }
+              green
+            />
+
+            <InfoMini
+              label="ETA"
+              value={formatEta(
+                selectedBid?.eta || "-"
+              )}
+            />
+
+            <InfoMini
+              label="Bid Status"
+              value="Accepted"
+              green
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /*
+   * UNKNOWN / MISSING BACKEND STATE
+   */
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="flex items-start gap-3">
+        <Clock3
+          className="mt-0.5 text-[#1E40AF]"
+          size={20}
+        />
+
+        <div>
+          <h3 className="text-base font-semibold text-[#1E293B]">
+            Award Workflow
+          </h3>
+
+          <p className="mt-1 text-sm text-slate-600">
+            No valid award workflow state was returned for this
+            order. Refresh the order or check the backend award
+            state.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

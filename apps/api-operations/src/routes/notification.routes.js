@@ -1,14 +1,30 @@
-import express from 'express'
+﻿import express from 'express'
 import { supabase } from '../config/supabase.js'
 
 const router = express.Router()
+
 const TABLE = 'notification_operations'
 
-function isMissingColumnError(error) {
-  if (!error) return false
+const ALLOWED_SOURCE_ROLES = [
+  'admin',
+]
 
-  const message = String(error.message || '').toLowerCase()
-  const code = String(error.code || '')
+const ALLOWED_EVENT_TYPES = [
+  'admin_issue_status_changed',
+]
+
+function isMissingColumnError(error) {
+  if (!error) {
+    return false
+  }
+
+  const message = String(
+    error.message || ''
+  ).toLowerCase()
+
+  const code = String(
+    error.code || ''
+  )
 
   return (
     code === '42703' ||
@@ -17,19 +33,42 @@ function isMissingColumnError(error) {
   )
 }
 
-async function updateNotificationById(notificationId, values) {
-  const possibleIdColumns = ['id', 'notification_id']
+async function updateNotificationById(
+  notificationId,
+  values
+) {
+  const possibleIdColumns = [
+    'id',
+    'notification_id',
+  ]
+
   let lastError = null
 
   for (const column of possibleIdColumns) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(TABLE)
       .update(values)
       .eq(column, notificationId)
+      .in(
+        'source_role',
+        ALLOWED_SOURCE_ROLES
+      )
+      .in(
+        'event_type',
+        ALLOWED_EVENT_TYPES
+      )
       .select()
 
+    const {
+      data,
+      error,
+    } = await query
+
     if (!error) {
-      return { data: data || [], error: null }
+      return {
+        data: data || [],
+        error: null,
+      }
     }
 
     lastError = error
@@ -39,22 +78,45 @@ async function updateNotificationById(notificationId, values) {
     }
   }
 
-  return { data: [], error: lastError }
+  return {
+    data: [],
+    error: lastError,
+  }
 }
 
-async function deleteNotificationById(notificationId) {
-  const possibleIdColumns = ['id', 'notification_id']
+async function deleteNotificationById(
+  notificationId
+) {
+  const possibleIdColumns = [
+    'id',
+    'notification_id',
+  ]
+
   let lastError = null
 
   for (const column of possibleIdColumns) {
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from(TABLE)
       .delete()
       .eq(column, notificationId)
+      .in(
+        'source_role',
+        ALLOWED_SOURCE_ROLES
+      )
+      .in(
+        'event_type',
+        ALLOWED_EVENT_TYPES
+      )
       .select()
 
     if (!error) {
-      return { data: data || [], error: null }
+      return {
+        data: data || [],
+        error: null,
+      }
     }
 
     lastError = error
@@ -64,23 +126,57 @@ async function deleteNotificationById(notificationId) {
     }
   }
 
-  return { data: [], error: lastError }
+  return {
+    data: [],
+    error: lastError,
+  }
 }
+
+// ============================================================
+// GET OPERATIONS NOTIFICATIONS
+//
+// Only incoming notifications are shown:
+//
+// Admin:
+//   - admin_issue_status_changed
+// ============================================================
 
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from(TABLE)
       .select('*')
-      .order('created_at', { ascending: false })
+      .in(
+        'source_role',
+        ALLOWED_SOURCE_ROLES
+      )
+      .in(
+        'event_type',
+        ALLOWED_EVENT_TYPES
+      )
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        }
+      )
       .limit(100)
 
-    if (error) throw error
+    if (error) {
+      throw error
+    }
 
-    const notifications = data || []
-    const unreadCount = notifications.filter(
-      (notification) => !notification.is_read
-    ).length
+    const notifications =
+      data || []
+
+    const unreadCount =
+      notifications.filter(
+        (notification) =>
+          !notification.is_read
+      ).length
 
     return res.status(200).json({
       success: true,
@@ -88,7 +184,10 @@ router.get('/', async (req, res) => {
       notifications,
     })
   } catch (error) {
-    console.error('GET operations notifications error:', error)
+    console.error(
+      'GET operations notifications error:',
+      error
+    )
 
     return res.status(500).json({
       success: false,
@@ -99,144 +198,220 @@ router.get('/', async (req, res) => {
   }
 })
 
-router.patch('/read-all', async (req, res) => {
-  try {
-    const readAt = new Date().toISOString()
+// ============================================================
+// MARK ONE NOTIFICATION AS READ
+// ============================================================
 
-    const { data, error } = await supabase
-      .from(TABLE)
-      .update({
-        is_read: true,
-        read_at: readAt,
-      })
-      .eq('is_read', false)
-      .select()
+router.patch(
+  '/:notificationId/read',
+  async (req, res) => {
+    try {
+      const {
+        notificationId,
+      } = req.params
 
-    if (error) throw error
+      const {
+        data,
+        error,
+      } =
+        await updateNotificationById(
+          notificationId,
+          {
+            is_read: true,
+          }
+        )
 
-    return res.status(200).json({
-      success: true,
-      updated_count: (data || []).length,
-      notifications: data || [],
-    })
-  } catch (error) {
-    console.error(
-      'PATCH read-all operations notifications error:',
-      error
-    )
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        'Failed to mark all notifications as read.',
-    })
-  }
-})
-
-router.patch('/:notificationId/read', async (req, res) => {
-  try {
-    const { notificationId } = req.params
-
-    const { data, error } = await updateNotificationById(
-      notificationId,
-      {
-        is_read: true,
-        read_at: new Date().toISOString(),
+      if (error) {
+        throw error
       }
-    )
 
-    if (error) throw error
+      if (!data.length) {
+        return res.status(404).json({
+          success: false,
+          message:
+            'Notification not found.',
+        })
+      }
 
-    if (!data.length) {
-      return res.status(404).json({
+      return res.status(200).json({
+        success: true,
+        notification: data[0],
+      })
+    } catch (error) {
+      console.error(
+        'MARK notification read error:',
+        error
+      )
+
+      return res.status(500).json({
         success: false,
-        message: 'Notification not found.',
+        message:
+          error.message ||
+          'Failed to mark notification as read.',
       })
     }
-
-    return res.status(200).json({
-      success: true,
-      notification: data[0],
-    })
-  } catch (error) {
-    console.error(
-      'PATCH one Operations notification error:',
-      error
-    )
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        'Failed to mark notification as read.',
-    })
   }
-})
+)
 
-router.delete('/read', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .delete()
-      .eq('is_read', true)
-      .select()
+// ============================================================
+// MARK ALL INCOMING NOTIFICATIONS AS READ
+// ============================================================
 
-    if (error) throw error
+router.patch(
+  '/read-all',
+  async (req, res) => {
+    try {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(TABLE)
+        .update({
+          is_read: true,
+        })
+        .in(
+          'source_role',
+          ALLOWED_SOURCE_ROLES
+        )
+        .in(
+          'event_type',
+          ALLOWED_EVENT_TYPES
+        )
+        .eq(
+          'is_read',
+          false
+        )
+        .select()
 
-    return res.status(200).json({
-      success: true,
-      deleted_count: (data || []).length,
-    })
-  } catch (error) {
-    console.error(
-      'DELETE read Operations notifications error:',
-      error
-    )
+      if (error) {
+        throw error
+      }
 
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        'Failed to clear checked notifications.',
-    })
-  }
-})
+      return res.status(200).json({
+        success: true,
+        updated_count:
+          data?.length || 0,
+      })
+    } catch (error) {
+      console.error(
+        'MARK ALL notifications read error:',
+        error
+      )
 
-router.delete('/:notificationId', async (req, res) => {
-  try {
-    const { notificationId } = req.params
-
-    const { data, error } = await deleteNotificationById(
-      notificationId
-    )
-
-    if (error) throw error
-
-    if (!data.length) {
-      return res.status(404).json({
+      return res.status(500).json({
         success: false,
-        message: 'Notification not found.',
+        message:
+          error.message ||
+          'Failed to mark notifications as read.',
       })
     }
-
-    return res.status(200).json({
-      success: true,
-      deleted_notification: data[0],
-    })
-  } catch (error) {
-    console.error(
-      'DELETE one Operations notification error:',
-      error
-    )
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        'Failed to remove notification.',
-    })
   }
-})
+)
+
+// ============================================================
+// DELETE ONE INCOMING NOTIFICATION
+// ============================================================
+
+// ============================================================
+// DELETE ALL READ INCOMING NOTIFICATIONS
+// ============================================================
+
+router.delete(
+  '/read',
+  async (req, res) => {
+    try {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(TABLE)
+        .delete()
+        .eq(
+          'is_read',
+          true
+        )
+        .in(
+          'source_role',
+          ALLOWED_SOURCE_ROLES
+        )
+        .in(
+          'event_type',
+          ALLOWED_EVENT_TYPES
+        )
+        .select()
+
+      if (error) {
+        throw error
+      }
+
+      return res.status(200).json({
+        success: true,
+        deleted_count:
+          data?.length || 0,
+      })
+    } catch (error) {
+      console.error(
+        'DELETE read Operations notifications error:',
+        error
+      )
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          'Failed to clear read notifications.',
+      })
+    }
+  }
+)
+router.delete(
+  '/:notificationId',
+  async (req, res) => {
+    try {
+      const {
+        notificationId,
+      } = req.params
+
+      const {
+        data,
+        error,
+      } =
+        await deleteNotificationById(
+          notificationId
+        )
+
+      if (error) {
+        throw error
+      }
+
+      if (!data.length) {
+        return res.status(404).json({
+          success: false,
+          message:
+            'Notification not found.',
+        })
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          'Notification deleted successfully.',
+      })
+    } catch (error) {
+      console.error(
+        'DELETE notification error:',
+        error
+      )
+
+      return res.status(500).json({
+        success: false,
+        message:
+          error.message ||
+          'Failed to delete notification.',
+      })
+    }
+  }
+)
 
 export default router
+

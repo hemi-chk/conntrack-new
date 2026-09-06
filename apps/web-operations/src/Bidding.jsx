@@ -1,4 +1,4 @@
-import {
+﻿import {
   AlertTriangle,
   BadgeDollarSign,
   ChevronDown,
@@ -11,14 +11,14 @@ import {
   Star,
 } from "lucide-react";
 
-import BiddingOrdersTable from "./bidding/components/BiddingOrdersTable";
-import AwardWorkflowPanel from "./bidding/components/AwardWorkflowPanel";
 import AwardWorkflowModal from "./bidding/components/AwardWorkflowModal";
-import ScoreDetailsModal from "./bidding/components/ScoreDetailsModal";
+import AwardWorkflowPanel from "./bidding/components/AwardWorkflowPanel";
+import BiddingOrdersTable from "./bidding/components/BiddingOrdersTable";
 import MiniStatusCard from "./bidding/components/MiniStatusCard";
 import OrderTableCell from "./bidding/components/OrderTableCell";
-import TimerInput from "./bidding/components/TimerInput";
+import ScoreDetailsModal from "./bidding/components/ScoreDetailsModal";
 import SummaryCard from "./bidding/components/SummaryCard";
+import TimerInput from "./bidding/components/TimerInput";
 
 import useBiddingController from "./bidding/hooks/useBiddingController";
 
@@ -50,7 +50,7 @@ function Bidding(props) {
     getBidCountForOrder,
     getBidStatus,
     getComplianceClass,
-    getLogisticsStateForOrder,
+    getSelectionStateForOrder,
     getNotificationStatus,
     getOrderReference,
     getRecommendation,
@@ -65,7 +65,6 @@ function Bidding(props) {
     isLoading,
     isOrdersLoading,
     isOutcomeNoticeSent,
-    isSupplierConfirmed,
     lowestPriceBid,
     markAllOutcomeNoticesSent,
     markOutcomeNoticeSent,
@@ -78,7 +77,6 @@ function Bidding(props) {
     openSupplierResultEmail,
     openTimerPopup,
     orders,
-    recordSupplierResponse,
     renderStars,
     savingShortlistBidId,
     selectBiddingOrder,
@@ -88,8 +86,8 @@ function Bidding(props) {
     selectedOrderReference,
     selectedOrderStatus,
     selectedWinnerSummary,
-    sendShortlistedToLogistics,
-    sentToLogistics,
+    finalizeShortlist,
+    shortlistFinalized,
     setSelectedBidForDetails,
     setShowBidAcceptedOrders,
     setShowCloseConfirm,
@@ -116,6 +114,36 @@ function Bidding(props) {
     timerMode,
     toggleShortlist,
   } = useBiddingController(props);
+
+  // Highest Score uses the exact same score shown in the Score column.
+  // Other sort options continue to use the controller's existing sorting logic.
+  const bidsForDisplay =
+    sortBy === "Highest Score"
+      ? [...displayedBids].sort((a, b) => {
+          const scoreA = Number(
+            calculateSupplierScore(a)?.totalScore || 0
+          );
+          const scoreB = Number(
+            calculateSupplierScore(b)?.totalScore || 0
+          );
+
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+
+          const priceA = Number(a.amount || 0);
+          const priceB = Number(b.amount || 0);
+
+          if (priceA !== priceB) {
+            return priceA - priceB;
+          }
+
+          return (
+            Number(b.rating || 0) -
+            Number(a.rating || 0)
+          );
+        })
+      : displayedBids;
 
   return (
     <div className="bg-[#EBF4FF] p-5 min-h-full">
@@ -168,7 +196,7 @@ function Bidding(props) {
           getOrderReference={getOrderReference}
           getBidCountForOrder={getBidCountForOrder}
           getWinnerForOrder={getWinnerForOrder}
-          getLogisticsStateForOrder={getLogisticsStateForOrder}
+          getSelectionStateForOrder={getSelectionStateForOrder}
           getAwardStateForOrder={getAwardStateForOrder}
           isLoading={isOrdersLoading}
           actionLabel="View Bid Result"
@@ -255,10 +283,7 @@ function Bidding(props) {
             type={
               isAwardCompleted
                 ? "success"
-                : [
-                    "alternate_supplier_selection_required",
-                    "bidding_closed_no_bids",
-                  ].includes(currentAwardWorkflowState)
+                : currentAwardWorkflowState === "no_bids_received"
                 ? "danger"
                 : currentAwardWorkflowState
                 ? "primary"
@@ -306,20 +331,15 @@ function Bidding(props) {
               selectedWinnerSummary?.supplier
                 ? selectedWinnerSummary.supplier
                 : currentAwardWorkflowState ===
-                  "alternate_supplier_selection_required"
-                ? "Selection Required"
-                : currentAwardWorkflowState ===
-                    "awaiting_logistics_selection"
-                ? "Awaiting Logistics"
+                    "winner_selection_required"
+                ? "Winner Selection Required"
                 : currentAwardWorkflowState
                 ? "Not Yet Selected"
                 : "Not Selected"
             }
             type={
-              isSupplierConfirmed
+              selectedWinnerSummary?.supplier
                 ? "success"
-                : selectedWinnerSummary?.supplier
-                ? "primary"
                 : "neutral"
             }
           />
@@ -524,9 +544,9 @@ function Bidding(props) {
                 </>
               )}
 
-              {currentAwardWorkflowState === "bidding_closed_no_bids" &&
+              {currentAwardWorkflowState === "no_bids_received" &&
                 !isBiddingOpen &&
-                !sentToLogistics && (
+                !shortlistFinalized && (
                   <button
                     onClick={extendTimerPopup}
                     className="px-4 py-2 rounded-lg text-sm font-medium bg-[#052659] text-white hover:bg-[#5483B3] transition"
@@ -538,7 +558,7 @@ function Bidding(props) {
               {!isBiddingFinalized &&
                 selectedOrderStatus === "open_for_bids" && (
                   <button
-                    onClick={sendShortlistedToLogistics}
+                    onClick={finalizeShortlist}
                     disabled={
                       isBiddingOpen ||
                       bids.length === 0 ||
@@ -604,7 +624,6 @@ function Bidding(props) {
                 openSupplierResultEmail={openSupplierResultEmail}
                 onOpenBulkUnsuccessfulBccEmail={openBulkUnsuccessfulBccEmail}
                 onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
-                onRecordSupplierResponse={recordSupplierResponse}
                 onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
                 onMarkAllOutcomeNoticesSent={markAllOutcomeNoticesSent}
                 loading={awardActionLoading}
@@ -718,6 +737,7 @@ function Bidding(props) {
               className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-[#1E293B] bg-white outline-none focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
             >
               <option value="Lowest Price">Lowest Price</option>
+              <option value="Highest Score">Highest Score</option>
               <option value="Highest Rating">Highest Rating</option>
               <option value="Compliance">Compliance</option>
             </select>
@@ -730,7 +750,7 @@ function Bidding(props) {
               <div className="py-10 text-center text-sm text-slate-500">
                 Loading bids...
               </div>
-            ) : displayedBids.length ===
+            ) : bidsForDisplay.length ===
               0 ? (
               <div className="py-10 text-center text-sm text-slate-500">
                 No bids found for this order.
@@ -789,7 +809,7 @@ function Bidding(props) {
 
                 <tbody>
 
-                  {displayedBids.map(
+                  {bidsForDisplay.map(
                     (bid) => {
                       const isLowest =
                         lowestPriceBid?.id ===
@@ -803,7 +823,14 @@ function Bidding(props) {
 
                       const isWinner =
                         freshWinningBid &&
-                        Number(freshWinningBid.id) === Number(bid.id);
+                        Number(
+                          freshWinningBid.id ||
+                            freshWinningBid.bidId
+                        ) ===
+                          Number(
+                            bid.id ||
+                              bid.bidId
+                          );
 
                       const recommendation =
                         getRecommendation(
@@ -842,13 +869,9 @@ function Bidding(props) {
 
                               {isWinner && (
                                 <div
-                                  className={`text-[9px] font-bold px-2 py-1 rounded-md w-[86px] text-center border ${
-                                    isSupplierConfirmed
-                                      ? "bg-green-100 text-[#16A34A] border-green-200"
-                                      : "bg-blue-100 text-[#1E40AF] border-blue-200"
-                                  }`}
+                                  className="text-[9px] font-bold px-2 py-1 rounded-md w-[86px] text-center border bg-green-100 text-[#16A34A] border-green-200"
                                 >
-                                  {isSupplierConfirmed ? "CONFIRMED" : "SELECTED"}
+                                  ACCEPTED
                                 </div>
                               )}
 
@@ -970,19 +993,13 @@ function Bidding(props) {
 
                             <span
                               className={`px-2.5 py-1 rounded-full text-xs ${
-                                getBidStatus(bid) === "Shortlisted" ||
-                                getBidStatus(bid) === "Selected by Logistics" ||
-                                getBidStatus(bid) === "Awaiting Response"
-                                  ? "bg-[#EFF6FF] text-[#1E40AF]"
-                                  : getBidStatus(bid) === "Confirmed Supplier" ||
-                                    getBidStatus(bid) === "Unsuccessful - Notified"
+                                getBidStatus(bid) === "Accepted"
                                   ? "bg-green-100 text-[#16A34A]"
-                                  : getBidStatus(bid) === "Supplier Declined" ||
-                                    getBidStatus(bid) === "Declined Earlier" ||
-                                    getBidStatus(bid) === "Unsuccessful"
+                                  : getBidStatus(bid) === "Rejected"
                                   ? "bg-red-100 text-[#DC2626]"
-                                  : getBidStatus(bid) === "Awaiting Logistics" ||
-                                    getBidStatus(bid) === "Available for Alternate"
+                                  : getBidStatus(bid) === "Shortlisted"
+                                  ? "bg-[#EFF6FF] text-[#1E40AF]"
+                                  : getBidStatus(bid) === "Winner Selection Required"
                                   ? "bg-orange-100 text-[#EA580C]"
                                   : "bg-slate-100 text-slate-600"
                               }`}
@@ -1000,19 +1017,14 @@ function Bidding(props) {
                                 getNotificationStatus(bid);
 
                               const notificationClass =
-                                notificationStatus === "Supplier Confirmed" ||
                                 notificationStatus === "Result Sent"
                                   ? "bg-green-100 text-[#16A34A]"
-                                  : notificationStatus === "Supplier Declined" ||
-                                    notificationStatus ===
-                                      "Declined - No Final Result"
-                                  ? "bg-red-100 text-[#DC2626]"
-                                  : notificationStatus === "Selected Notice Pending" ||
-                                    notificationStatus === "Result Pending" ||
-                                    notificationStatus === "Awaiting Logistics"
-                                  ? "bg-orange-100 text-[#EA580C]"
                                   : notificationStatus === "Selected Notice Sent"
                                   ? "bg-blue-100 text-[#1E40AF]"
+                                  : notificationStatus === "Selected Notice Pending" ||
+                                    notificationStatus === "Result Pending" ||
+                                    notificationStatus === "Winner Selection Required"
+                                  ? "bg-orange-100 text-[#EA580C]"
                                   : "bg-slate-100 text-slate-600";
 
                               return (
@@ -1040,14 +1052,11 @@ function Bidding(props) {
                                 View Details
                               </button>
 
-                              {sentToLogistics &&
+                              {shortlistFinalized &&
                                 isShortlisted &&
                                 !isWinner &&
-                                [
-                                  "awaiting_logistics_selection",
-                                  "alternate_supplier_selection_required",
-                                ].includes(currentAwardWorkflowState) &&
-                                getBidStatus(bid) !== "Declined Earlier" && (
+                                currentAwardWorkflowState ===
+                                  "winner_selection_required" && (
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -1058,9 +1067,6 @@ function Bidding(props) {
                                   >
                                     {awardActionLoading
                                       ? "Selecting..."
-                                      : currentAwardWorkflowState ===
-                                        "alternate_supplier_selection_required"
-                                      ? "Select Alternate"
                                       : "Select Winner"}
                                   </button>
                                 )}
@@ -1088,7 +1094,7 @@ function Bidding(props) {
                                     Award Center
                                   </button>
                                 </>
-                              ) : !sentToLogistics ? (
+                              ) : !shortlistFinalized ? (
                                 <button
                                   onClick={() => toggleShortlist(bid.id)}
                                   disabled={
@@ -1126,7 +1132,7 @@ function Bidding(props) {
                               ) :
                                 !isWinner &&
                                 [
-                                  "unsuccessful_supplier_notifications_pending",
+                                  "selected_supplier_notice_pending",
                                   "award_completed",
                                 ].includes(currentAwardWorkflowState) ? (
                                 <button
@@ -1137,15 +1143,6 @@ function Bidding(props) {
                                   {isOutcomeNoticeSent(bid)
                                     ? "Result Sent"
                                     : "Use Award Center"}
-                                </button>
-                              ) : isShortlisted &&
-                                currentAwardWorkflowState ===
-                                  "alternate_supplier_selection_required" ? (
-                                <button
-                                  disabled
-                                  className="border border-orange-200 bg-orange-50 text-[#EA580C] px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
-                                >
-                                  Available for Alternate
                                 </button>
                               ) : isShortlisted ? (
                                 <button
@@ -1216,7 +1213,6 @@ function Bidding(props) {
           openSupplierResultEmail={openSupplierResultEmail}
           onOpenBulkUnsuccessfulBccEmail={openBulkUnsuccessfulBccEmail}
           onMarkSelectedNoticeSent={markSelectedSupplierNoticeSent}
-          onRecordSupplierResponse={recordSupplierResponse}
           onMarkOutcomeNoticeSent={markOutcomeNoticeSent}
           onMarkAllOutcomeNoticesSent={markAllOutcomeNoticesSent}
           loading={awardActionLoading}
@@ -1378,3 +1374,4 @@ function Bidding(props) {
 }
 
 export default Bidding;
+
