@@ -796,7 +796,7 @@ const createAwardAttemptForSelection = async (
 
   if (!bid) {
     throw new Error(
-      'The supplier bid selected by Logistics could not be found.'
+      'The supplier bid selected by Operations could not be found.'
     )
   }
 
@@ -3262,6 +3262,312 @@ router.get('/bids/:orderId/award-state', async (req, res) => {
 })
 
 router.post(
+  '/bids/:orderId/select-winner',
+  async (req, res) => {
+    try {
+      const orderId = Number(
+        req.params.orderId
+      )
+
+      const bidId = Number(
+        req.body?.bid_id ||
+          req.body?.selected_bid_id ||
+          0
+      )
+
+      if (
+        !orderId ||
+        Number.isNaN(orderId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'A valid order ID is required.',
+        })
+      }
+
+      if (
+        !bidId ||
+        Number.isNaN(bidId)
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'A valid bid_id is required.',
+        })
+      }
+
+      const order =
+        await getOrderById(orderId)
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: 'Order not found.',
+        })
+      }
+
+      if (
+        normalizeDbStatus(
+          order.current_status
+        ) !== 'open_for_bids'
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Winner selection is available only while the order is in Open for Bids stage.',
+        })
+      }
+
+      const scheduleValidation =
+        validateOrderScheduleForProgress(
+          order
+        )
+
+      if (!scheduleValidation.valid) {
+        return res.status(409).json({
+          success: false,
+          error:
+            scheduleValidation.error,
+        })
+      }
+
+      const selections =
+        await getAllBidSelections(
+          order.order_id
+        )
+
+      const finalizedShortlist =
+        selections.filter(
+          (selection) =>
+            selection.sent_to_logistics ===
+            true
+        )
+
+      if (
+        finalizedShortlist.length === 0
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Finalize the shortlist before selecting the winning supplier.',
+        })
+      }
+
+      const existingSelected =
+        getLogisticsSelectedSelection(
+          selections
+        )
+
+      if (
+        existingSelected &&
+        Number(
+          existingSelected.bid_id
+        ) === bidId
+      ) {
+        const existingPayload =
+          await getAwardWorkflowPayload(
+            order
+          )
+
+        return res.status(200).json({
+          ...existingPayload,
+          message:
+            'This supplier is already selected.',
+        })
+      }
+
+      if (existingSelected) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'Another supplier is already selected. Record that supplier response before selecting another supplier.',
+        })
+      }
+
+      const requestedSelection =
+        finalizedShortlist.find(
+          (selection) => {
+            const status =
+              normalizeDbStatus(
+                selection.selection_status
+              )
+
+            return (
+              Number(
+                selection.bid_id
+              ) === bidId &&
+              selection.selected !==
+                true &&
+              status ===
+                'shortlisted'
+            )
+          }
+        ) || null
+
+      if (!requestedSelection) {
+        return res.status(409).json({
+          success: false,
+          error:
+            'This bid is not an available shortlisted supplier for this order.',
+        })
+      }
+
+      const awardPayloadBefore =
+        await getAwardWorkflowPayload(
+          order
+        )
+
+      const workflowState =
+        normalizeDbStatus(
+          awardPayloadBefore
+            ?.award_state
+            ?.award_workflow_state
+        )
+
+      if (
+        workflowState &&
+        ![
+          'awaiting_logistics_selection',
+          'alternate_supplier_selection_required',
+        ].includes(
+          workflowState
+        )
+      ) {
+        return res.status(409).json({
+          success: false,
+          error:
+            `Winner selection is not available while the workflow is ${workflowState.replaceAll(
+              '_',
+              ' '
+            )}.`,
+          award_state:
+            awardPayloadBefore
+              ?.award_state ||
+            null,
+        })
+      }
+
+      const now =
+        new Date().toISOString()
+
+      const selectionPatch = {
+        selected: true,
+
+        // IMPORTANT:
+        // Do NOT mark accepted here.
+        // Supplier acceptance is a later step.
+        selection_status:
+          'shortlisted',
+
+        selected_at: now,
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          requestedSelection,
+          'updated_at'
+        )
+      ) {
+        selectionPatch.updated_at =
+          now
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          requestedSelection,
+          'selected_by'
+        ) &&
+        isValidUuid(req.user?.id)
+      ) {
+        selectionPatch.selected_by =
+          req.user.id
+      }
+
+      const {
+        data: updatedSelection,
+        error: updateSelectionError,
+      } = await supabase
+        .from('bid_selection')
+        .update(selectionPatch)
+        .eq(
+          'selection_id',
+          requestedSelection.selection_id
+        )
+        .select()
+        .single()
+
+      if (updateSelectionError) {
+        throw new Error(
+          updateSelectionError.message
+        )
+      }
+
+      // Create award attempt:
+      // selected_supplier_notice_pending
+      await createAwardAttemptForSelection(
+        order,
+        updatedSelection
+      )
+
+      try {
+        await publish(
+          'order.bidding.winner_selected_by_operations',
+          {
+            order_id:
+              order.order_id,
+
+            order_reference:
+              order.order_reference,
+
+            bid_id:
+              bidId,
+
+            supplier_id:
+              updatedSelection
+                .supplier_id ||
+              null,
+
+            selected_at:
+              now,
+          }
+        )
+      } catch (publishError) {
+        console.error(
+          'OPERATIONS WINNER EVENT ERROR:',
+          publishError.message
+        )
+      }
+
+      const refreshedPayload =
+        await getAwardWorkflowPayload(
+          order
+        )
+
+      return res.status(200).json({
+        ...refreshedPayload,
+
+        selected_bid_id:
+          bidId,
+
+        message:
+          'Winning supplier selected successfully. Send the selected supplier notice next.',
+      })
+    } catch (error) {
+      console.error(
+        'OPERATIONS SELECT WINNER ERROR:',
+        error.message
+      )
+
+      return res.status(500).json({
+        success: false,
+        error:
+          error.message,
+      })
+    }
+  }
+)
+router.post(
   '/bids/:orderId/selected-notice-sent',
   async (req, res) => {
     try {
@@ -3323,7 +3629,7 @@ router.post(
         return res.status(400).json({
           success: false,
           error:
-            'No supplier is currently selected by Logistics.',
+            'No supplier is currently selected by Operations.',
         })
       }
 
@@ -3349,7 +3655,7 @@ router.post(
         return res.status(409).json({
           success: false,
           error:
-            'No award attempt exists for the supplier selected by Logistics.',
+            'No award attempt exists for the supplier selected by Operations.',
         })
       }
 
@@ -3360,7 +3666,7 @@ router.post(
         return res.status(409).json({
           success: false,
           error:
-            'The current award attempt does not match the supplier selected by Logistics.',
+            'The current award attempt does not match the supplier selected by Operations.',
         })
       }
 
@@ -3785,7 +4091,7 @@ router.post(
         return res.json({
           ...awardPayload,
           message:
-            'Supplier rejection recorded. Logistics has been notified to select an alternate shortlisted supplier.',
+            'Supplier rejection recorded. Operations can now select an alternate shortlisted supplier.',
         })
       }
 

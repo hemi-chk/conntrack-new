@@ -297,12 +297,12 @@ export default function useBiddingController({
     const labels = {
       bidding_closed_no_bids: "No Bids Received",
       shortlisting_required: "Shortlisting Required",
-      shortlist_ready_to_send: "Shortlist Ready - Send to Logistics",
-      awaiting_logistics_selection: "Awaiting Logistics Selection",
+      shortlist_ready_to_send: "Shortlist Ready - Finalize",
+      awaiting_logistics_selection: "Winner Selection Required",
       selected_supplier_notice_pending: "Selected Supplier Notice Pending",
       awaiting_supplier_response: "Awaiting Supplier Response",
       alternate_supplier_selection_required:
-        "Alternate Supplier Selection Required",
+        "Alternate Winner Selection Required",
       unsuccessful_supplier_notifications_pending:
         "Unsuccessful Supplier Notifications Pending",
       award_completed: "Award Completed",
@@ -2754,7 +2754,7 @@ Thank you.`;
       alert(
         `${shortlistedBidIds.length} shortlisted supplier${
           shortlistedBidIds.length === 1 ? "" : "s"
-        } sent to Logistics Team successfully.`
+        } shortlist finalized successfully. You can now select the winning supplier.`
       );
 
       await fetchBids(selectedOrder);
@@ -2851,6 +2851,98 @@ Thank you.`;
     }
   };
 
+  const selectWinningBid = async (bid) => {
+    if (!selectedOrder) {
+      alert("Please select an order first.");
+      return;
+    }
+
+    if (!bid) {
+      alert("Please select a supplier bid.");
+      return;
+    }
+
+    const databaseId =
+      getOrderDatabaseId(selectedOrder);
+
+    const bidId = Number(
+      bid.id ||
+      bid.bidId ||
+      0
+    );
+
+    if (!databaseId) {
+      alert(
+        "The selected order does not contain its database order ID."
+      );
+      return;
+    }
+
+    if (!bidId || Number.isNaN(bidId)) {
+      alert(
+        "The selected supplier does not contain a valid bid ID."
+      );
+      return;
+    }
+
+    const workflowState =
+      normalizeWorkflowValue(
+        awardState?.awardWorkflowState
+      );
+
+    if (
+      ![
+        "awaiting_logistics_selection",
+        "alternate_supplier_selection_required",
+      ].includes(workflowState)
+    ) {
+      alert(
+        "Winner selection is not available at the current award stage."
+      );
+      return;
+    }
+
+    const isAlternate =
+      workflowState ===
+      "alternate_supplier_selection_required";
+
+    const confirmationMessage = isAlternate
+      ? `Select ${bid.supplier} as the alternate supplier?`
+      : `Select ${bid.supplier} as the winning supplier?`;
+
+    const confirmed =
+      window.confirm(
+        confirmationMessage
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const result =
+      await postAwardAction(
+        "select-winner",
+        {
+          bid_id: bidId,
+          selected_bid_id: bidId,
+        }
+      );
+
+    if (!result) {
+      return;
+    }
+
+    setWinningBid(bid);
+    setIsBiddingOpen(false);
+    setTimeLeft(0);
+    setActiveTab("Closed");
+
+    alert(
+      isAlternate
+        ? `${bid.supplier} selected as the alternate supplier. Send the selected supplier notice next.`
+        : `${bid.supplier} selected successfully. Send the selected supplier notice next.`
+    );
+  };
   const markSelectedSupplierNoticeSent = async () => {
     const selectedBid = getFreshWinningBid();
 
@@ -3218,10 +3310,10 @@ Thank you.`;
       }
 
       if (workflowState === "selected_supplier_notice_pending") {
-        return "Selected by Logistics";
+        return "Selected by Operations";
       }
 
-      return "Selected by Logistics";
+      return "Selected by Operations";
     }
 
     // After the winner accepts, every other bidder has a final unsuccessful
@@ -3257,7 +3349,7 @@ Thank you.`;
     }
 
     if (sentToLogistics && isShortlisted) {
-      return "Awaiting Logistics";
+      return "Winner Selection Required";
     }
 
     if (!sentToLogistics && isShortlisted) {
@@ -3334,7 +3426,7 @@ Thank you.`;
     }
 
     if (sentToLogistics && isShortlisted) {
-      return "Awaiting Logistics";
+      return "Winner Selection Required";
     }
 
     if (sentToLogistics && !isShortlisted) {
@@ -3665,6 +3757,7 @@ Thank you.`;
     renderStars,
     savingShortlistBidId,
     selectBiddingOrder,
+    selectWinningBid,
     selectedBidForDetails,
     selectedOrder,
     selectedOrderReference,

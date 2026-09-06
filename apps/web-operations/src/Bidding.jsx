@@ -82,6 +82,7 @@ function Bidding(props) {
     renderStars,
     savingShortlistBidId,
     selectBiddingOrder,
+    selectWinningBid,
     selectedBidForDetails,
     selectedOrder,
     selectedOrderReference,
@@ -554,8 +555,8 @@ function Bidding(props) {
                   >
                     <Send size={16} />
                     {bids.length > 0
-                      ? `Send Shortlisted to Logistics (${shortlistedBidIds.length} selected · min ${minShortlistCount} / max ${maxShortlistCount})`
-                      : "Send Shortlisted to Logistics"}
+                      ? `Finalize Shortlist (${shortlistedBidIds.length} selected · min ${minShortlistCount} / max ${maxShortlistCount})`
+                      : "Finalize Shortlist"}
                   </button>
                 )}
 
@@ -1039,6 +1040,30 @@ function Bidding(props) {
                                 View Details
                               </button>
 
+                              {sentToLogistics &&
+                                isShortlisted &&
+                                !isWinner &&
+                                [
+                                  "awaiting_logistics_selection",
+                                  "alternate_supplier_selection_required",
+                                ].includes(currentAwardWorkflowState) &&
+                                getBidStatus(bid) !== "Declined Earlier" && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      selectWinningBid(bid)
+                                    }
+                                    disabled={awardActionLoading}
+                                    className="border border-[#052659] bg-[#052659] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#5483B3] disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {awardActionLoading
+                                      ? "Selecting..."
+                                      : currentAwardWorkflowState ===
+                                        "alternate_supplier_selection_required"
+                                      ? "Select Alternate"
+                                      : "Select Winner"}
+                                  </button>
+                                )}
                               {isWinner ? (
                                 <>
                                   {currentAwardWorkflowState ===
@@ -1127,7 +1152,7 @@ function Bidding(props) {
                                   disabled
                                   className="border border-slate-200 bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg text-xs font-medium cursor-not-allowed"
                                 >
-                                  Awaiting Award Flow
+                                  Shortlisted
                                 </button>
                               ) : (
                                 <span className="text-xs text-slate-400">
