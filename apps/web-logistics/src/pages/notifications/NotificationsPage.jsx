@@ -37,12 +37,23 @@ const formatTime = (isoString) => {
   });
 };
 
+/**
+ * NotificationsPage Component
+ * ---------------------------------------------------------
+ * Dedicated notification hub for logistics users.
+ * Features:
+ * - Real-time polling every 30 seconds & refetch on window visibility.
+ * - Unread counter badge computation.
+ * - Click-to-read + auto-navigation to actionUrl target.
+ * - Bulk actions: "Mark all read" and "Clear all".
+ */
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Initial load + setup 30s auto-refresh interval and tab visibility change listener
   useEffect(() => {
     const loadNotifications = async () => {
       try {
@@ -68,11 +79,17 @@ export default function NotificationsPage() {
     };
   }, []);
 
+  // Compute unread count dynamically for page header summary
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
     [notifications]
   );
 
+  /**
+   * Handles opening a notification:
+   * 1. Marks notification as read in API & updates local state.
+   * 2. Navigates to the embedded actionUrl (e.g., /orders/123 or /issues).
+   */
   const handleOpen = async (notification) => {
     if (!notification.read) {
       try {
@@ -94,6 +111,9 @@ export default function NotificationsPage() {
     }
   };
 
+  /**
+   * Marks all notifications as read in both API and local state.
+   */
   const handleMarkAllRead = async () => {
     try {
       await markAllNotificationsAsRead();
@@ -104,6 +124,9 @@ export default function NotificationsPage() {
     }
   };
 
+  /**
+   * Clears (deletes) all notifications from API and resets local state.
+   */
   const handleClearAll = async () => {
     try {
       await clearAllNotifications();

@@ -1,13 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import axios from "axios";
 
+const env = (typeof import.meta !== "undefined" && import.meta.env) || process.env || {};
+
 const authClient = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY
+    env.VITE_SUPABASE_URL || "https://placeholder.supabase.co",
+    env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key"
 );
 
 const api = axios.create({
-    baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api`,
+    baseURL: `${env.VITE_API_URL || "http://localhost:5000"}/api`,
     headers: {
         "Content-Type": "application/json",
     },
