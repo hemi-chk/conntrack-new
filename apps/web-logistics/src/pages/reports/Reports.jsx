@@ -253,6 +253,38 @@ export default function Reports() {
                 y += 8;
             });
 
+            if (y > pageHeight - 40) {
+                pdfDocument.addPage();
+                y = 18;
+            }
+            y += 12;
+            const sigWidth = (pageWidth - margin * 2 - 20) / 2;
+
+            // Signature Line 1: Authorized Logistics Officer
+            pdfDocument.setDrawColor(100, 116, 139);
+            pdfDocument.line(margin, y + 15, margin + sigWidth, y + 15);
+            pdfDocument.setTextColor(30, 41, 59);
+            pdfDocument.setFontSize(8);
+            pdfDocument.setFont("helvetica", "bold");
+            pdfDocument.text("Authorized Logistics Officer", margin, y + 20);
+            pdfDocument.setTextColor(100, 116, 139);
+            pdfDocument.setFontSize(7);
+            pdfDocument.setFont("helvetica", "normal");
+            pdfDocument.text("Signature & Date", margin, y + 25);
+
+            // Signature Line 2: Operations Manager / Supervisor
+            const rightSigX = margin + sigWidth + 20;
+            pdfDocument.setDrawColor(100, 116, 139);
+            pdfDocument.line(rightSigX, y + 15, rightSigX + sigWidth, y + 15);
+            pdfDocument.setTextColor(30, 41, 59);
+            pdfDocument.setFontSize(8);
+            pdfDocument.setFont("helvetica", "bold");
+            pdfDocument.text("Operations Manager / Supervisor", rightSigX, y + 20);
+            pdfDocument.setTextColor(100, 116, 139);
+            pdfDocument.setFontSize(7);
+            pdfDocument.setFont("helvetica", "normal");
+            pdfDocument.text("Signature & Date", rightSigX, y + 25);
+
             pdfDocument.save(`logistics-report-${fromDate}-to-${toDate}.pdf`);
         } catch (err) {
             console.error("Logistics PDF Error:", err);
