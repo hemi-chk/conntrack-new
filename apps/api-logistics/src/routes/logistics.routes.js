@@ -6,6 +6,7 @@ import {
     createIssue,
     deleteDocument,
     downloadReportPdf,
+    finalizeOrder,
     getAllIssues,
     getDashboardSummary,
     getFilteredReports,
@@ -13,6 +14,7 @@ import {
     getNotifications,
     getOrderById,
     getOrdersByType,
+    getShortlistedBids,
     getTrackingByOrderId,
     markAllNotificationsAsRead,
     markNotificationAsRead,
@@ -67,12 +69,14 @@ router.get("/reports/pdf", downloadReportPdf);
 router.get("/profile", getMyProfile);
 
 // =============================================
-// ORDERS
+// ORDERS & BIDS
 // =============================================
-// Orders are the core logistics workflow. This section handles listing
-// and fetching individual order details.
+// Orders are the core logistics workflow. This section handles listing,
+// fetching individual order details, evaluating bids, and finalization.
 router.get("/orders", getOrdersByType);
 router.get("/orders/:id", getOrderById);
+router.get("/orders/:orderId/shortlisted-bids", getShortlistedBids);
+router.post("/orders/:orderId/finalize", finalizeOrder);
 
 // =============================================
 // TRACKING

@@ -1,4 +1,4 @@
-import api from "../config/api";
+import api from "../config/api.js";
 
 /**
  * Normalizes backend notification objects into a consistent shape for React UI components.
