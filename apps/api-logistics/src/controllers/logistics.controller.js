@@ -855,6 +855,35 @@ export const downloadReportPdf = async (req, res) => {
             document.y = rowY + rowHeight;
         });
 
+        // Add Signature Block for printed document authorization
+        if (document.y > document.page.height - document.page.margins.bottom - 110) {
+            document.addPage();
+            drawHeader();
+        }
+
+        document.moveDown(1.5);
+        const sigY = document.y;
+        const sigWidth = (pageWidth - 40) / 2;
+
+        // Signature Line 1: Authorized Logistics Officer
+        document.moveTo(document.page.margins.left, sigY + 35)
+            .lineTo(document.page.margins.left + sigWidth, sigY + 35)
+            .strokeColor('#64748B').lineWidth(1).stroke();
+        document.fillColor('#1E293B').font('Helvetica-Bold').fontSize(9)
+            .text('Authorized Logistics Officer', document.page.margins.left, sigY + 42, { width: sigWidth });
+        document.fillColor('#64748B').font('Helvetica').fontSize(8)
+            .text('Signature & Date', document.page.margins.left, sigY + 54, { width: sigWidth });
+
+        // Signature Line 2: Operations Manager / Supervisor
+        const rightSigX = document.page.margins.left + sigWidth + 40;
+        document.moveTo(rightSigX, sigY + 35)
+            .lineTo(rightSigX + sigWidth, sigY + 35)
+            .strokeColor('#64748B').lineWidth(1).stroke();
+        document.fillColor('#1E293B').font('Helvetica-Bold').fontSize(9)
+            .text('Operations Manager / Supervisor', rightSigX, sigY + 42, { width: sigWidth });
+        document.fillColor('#64748B').font('Helvetica').fontSize(8)
+            .text('Signature & Date', rightSigX, sigY + 54, { width: sigWidth });
+
         const range = document.bufferedPageRange();
         for (let index = range.start; index < range.start + range.count; index += 1) {
             document.switchToPage(index);
