@@ -11,7 +11,6 @@ import InfoMini from "./InfoMini";
 function AwardWorkflowPanel({
   awardState,
   workflowState,
-  workflowLabel,
   selectedBid,
   unsuccessfulBids = [],
   formatMoney,
@@ -181,37 +180,23 @@ function AwardWorkflowPanel({
   if (selectedSupplierNoticePending) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Award Result
-            </p>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Award Result
+          </p>
 
-            <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
-              <Mail
-                size={20}
-                className="text-[#D97706]"
-              />
-              Selected Supplier Notice Pending
-            </h3>
+          <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
+            <Mail
+              size={20}
+              className="text-[#D97706]"
+            />
+            Selected Supplier Notice Pending
+          </h3>
 
-            <p className="mt-1 text-sm text-slate-600">
-              Operations has selected the winning supplier. The
-              winning bid is accepted and all remaining bids are
-              rejected.
-            </p>
-
-            <p className="mt-2 text-xs font-medium text-[#D97706]">
-              Inform the selected supplier and every unsuccessful
-              supplier. The award completes automatically when
-              all required notices are marked as sent.
-            </p>
-          </div>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-[#B45309]">
-            <Clock3 size={14} />
-            {workflowLabel || "Notice Pending"}
-          </span>
+          <p className="mt-2 text-sm font-medium text-[#D97706]">
+            Complete the winner and unsuccessful supplier notifications below.
+            The award completes automatically when all required notices are marked as sent.
+          </p>
         </div>
 
         {selectedBid && (
@@ -254,10 +239,6 @@ function AwardWorkflowPanel({
                 Supplier Result Notifications
               </p>
 
-              <p className="mt-1 text-xs text-slate-500">
-                Send the result email, then mark the corresponding
-                notice as sent.
-              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -272,7 +253,7 @@ function AwardWorkflowPanel({
                         "selected"
                       )
                     }
-                    className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-white px-4 py-2 text-xs font-semibold text-[#16A34A] transition hover:bg-green-50 disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#052659] bg-white px-4 py-2 text-xs font-semibold text-[#052659] transition hover:bg-[#EFF6FF] disabled:opacity-50"
                   >
                     <Mail size={15} />
                     Winner Email
@@ -409,7 +390,7 @@ function AwardWorkflowPanel({
                                   "rejected"
                                 )
                               }
-                              className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-[#DC2626] transition hover:bg-red-100 disabled:opacity-50"
+                              className="inline-flex items-center gap-2 rounded-lg border border-[#5483B3] bg-white px-3 py-1.5 text-xs font-semibold text-[#1E40AF] transition hover:bg-[#EFF6FF] disabled:opacity-50"
                             >
                               <Mail size={14} />
                               Open Email
@@ -452,30 +433,23 @@ function AwardWorkflowPanel({
   if (completed) {
     return (
       <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Award Result
-            </p>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Award Result
+          </p>
 
-            <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
-              <CircleCheck
-                size={20}
-                className="text-[#16A34A]"
-              />
-              Award Completed
-            </h3>
+          <h3 className="mt-1 flex items-center gap-2 text-lg font-bold text-[#1E293B]">
+            <CircleCheck
+              size={20}
+              className="text-[#16A34A]"
+            />
+            Award Completed
+          </h3>
 
-            <p className="mt-1 text-sm text-slate-600">
-              Operations has completed the bidding and supplier
-              award process for this order.
-            </p>
-          </div>
-
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-[#16A34A]">
-            <CircleCheck size={14} />
-            {workflowLabel || "Award Completed"}
-          </span>
+          <p className="mt-1 text-sm text-slate-600">
+            Bidding and supplier award communication are complete
+            for this order.
+          </p>
         </div>
 
         {selectedBid && (

@@ -580,42 +580,12 @@ function Bidding(props) {
                   </button>
                 )}
 
-              {isBiddingFinalized && (
-                <>
-                  <button
-                    type="button"
-                    disabled
-                    className="border border-slate-200 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-400 cursor-not-allowed"
-                  >
-                    Timer Locked
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 cursor-not-allowed ${
-                      isAwardCompleted
-                        ? "bg-green-100 text-[#16A34A] border border-green-200"
-                        : "bg-blue-50 text-[#052659] border border-blue-100"
-                    }`}
-                  >
-                    {isAwardCompleted ? (
-                      <CircleCheck size={16} />
-                    ) : (
-                      <Send size={16} />
-                    )}
-                    {currentAwardWorkflowLabel}
-                  </button>
-                </>
-              )}
-
             </div>
 
             {shouldShowAwardWorkflowPanel && (
               <AwardWorkflowPanel
                 awardState={awardState}
                 workflowState={currentAwardWorkflowState}
-                workflowLabel={currentAwardWorkflowLabel}
                 selectedBid={selectedWinnerSummary}
                 shortlistedCount={awardState?.draftShortlistCount || 0}
                 unsuccessfulBids={getUnsuccessfulBids()}
