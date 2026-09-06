@@ -825,37 +825,25 @@ function Orders({ onNavigate }) {
   };
 
   const goToBidding = (order) => {
-    sessionStorage.setItem(
-      "biddingOrder",
-      JSON.stringify({
-        ...order,
+    const targetOrderId =
+      order?.dbId ||
+      order?.orderId ||
+      order?.order_id ||
+      order?.orderReference ||
+      order?.order_reference ||
+      order?.id;
 
-        id: order.id,
+    if (!targetOrderId) {
+      alert(
+        "This order does not contain a valid order ID for the Bidding page."
+      );
+      return;
+    }
 
-        orderReference:
-          order.orderReference ||
-          order.id,
-
-        order_reference:
-          order.orderReference ||
-          order.id,
-
-        dbId:
-          order.dbId,
-
-        orderId:
-          order.orderId ||
-          order.dbId,
-
-        order_id:
-          order.dbId,
-
-        databaseOrderId:
-          order.dbId,
-      })
-    );
-
-    onNavigate && onNavigate("/bidding");
+    onNavigate &&
+      onNavigate(
+        `/bidding/${encodeURIComponent(targetOrderId)}`
+      );
   };
 
   const openIssueForm = (order) => {

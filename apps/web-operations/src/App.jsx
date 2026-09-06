@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Layout from './components/Layout'
 
 import Bidding from './Bidding'
+import BiddingOrder from './BiddingOrder'
 import CreateOrder from './CreateOrder'
 import Dashboard from './Dashboard'
 import Issues from './Issues'
@@ -12,6 +13,14 @@ import Tracking from './Tracking'
 function App() {
   const [currentPath, setCurrentPath] = useState('/')
   const [darkMode, setDarkMode] = useState(false)
+
+  const biddingOrderMatch = currentPath.match(
+    /^\/bidding\/([^/]+)$/
+  )
+
+  const biddingOrderId = biddingOrderMatch
+    ? decodeURIComponent(biddingOrderMatch[1])
+    : null
 
   return (
     <Layout
@@ -34,6 +43,13 @@ function App() {
 
       {currentPath === '/bidding' && (
         <Bidding onNavigate={setCurrentPath} />
+      )}
+
+      {biddingOrderId && (
+        <BiddingOrder
+          orderId={biddingOrderId}
+          onNavigate={setCurrentPath}
+        />
       )}
 
       {currentPath === '/tracking' && (

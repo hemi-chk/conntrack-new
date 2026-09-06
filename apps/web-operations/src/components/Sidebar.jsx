@@ -131,7 +131,11 @@ function Sidebar({ isOpen, currentPath, onNavigate }) {
           <NavItem
             key={item.path}
             item={item}
-            isActive={currentPath === item.path}
+            isActive={
+              currentPath === item.path ||
+              (item.path === '/bidding' &&
+                currentPath.startsWith('/bidding/'))
+            }
             onNavigate={onNavigate}
           />
         ))}
