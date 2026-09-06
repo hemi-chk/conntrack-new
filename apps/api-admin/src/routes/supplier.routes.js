@@ -21,7 +21,10 @@ import {
   addInspectionRecord,
   getDashboardStats,
   getSupplierProfile,
-  updateSupplierLogo
+  updateSupplierLogo,
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead
 } from '../controllers/supplier.controller.js'
 
 const router = express.Router()
@@ -57,6 +60,11 @@ router.post('/chats/:chatId/messages', sendMessage)
 // --- Inspection Routes ---
 router.get('/inspections/:vehicleId', getVehicleInspections)
 router.post('/inspections', addInspectionRecord)
+
+// --- Notification Routes ---
+router.get('/notifications', getNotifications)
+router.patch('/notifications/mark-all-read', markAllNotificationsRead)
+router.patch('/notifications/:id/read', markNotificationRead)
 
 router.get('/:id', getSupplierProfile)
 router.patch('/:id/logo', updateSupplierLogo)

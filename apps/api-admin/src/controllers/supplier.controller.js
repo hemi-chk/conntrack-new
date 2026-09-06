@@ -506,3 +506,65 @@ export const addInspectionRecord = async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 }
+
+// --- Notifications ---
+
+// GET /api/supplier/notifications?supplier_id=X
+export const getNotifications = async (req, res) => {
+  try {
+    const { supplier_id } = req.query
+    if (!supplier_id) return res.status(400).json({ error: 'supplier_id is required' })
+
+    const { data, error } = await supabase
+      .from('notification_supplier')
+      .select('*')
+      .eq('supplier_id', supplier_id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// PATCH /api/supplier/notifications/:id/read - body: { supplier_id }
+export const markNotificationRead = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { supplier_id } = req.body
+    if (!supplier_id) return res.status(400).json({ error: 'supplier_id is required' })
+
+    const { data, error } = await supabase
+      .from('notification_supplier')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('supplier_id', supplier_id) // prevents marking another supplier's notification as read
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Notification not found' })
+    res.json(data[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+// PATCH /api/supplier/notifications/mark-all-read - body: { supplier_id }
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    const { supplier_id } = req.body
+    if (!supplier_id) return res.status(400).json({ error: 'supplier_id is required' })
+
+    const { error } = await supabase
+      .from('notification_supplier')
+      .update({ is_read: true })
+      .eq('supplier_id', supplier_id)
+      .eq('is_read', false)
+
+    if (error) throw error
+    res.json({ message: 'All notifications marked as read' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}

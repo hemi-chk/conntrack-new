@@ -1,10 +1,12 @@
 import { Bell, User, Menu, Sun, Moon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useProfile } from '../hooks/useProfile'
+import { useNotifications } from '../context/NotificationContext'
 import { useTheme } from '../context/ThemeContext'
 
 export function Header({ onMenuClick }) {
   const { profileData } = useProfile();
+  const { unreadCount } = useNotifications();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -54,10 +56,12 @@ export function Header({ onMenuClick }) {
         </button>
 
         {/* Notification Bell */}
-        <button className="relative p-2 rounded-lg transition hover:bg-blue-700">
+        <Link to="/notifications" className="relative p-2 rounded-lg transition hover:bg-blue-700">
           <Bell size={22} />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
-        </button>
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
+          )}
+        </Link>
 
         {/* Profile Link */}
         <Link to="/profile" className="flex gap-2 items-center px-3 py-2 bg-blue-700 rounded-lg transition-colors hover:bg-blue-600">

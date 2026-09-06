@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Clock, MapPin, Truck, CheckCircle2 } from 'lucide-react';
 import { useBiddings } from '../../hooks/useBiddings';
 import { useProfile } from '../../hooks/useProfile';
@@ -11,6 +12,22 @@ export const Biddings = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [selectedBid, setSelectedBid] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [highlightId, setHighlightId] = useState(location.state?.highlightBiddingId ?? null);
+
+  // Came here from a notification - clear the highlight after a moment and
+  // drop the router state so refreshing/navigating back doesn't re-trigger it.
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => {
+      setHighlightId(null);
+      navigate(location.pathname, { replace: true, state: {} });
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId]);
 
   // Sorting logic
   const sortedBiddings = [...biddings].sort((a, b) => {
@@ -30,9 +47,17 @@ export const Biddings = () => {
   };
 
   const columns = [
-    { 
-      header: 'BIDDING ID', 
-      render: (row) => <span className="text-sm font-bold tracking-tight text-primary">#{row.bidding_id}</span> 
+    {
+      header: 'BIDDING ID',
+      render: (row) => (
+        <span
+          className={`text-sm font-bold tracking-tight text-primary ${
+            row.bidding_id === highlightId ? 'px-2 py-1 rounded-lg bg-blue-100 ring-2 ring-primary animate-pulse' : ''
+          }`}
+        >
+          #{row.bidding_id}
+        </span>
+      )
     },
     { 
       header: 'PICKUP', 

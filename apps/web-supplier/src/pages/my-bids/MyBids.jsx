@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  BarChart3, 
-  CheckCircle2, 
-  FileText, 
-  XCircle, 
-  Star, 
+import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  BarChart3,
+  CheckCircle2,
+  FileText,
+  XCircle,
+  Star,
   Inbox,
   AlertTriangle
 } from 'lucide-react';
@@ -23,6 +24,38 @@ export const MyBids = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [highlightId, setHighlightId] = useState(location.state?.highlightBiddingId ?? null);
+
+  // Came here from a notification - make sure the target bid's tab (active/history)
+  // is the one showing, since the two tabs are mutually exclusive by pickup date.
+  useEffect(() => {
+    if (!highlightId || myBids.length === 0) return;
+    const target = myBids.find((bid) => bid.bidding_id === highlightId);
+    const pickupStr = target?.bidding?.orders?.pickup_date;
+    if (!pickupStr) return;
+
+    const pickupDate = new Date(pickupStr);
+    pickupDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setFilterType(pickupDate < today ? 'history' : 'active');
+  }, [highlightId, myBids]);
+
+  // Clear the highlight after a moment and drop the router state so
+  // refreshing/navigating back doesn't re-trigger it.
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => {
+      setHighlightId(null);
+      navigate(location.pathname, { replace: true, state: {} });
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId]);
 
   const formatCurrency = (val) => {
     if (!val) return '0';
@@ -47,7 +80,7 @@ export const MyBids = () => {
       pickupDate.setHours(0, 0, 0, 0);
 
       if (filterType === 'active') {
-        return pickupDate > today;
+        return pickupDate >= today; // today counts as active, not lost in the gap between tabs
       } else {
         return pickupDate < today;
       }
@@ -209,7 +242,12 @@ export const MyBids = () => {
                 </tr>
               ) : (
                 filteredBids.map((bid) => (
-                  <tr key={bid.bid_id} className="transition-colors hover:bg-gray-50">
+                  <tr
+                    key={bid.bid_id}
+                    className={`transition-colors hover:bg-gray-50 ${
+                      bid.bidding_id === highlightId ? 'bg-blue-50 ring-2 ring-inset ring-primary animate-pulse' : ''
+                    }`}
+                  >
                     <td className="px-6 py-4 font-bold text-primary text-sm tracking-tight">
                       #{bid.bidding_id}
                     </td>
