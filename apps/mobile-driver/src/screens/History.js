@@ -9,7 +9,7 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Refr
 import { MaterialIcons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { API_BASE_URL } from "../constants/config";
@@ -17,11 +17,63 @@ import { authFetch } from "../utils/authFetch";
 
 export default function History({ route, navigation }) {
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
   const user = route?.params?.user || {};
   
   const [trips, setTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scrollContainer: {
+      paddingHorizontal: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: activeTheme.spacing.lg,
+      paddingVertical: activeTheme.spacing.lg,
+      backgroundColor: activeTheme.colors.surface,
+      ...activeTheme.shadows.sm,
+      marginBottom: activeTheme.spacing.md,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    card: {
+      marginBottom: activeTheme.spacing.md,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    routeText: {
+      marginTop: activeTheme.spacing.xs,
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: activeTheme.spacing.sm,
+    },
+    statusText: {
+      marginLeft: activeTheme.spacing.xs,
+    },
+    emptyContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginTop: 100,
+    }
+  });
 
   const fetchHistory = async () => {
     try {
@@ -56,9 +108,9 @@ export default function History({ route, navigation }) {
 
   const getStatusColor = (status) => {
     const s = status?.toLowerCase();
-    if (s === "delivered" || s === "completed") return theme.colors.success;
-    if (s === "in_transit" || s === "assigned") return theme.colors.primary;
-    return theme.colors.warning;
+    if (s === "delivered" || s === "completed") return activeTheme.colors.success;
+    if (s === "in_transit" || s === "assigned") return activeTheme.colors.primary;
+    return activeTheme.colors.warning;
   };
 
   const formatDate = (dateString) => {
@@ -71,7 +123,7 @@ export default function History({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()}>
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
         <Typography variant="h3" style={styles.headerTitle}>
           {t("trip_history")}
@@ -80,19 +132,19 @@ export default function History({ route, navigation }) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={activeTheme.colors.primary} />
         </View>
       ) : (
         <ScrollView 
           style={styles.scrollContainer} 
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[activeTheme.colors.primary]} />
           }
         >
           {trips.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <MaterialIcons name="history" size={64} color={theme.colors.border} />
+              <MaterialIcons name="history" size={64} color={activeTheme.colors.border} />
               <Typography variant="body" color="textMuted" style={{ marginTop: 16 }}>
                 No completed trips found.
               </Typography>
@@ -128,60 +180,10 @@ export default function History({ route, navigation }) {
               </Card>
             ))
           )}
-          <View style={{ height: theme.spacing.xl }} />
+          <View style={{ height: activeTheme.spacing.xl }} />
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scrollContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    ...theme.shadows.sm,
-    marginBottom: theme.spacing.md,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  card: {
-    marginBottom: theme.spacing.md,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  routeText: {
-    marginTop: theme.spacing.xs,
-  },
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: theme.spacing.sm,
-  },
-  statusText: {
-    marginLeft: theme.spacing.xs,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 100,
-  }
-});

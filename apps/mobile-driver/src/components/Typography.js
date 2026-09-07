@@ -1,6 +1,5 @@
-import React from "react";
-import { Text, StyleSheet } from "react-native";
-import { theme } from "../constants/theme";
+import { StyleSheet, Text } from "react-native";
+import { useTheme } from "../constants/theme";
 
 export const Typography = ({ 
   children, 
@@ -11,12 +10,48 @@ export const Typography = ({
   style, 
   ...props 
 }) => {
+  const { theme: activeTheme } = useTheme();
+  const styles = StyleSheet.create({
+    h1: {
+      fontSize: activeTheme.typography.sizes.xxl,
+      fontFamily: activeTheme.typography.fontFamily.bold,
+    },
+    h2: {
+      fontSize: activeTheme.typography.sizes.xl,
+      fontFamily: activeTheme.typography.fontFamily.bold,
+    },
+    h3: {
+      fontSize: activeTheme.typography.sizes.lg,
+      fontFamily: activeTheme.typography.fontFamily.semiBold,
+    },
+    subtitle: {
+      fontSize: activeTheme.typography.sizes.md,
+      fontFamily: activeTheme.typography.fontFamily.medium,
+    },
+    body: {
+      fontSize: activeTheme.typography.sizes.md,
+      fontFamily: activeTheme.typography.fontFamily.regular,
+    },
+    caption: {
+      fontSize: activeTheme.typography.sizes.sm,
+      fontFamily: activeTheme.typography.fontFamily.regular,
+    },
+    tiny: {
+      fontSize: activeTheme.typography.sizes.xs,
+      fontFamily: activeTheme.typography.fontFamily.regular,
+    },
+    regularWeight: { fontFamily: activeTheme.typography.fontFamily.regular },
+    mediumWeight: { fontFamily: activeTheme.typography.fontFamily.medium },
+    semiBoldWeight: { fontFamily: activeTheme.typography.fontFamily.semiBold },
+    boldWeight: { fontFamily: activeTheme.typography.fontFamily.bold },
+  });
+
   return (
     <Text 
       style={[
         styles[variant], 
         styles[`${weight}Weight`],
-        { color: theme.colors[color] || color, textAlign: align },
+        { color: activeTheme.colors[color] || color, textAlign: align },
         style
       ]} 
       {...props}
@@ -25,40 +60,3 @@ export const Typography = ({
     </Text>
   );
 };
-
-const styles = StyleSheet.create({
-  h1: {
-    fontSize: theme.typography.sizes.xxl,
-    fontFamily: theme.typography.fontFamily.bold,
-  },
-  h2: {
-    fontSize: theme.typography.sizes.xl,
-    fontFamily: theme.typography.fontFamily.bold,
-  },
-  h3: {
-    fontSize: theme.typography.sizes.lg,
-    fontFamily: theme.typography.fontFamily.semiBold,
-  },
-  subtitle: {
-    fontSize: theme.typography.sizes.md,
-    fontFamily: theme.typography.fontFamily.medium,
-  },
-  body: {
-    fontSize: theme.typography.sizes.md,
-    fontFamily: theme.typography.fontFamily.regular,
-  },
-  caption: {
-    fontSize: theme.typography.sizes.sm,
-    fontFamily: theme.typography.fontFamily.regular,
-  },
-  tiny: {
-    fontSize: theme.typography.sizes.xs,
-    fontFamily: theme.typography.fontFamily.regular,
-  },
-  
-  // Weights override if needed
-  regularWeight: { fontFamily: theme.typography.fontFamily.regular },
-  mediumWeight: { fontFamily: theme.typography.fontFamily.medium },
-  semiBoldWeight: { fontFamily: theme.typography.fontFamily.semiBold },
-  boldWeight: { fontFamily: theme.typography.fontFamily.bold },
-});

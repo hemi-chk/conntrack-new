@@ -9,7 +9,7 @@ import { ScrollView, StyleSheet, View, TouchableOpacity, ActivityIndicator, Refr
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -18,11 +18,88 @@ import { authFetch } from "../utils/authFetch";
 
 export default function VehicleInfo({ route, navigation }) {
   const { user } = route.params || {};
+  const { theme: activeTheme } = useTheme();
   
   const [vehicle, setVehicle] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [licenseImage, setLicenseImage] = useState(null);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scrollContent: {
+      paddingHorizontal: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: activeTheme.spacing.lg,
+      paddingVertical: activeTheme.spacing.lg,
+      backgroundColor: activeTheme.colors.surface,
+      ...activeTheme.shadows.sm,
+      marginBottom: activeTheme.spacing.md,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    card: {
+      marginBottom: activeTheme.spacing.lg,
+      padding: activeTheme.spacing.lg,
+    },
+    iconContainer: {
+      marginBottom: activeTheme.spacing.md,
+    },
+    detailRow: {
+      flexDirection: "row",
+      marginTop: activeTheme.spacing.xs,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.sm,
+    },
+    rowTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    expiryText: {
+      marginLeft: 32,
+    },
+    warningContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: activeTheme.spacing.md,
+      marginLeft: 32,
+    },
+    warningText: {
+      marginLeft: activeTheme.spacing.xs,
+    },
+    cardTitle: {
+      marginBottom: activeTheme.spacing.xs,
+    },
+    cardSubtitle: {
+      marginBottom: activeTheme.spacing.lg,
+    },
+    uploadButton: {
+      marginTop: activeTheme.spacing.sm,
+    },
+    successContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: activeTheme.spacing.md,
+      justifyContent: "center",
+    },
+    successText: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+  });
 
   const fetchVehicle = async () => {
     try {
@@ -76,7 +153,7 @@ export default function VehicleInfo({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation?.goBack?.()}>
-          <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
         </TouchableOpacity>
         <Typography variant="h3" style={styles.headerTitle}>
           Vehicle Information
@@ -85,19 +162,19 @@ export default function VehicleInfo({ route, navigation }) {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={activeTheme.colors.primary} />
         </View>
       ) : (
         <ScrollView 
           showsVerticalScrollIndicator={false} 
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[activeTheme.colors.primary]} />
           }
         >
           <Card elevation="sm" style={styles.card}>
             <View style={styles.iconContainer}>
-              <MaterialIcons name="local-shipping" size={32} color={theme.colors.primary} />
+              <MaterialIcons name="local-shipping" size={32} color={activeTheme.colors.primary} />
             </View>
             <Typography variant="h3" weight="bold">
               {vehicle?.vehicle_number ? `Truck: ${vehicle.vehicle_number}` : "No Vehicle Assigned"}
@@ -121,14 +198,14 @@ export default function VehicleInfo({ route, navigation }) {
             elevation="sm" 
             style={[
               styles.card, 
-              licenseExpiryDays < 30 && { backgroundColor: `${theme.colors.warning}10`, borderColor: theme.colors.warning, borderWidth: 1 }
+              licenseExpiryDays < 30 && { backgroundColor: `${activeTheme.colors.warning}10`, borderColor: activeTheme.colors.warning, borderWidth: 1 }
             ]}
           >
             <View style={styles.row}>
               <MaterialIcons 
                 name="verified-user" 
                 size={24} 
-                color={licenseExpiryDays < 30 ? theme.colors.warning : theme.colors.success} 
+                color={licenseExpiryDays < 30 ? activeTheme.colors.warning : activeTheme.colors.success} 
               />
               <Typography variant="subtitle" weight="bold" style={styles.rowTitle}>
                 Insurance Status
@@ -146,7 +223,7 @@ export default function VehicleInfo({ route, navigation }) {
             {/* Proactive warning for imminent expiry */}
             {licenseExpiryDays < 30 && (
               <View style={styles.warningContainer}>
-                <MaterialIcons name="warning" size={16} color={theme.colors.error} />
+                <MaterialIcons name="warning" size={16} color={activeTheme.colors.error} />
                 <Typography variant="caption" color="error" style={styles.warningText}>
                   Insurance expiring soon! Contact fleet manager.
                 </Typography>
@@ -171,7 +248,7 @@ export default function VehicleInfo({ route, navigation }) {
 
             {licenseImage && (
               <View style={styles.successContainer}>
-                <MaterialIcons name="check-circle" size={20} color={theme.colors.success} />
+                <MaterialIcons name="check-circle" size={20} color={activeTheme.colors.success} />
                 <Typography variant="body" color="success" style={styles.successText}>
                   Document uploaded successfully
                 </Typography>
@@ -179,85 +256,10 @@ export default function VehicleInfo({ route, navigation }) {
             )}
           </Card>
 
-          <View style={{ height: theme.spacing.xl }} />
+          <View style={{ height: activeTheme.spacing.xl }} />
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scrollContent: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    ...theme.shadows.sm,
-    marginBottom: theme.spacing.md,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  card: {
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.lg,
-  },
-  iconContainer: {
-    marginBottom: theme.spacing.md,
-  },
-  detailRow: {
-    flexDirection: "row",
-    marginTop: theme.spacing.xs,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.sm,
-  },
-  rowTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  expiryText: {
-    marginLeft: 32,
-  },
-  warningContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: theme.spacing.md,
-    marginLeft: 32,
-  },
-  warningText: {
-    marginLeft: theme.spacing.xs,
-  },
-  cardTitle: {
-    marginBottom: theme.spacing.xs,
-  },
-  cardSubtitle: {
-    marginBottom: theme.spacing.lg,
-  },
-  uploadButton: {
-    marginTop: theme.spacing.sm,
-  },
-  successContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: theme.spacing.md,
-    justifyContent: "center",
-  },
-  successText: {
-    marginLeft: theme.spacing.sm,
-  },
-});

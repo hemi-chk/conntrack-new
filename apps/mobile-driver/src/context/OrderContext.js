@@ -1,10 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import * as SecureStore from "expo-secure-store";
 import * as TaskManager from "expo-task-manager";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { API_BASE_URL } from "../constants/config";
-import { authFetch } from "../utils/authFetch";
+import { authFetch, getStoredAuthToken } from "../utils/authFetch";
 
 const OrderContext = createContext();
 const BACKGROUND_TRACKING_TASK = "conntrack-background-location";
@@ -12,14 +11,13 @@ const BACKGROUND_TRACKING_TASK = "conntrack-background-location";
 const publishLocation = async (location, mission, status) => {
   if (!mission?.assignmentId || !mission?.orderId) return;
 
-  const token = await SecureStore.getItemAsync("auth_token");
+  const token = await getStoredAuthToken();
   if (!token) return;
 
-  await fetch(`${API_BASE_URL}/api/driver/tracking`, {
+  await authFetch(`${API_BASE_URL}/api/driver/tracking`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       assignmentId: mission.assignmentId,

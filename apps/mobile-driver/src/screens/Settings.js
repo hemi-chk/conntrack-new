@@ -1,9 +1,3 @@
-/**
- * Settings Screen
- * Manages user preferences including theme, notification toggles, and system permissions.
- * Persists settings locally using AsyncStorage.
- */
-
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
@@ -13,14 +7,80 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TouchableOpac
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
-import { theme } from "../constants/theme";
-import { AUTH_TOKEN_KEY } from "../utils/authFetch";
+import { API_BASE_URL } from "../constants/config";
+import { useTheme } from "../constants/theme";
+import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function Settings({ route, navigation }) {
   const { t } = useTranslation();
   const user = route?.params?.user || {};
+  const { theme: activeTheme, isDarkMode, setThemeMode } = useTheme();
 
-  const [darkMode, setDarkMode] = useState(false);
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    centered: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    scrollContent: {
+      padding: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.xl,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    sectionTitle: {
+      marginLeft: activeTheme.spacing.xs,
+      marginBottom: activeTheme.spacing.sm,
+      letterSpacing: 1,
+    },
+    card: {
+      marginBottom: activeTheme.spacing.xl,
+      paddingVertical: 0,
+      paddingHorizontal: activeTheme.spacing.md,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: activeTheme.spacing.md,
+    },
+    rowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: activeTheme.colors.border,
+    },
+    rowTextContainer: {
+      flex: 1,
+      marginLeft: activeTheme.spacing.md,
+    },
+    logoutButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: activeTheme.colors.surface,
+      borderRadius: activeTheme.roundness.md,
+      paddingVertical: activeTheme.spacing.md,
+      marginTop: activeTheme.spacing.lg,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.error,
+    },
+    logoutText: {
+      marginLeft: activeTheme.spacing.sm,
+      color: activeTheme.colors.error,
+    },
+    infoContainer: {
+      alignItems: "center",
+      marginTop: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.md,
+    },
+  });
+
   const [notifications, setNotifications] = useState(true);
   const [soundAlerts, setSoundAlerts] = useState(true);
   const [locationAccess, setLocationAccess] = useState(true);
@@ -29,12 +89,10 @@ export default function Settings({ route, navigation }) {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const savedDarkMode = await AsyncStorage.getItem("settings_darkMode");
         const savedNotif = await AsyncStorage.getItem("settings_notifications");
         const savedSound = await AsyncStorage.getItem("settings_sound");
         const savedLoc = await AsyncStorage.getItem("settings_location");
 
-        if (savedDarkMode !== null) setDarkMode(savedDarkMode === "true");
         if (savedNotif !== null) setNotifications(savedNotif === "true");
         if (savedSound !== null) setSoundAlerts(savedSound === "true");
         if (savedLoc !== null) setLocationAccess(savedLoc === "true");
@@ -65,6 +123,11 @@ export default function Settings({ route, navigation }) {
           text: t("logout") || "Logout", 
           style: "destructive",
           onPress: async () => {
+            try {
+              await authFetch(`${API_BASE_URL}/api/driver/notifications/push-token`, { method: "DELETE" });
+            } catch (error) {
+              console.warn("Could not clear push token during logout:", error.message);
+            }
             await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
             await AsyncStorage.removeItem("saved_driver_id");
             await AsyncStorage.removeItem("saved_user");
@@ -85,7 +148,7 @@ export default function Settings({ route, navigation }) {
   const Row = ({ icon, title, subtitle, right, isLast, onPress }) => (
     <TouchableOpacity activeOpacity={onPress ? 0.7 : 1} onPress={onPress}>
       <View style={[styles.row, !isLast && styles.rowBorder]}>
-        <MaterialIcons name={icon} size={22} color={theme.colors.primary} />
+        <MaterialIcons name={icon} size={22} color={activeTheme.colors.primary} />
         <View style={styles.rowTextContainer}>
           <Typography variant="body" weight="semiBold">{title}</Typography>
           {subtitle && (
@@ -100,7 +163,7 @@ export default function Settings({ route, navigation }) {
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={activeTheme.colors.primary} />
       </SafeAreaView>
     );
   }
@@ -111,7 +174,7 @@ export default function Settings({ route, navigation }) {
 
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+            <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
           </TouchableOpacity>
           <Typography variant="h3" style={styles.headerTitle}>
             {t("settings")}
@@ -127,10 +190,12 @@ export default function Settings({ route, navigation }) {
             isLast={true}
             right={
               <Switch 
-                value={darkMode} 
-                onValueChange={(val) => { setDarkMode(val); saveSetting("settings_darkMode", val); }}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
-                thumbColor={darkMode ? theme.colors.primary : theme.colors.surface}
+                value={isDarkMode} 
+                onValueChange={(val) => {
+                  setThemeMode(val);
+                }}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.primary}80` }}
+                thumbColor={isDarkMode ? activeTheme.colors.primary : activeTheme.colors.surface}
               />
             }
           />
@@ -146,8 +211,8 @@ export default function Settings({ route, navigation }) {
               <Switch 
                 value={notifications} 
                 onValueChange={(val) => { setNotifications(val); saveSetting("settings_notifications", val); }}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
-                thumbColor={notifications ? theme.colors.primary : theme.colors.surface}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.primary}80` }}
+                thumbColor={notifications ? activeTheme.colors.primary : activeTheme.colors.surface}
               />
             }
           />
@@ -161,8 +226,8 @@ export default function Settings({ route, navigation }) {
               <Switch 
                 value={soundAlerts} 
                 onValueChange={(val) => { setSoundAlerts(val); saveSetting("settings_sound", val); }}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
-                thumbColor={soundAlerts ? theme.colors.primary : theme.colors.surface}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.primary}80` }}
+                thumbColor={soundAlerts ? activeTheme.colors.primary : activeTheme.colors.surface}
               />
             }
           />
@@ -178,8 +243,8 @@ export default function Settings({ route, navigation }) {
               <Switch 
                 value={locationAccess} 
                 onValueChange={(val) => { setLocationAccess(val); saveSetting("settings_location", val); }}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.primary}80` }}
-                thumbColor={locationAccess ? theme.colors.primary : theme.colors.surface}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.primary}80` }}
+                thumbColor={locationAccess ? activeTheme.colors.primary : activeTheme.colors.surface}
               />
             }
           />
@@ -189,7 +254,7 @@ export default function Settings({ route, navigation }) {
             title="Help & Support"
             subtitle="Contact our support team"
             onPress={() => navigation.navigate("Support", { user })}
-            right={<MaterialIcons name="chevron-right" size={22} color={theme.colors.textMuted} />}
+            right={<MaterialIcons name="chevron-right" size={22} color={activeTheme.colors.textMuted} />}
           />
 
           <Row
@@ -198,12 +263,12 @@ export default function Settings({ route, navigation }) {
             subtitle="Password, data & account safety"
             isLast={true}
             onPress={() => Alert.alert("Privacy", "Security features coming soon!")}
-            right={<MaterialIcons name="chevron-right" size={22} color={theme.colors.textMuted} />}
+            right={<MaterialIcons name="chevron-right" size={22} color={activeTheme.colors.textMuted} />}
           />
         </Card>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={22} color={theme.colors.error} />
+          <MaterialIcons name="logout" size={22} color={activeTheme.colors.error} />
           <Typography variant="body" weight="semiBold" style={styles.logoutText}>
             Logout Account
           </Typography>
@@ -218,73 +283,9 @@ export default function Settings({ route, navigation }) {
           </Typography>
         </View>
 
-        <View style={{ height: theme.spacing.xl }} />
+        <View style={{ height: activeTheme.spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  centered: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  scrollContent: {
-    padding: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.xl,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  sectionTitle: {
-    marginLeft: theme.spacing.xs,
-    marginBottom: theme.spacing.sm,
-    letterSpacing: 1,
-  },
-  card: {
-    marginBottom: theme.spacing.xl,
-    paddingVertical: 0,
-    paddingHorizontal: theme.spacing.md,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.md,
-  },
-  rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  rowTextContainer: {
-    marginLeft: theme.spacing.md,
-    flex: 1,
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${theme.colors.error}10`,
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
-    marginTop: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: `${theme.colors.error}30`,
-  },
-  logoutText: {
-    marginLeft: theme.spacing.sm,
-    color: theme.colors.error,
-  },
-  infoContainer: {
-    alignItems: "center",
-    marginTop: theme.spacing.xl,
-    paddingBottom: theme.spacing.xl,
-  }
-});
