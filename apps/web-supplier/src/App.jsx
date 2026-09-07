@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { MainLayout } from './layouts/MainLayout';
 import { Dashboard } from './pages/dashboard/Dashboard';
 import { Biddings } from './pages/biddings/Biddings';
@@ -10,25 +12,31 @@ import { Tracking } from './pages/tracking/Tracking';
 import { MyBids } from './pages/my-bids/MyBids';
 import { Profile } from './pages/profile/Profile';
 import { NotFound } from './pages/NotFound';
+import { Notifications } from './pages/notifications/Notifications';
 
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/biddings" element={<Biddings />} />
-            <Route path="/my-bids" element={<MyBids />} />
-            <Route path="/vehicles" element={<Vehicles />} />
-            <Route path="/drivers" element={<Drivers />} />
-            <Route path="/assigned-jobs" element={<AssignedJobs />} />
-            <Route path="/tracking" element={<Tracking />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <ThemeProvider>
+        <NotificationProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<MainLayout />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/biddings" element={<Biddings />} />
+                <Route path="/my-bids" element={<MyBids />} />
+                <Route path="/vehicles" element={<Vehicles />} />
+                <Route path="/drivers" element={<Drivers />} />
+                <Route path="/assigned-jobs" element={<AssignedJobs />} />
+                <Route path="/tracking" element={<Tracking />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/notifications" element={<Notifications />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </NotificationProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }
