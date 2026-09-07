@@ -148,15 +148,16 @@ function Drivers() {
 
   const handleDeactivate = async (e) => {
   e.preventDefault()
-  if (!deactivateForm.reason.trim()) { setDeactivateError('Please provide a reason.'); return }
+  const isReactivating = driverToDeactivate?.status !== 'active'
+  if (!isReactivating && !deactivateForm.reason.trim()) { setDeactivateError('Please provide a reason.'); return }
   try {
     const result = await adminAPI.verifyPassword(deactivateForm.password)
     if (!result.valid) { setDeactivateError('Incorrect password.'); return }
-    
-    const newStatus = driverToDeactivate?.status === 'active' ? 'inactive' : 'active'
-    await adminAPI.updateDriverStatus(driverToDeactivate.driver_id, { 
-      status: newStatus, 
-      deactivation_reason: deactivateForm.reason 
+
+    const newStatus = isReactivating ? 'active' : 'inactive'
+    await adminAPI.updateDriverStatus(driverToDeactivate.driver_id, {
+      status: newStatus,
+      deactivation_reason: isReactivating ? null : deactivateForm.reason
     })
     setDrivers(await adminAPI.getDrivers())
     setShowDeactivateModal(false)
@@ -769,10 +770,12 @@ function Drivers() {
                {driverToDeactivate?.status === 'active' ? 'Deactivate Driver' : 'Reactivate Driver'}
               </h2>
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Reason <span className="text-red-500">*</span></label>
-                <textarea value={deactivateForm.reason} onChange={(e) => setDeactivateForm({ ...deactivateForm, reason: e.target.value })} rows={3} placeholder="Enter a valid reason" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none bg-slate-50" required />
-              </div>
+              {driverToDeactivate?.status === 'active' && (
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Reason <span className="text-red-500">*</span></label>
+                  <textarea value={deactivateForm.reason} onChange={(e) => setDeactivateForm({ ...deactivateForm, reason: e.target.value })} rows={3} placeholder="Enter a valid reason" className="w-full mt-1 px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none bg-slate-50" required />
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-slate-700">Your Password <span className="text-red-500">*</span></label>
                 <input type="password" value={deactivateForm.password} onChange={(e) => { setDeactivateForm({ ...deactivateForm, password: e.target.value }); setDeactivateError('') }} className={`w-full mt-1 px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-slate-50 ${deactivateError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} required />

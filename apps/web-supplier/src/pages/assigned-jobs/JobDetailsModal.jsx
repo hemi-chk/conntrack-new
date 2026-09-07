@@ -57,8 +57,8 @@ export const JobDetailsModal = ({ isOpen, onClose, bid, isReadOnly, onUpdateSucc
 
     const hasUserId = d.user_id !== null && d.user_id !== undefined && d.user_id !== '';
     const isNotRemoved = !d.removal_reason;
-    const isNotDeactivated = !d.deactivation_reason;
-    
+    const isNotDeactivated = d.status !== 'inactive';
+
     return hasUserId && isNotRemoved && isNotDeactivated;
   });
 
