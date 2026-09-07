@@ -1,4 +1,5 @@
 import { supabase } from '@conntrack/database'
+import { publish } from '@conntrack/messaging'
 
 const uploadToStorage = async (bucket, folder, file) => {
   const fileName = `${Date.now()}-${file.originalname}`
@@ -465,7 +466,74 @@ export const updateBid = async (req, res) => {
     if (error) throw error
     if (!data || data.length === 0) return res.status(404).json({ error: 'Bid not found or unauthorized' })
 
-    res.json(data[0])
+    const bid = data[0]
+
+    // Assigning a driver + vehicle here is the only place that happens, so it also
+    // has to propagate to order_assignments - that's what the driver's app and the
+    // operations dashboard actually read from, not the bids table.
+    if (updateData.driver_id && updateData.vehicle_id) {
+      const { data: biddingRow } = await supabase
+        .from('bidding')
+        .select('order_id, orders(order_reference)')
+        .eq('bidding_id', bid.bidding_id)
+        .maybeSingle()
+
+      const orderId = biddingRow?.order_id
+
+      if (orderId) {
+        const { data: existingAssignment } = await supabase
+          .from('order_assignments')
+          .select('assignment_id')
+          .eq('order_id', orderId)
+          .maybeSingle()
+
+        const assignmentPayload = {
+          order_id: orderId,
+          supplier_id: req.supplierId,
+          driver_id: updateData.driver_id,
+          vehicle_id: updateData.vehicle_id,
+          status: 'assigned',
+          assigned_at: new Date().toISOString(),
+        }
+
+        if (existingAssignment) {
+          await supabase
+            .from('order_assignments')
+            .update(assignmentPayload)
+            .eq('assignment_id', existingAssignment.assignment_id)
+        } else {
+          await supabase.from('order_assignments').insert([assignmentPayload])
+        }
+
+        const orderReference = biddingRow?.orders?.order_reference || orderId
+
+        await supabase.from('orders').update({ current_status: 'driver_assigned' }).eq('order_id', orderId)
+        await supabase.from('vehicles').update({ availability_status: 'on_trip' }).eq('vehicle_id', updateData.vehicle_id)
+
+        await supabase.from('notifications').insert([{
+          driver_id: updateData.driver_id,
+          order_id: orderId,
+          title: 'New Job Assigned',
+          message: `You have been assigned to order ${orderReference}. Please check your app for details.`,
+          type: 'driver_assigned',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }])
+
+        try {
+          await publish('driver.assigned', {
+            order_id: orderId,
+            order_reference: orderReference,
+            driver_id: updateData.driver_id,
+            vehicle_id: updateData.vehicle_id,
+          })
+        } catch (publishError) {
+          console.error('Failed to publish driver.assigned event:', publishError.message)
+        }
+      }
+    }
+
+    res.json(bid)
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

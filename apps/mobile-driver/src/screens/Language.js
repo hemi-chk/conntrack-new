@@ -4,13 +4,50 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { Typography } from "../components/Typography";
 import { Button } from "../components/Button";
 
 export default function Language({ navigation }) {
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
   const [selectedLang, setSelectedLang] = useState(null);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    content: {
+      padding: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.xl,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    langOption: {
+      padding: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.md,
+      borderRadius: activeTheme.roundness.md,
+    },
+    langOptionSelected: {
+      backgroundColor: activeTheme.colors.primary,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.primary,
+    },
+    langOptionUnselected: {
+      backgroundColor: activeTheme.colors.surface,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+    },
+    confirmButton: {
+      marginTop: activeTheme.spacing.lg,
+    }
+  });
 
   const languages = [
     { code: "en", label: "🇬🇧 English" },
@@ -38,7 +75,7 @@ export default function Language({ navigation }) {
         
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation?.goBack?.()}>
-            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+            <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
           </TouchableOpacity>
 
           <Typography variant="h3" style={styles.headerTitle}>
@@ -61,7 +98,7 @@ export default function Language({ navigation }) {
               <Typography 
                 variant="body" 
                 weight="semiBold"
-                style={{ color: isSelected ? theme.colors.surface : theme.colors.text }}
+                style={{ color: isSelected ? activeTheme.colors.surface : activeTheme.colors.text }}
               >
                 {lang.label}
               </Typography>
@@ -78,40 +115,4 @@ export default function Language({ navigation }) {
       </View>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    padding: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.xl,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  langOption: {
-    padding: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    borderRadius: theme.roundness.md,
-  },
-  langOptionSelected: {
-    backgroundColor: theme.colors.primary,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-  },
-  langOptionUnselected: {
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  confirmButton: {
-    marginTop: theme.spacing.lg,
-  }
-});
+}

@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const driverController = require('../controllers/driver.controller');
-const requireDriverAuth = require('../middleware/auth.middleware');
+const { verifyDriverToken } = require('../middleware/auth');
+
+const requireDriverAuth = verifyDriverToken;
 
 router.post('/login', driverController.loginDriver);
 
@@ -16,6 +18,9 @@ router.post('/upload-document', driverController.uploadDocument);
 router.patch('/update-duty-status', driverController.updateDutyStatus);
 router.put('/update-profile', driverController.updateProfile);
 router.get('/issues/:driverId', driverController.getDriverIssues);
+router.get('/notifications', driverController.getDriverNotifications);
+router.post('/notifications/push-token', driverController.registerPushToken);
+router.delete('/notifications/push-token', driverController.clearPushToken);
 router.post('/report-issue', driverController.reportIssue);
 router.post('/upload-profile-photo', driverController.uploadProfilePhoto);
 router.post('/remove-profile-photo', driverController.removeProfilePhoto);

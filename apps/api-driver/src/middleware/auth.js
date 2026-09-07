@@ -3,7 +3,9 @@ const jwt = require('jsonwebtoken');
 // Drivers aren't Supabase Auth users - they're plain rows in the `drivers`
 // table, authenticated via driverId/password and a token we sign ourselves.
 const verifyDriverToken = (req, res, next) => {
-  if (req.path === '/login') return next();
+  const path = req.path || req.originalUrl || '';
+  const publicPaths = ['/login', '/api/driver/login'];
+  if (publicPaths.some(p => path === p || path.endsWith(p))) return next();
 
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ success: false, message: 'No token provided' });

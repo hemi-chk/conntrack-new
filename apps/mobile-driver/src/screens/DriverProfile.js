@@ -8,11 +8,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     Image,
     ScrollView,
     StyleSheet,
@@ -25,20 +26,136 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function DriverProfile({ route, navigation }) {
   const { user } = route.params || {};
+  const { theme: activeTheme } = useTheme();
 
   const [isOnDuty, setIsOnDuty] = useState(user?.status === 'active');
-  const [workStatus, setWorkStatus] = useState(user?.availability_status || 'Available');
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profileImage, setProfileImage] = useState(user?.profile_photo_url || null);
 
   const { t } = useTranslation();
+  const availabilityStatus = String(user?.availability || user?.availability_status || "unavailable")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  const availabilityKey = availabilityStatus === "available"
+    ? "available"
+    : availabilityStatus === "ontrip"
+      ? "on_trip"
+      : "not_available";
+  const availabilityColor = availabilityKey === "available"
+    ? activeTheme.colors.success
+    : availabilityKey === "on_trip"
+      ? activeTheme.colors.warning
+      : activeTheme.colors.error;
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: activeTheme.spacing.lg,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    profileSection: {
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.lg,
+    },
+    profileImage: {
+      width: 90,
+      height: 90,
+      borderRadius: activeTheme.roundness.full,
+    },
+    profilePlaceholder: {
+      width: 90,
+      height: 90,
+      borderRadius: activeTheme.roundness.full,
+      backgroundColor: activeTheme.colors.primary,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    imageWrapper: {
+      position: "relative",
+      borderRadius: activeTheme.roundness.full,
+      overflow: "hidden",
+    },
+    uploadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    driverName: {
+      marginTop: activeTheme.spacing.sm,
+    },
+    availabilityCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.lg,
+    },
+    availabilityRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginTop: activeTheme.spacing.sm,
+      alignItems: "flex-start",
+    },
+    statusInfo: {
+      flex: 1,
+      minWidth: 0,
+      paddingRight: activeTheme.spacing.md,
+    },
+    statusAction: {
+      width: 120,
+      alignItems: "flex-end",
+    },
+    statusValue: {
+      flexShrink: 1,
+      textAlign: "center",
+    },
+    workStatusCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.lg,
+      backgroundColor: activeTheme.colors.surface,
+    },
+    statusBadge: {
+      maxWidth: 132,
+      paddingHorizontal: activeTheme.spacing.md,
+      paddingVertical: 4,
+      borderRadius: activeTheme.roundness.full,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      alignItems: "center",
+    },
+    menuCard: {
+      marginHorizontal: activeTheme.spacing.lg,
+      padding: 0, 
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: activeTheme.spacing.md,
+    },
+    menuItemBorder: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: activeTheme.colors.border,
+    },
+    menuLabel: {
+      marginLeft: activeTheme.spacing.md,
+      flex: 1,
+    },
+    logoutContainer: {
+      margin: activeTheme.spacing.lg,
+    }
+  });
 
   const handleToggleDutyStatus = async (newValue) => {
     try {
@@ -56,11 +173,11 @@ export default function DriverProfile({ route, navigation }) {
       if (result.success) {
         setIsOnDuty(newValue);
       } else {
-        Alert.alert("Error", "Failed to update duty status");
+        Alert.alert(t("error"), t("failed_update_duty_status"));
       }
     } catch (error) {
       console.log("Toggle Error:", error);
-      Alert.alert("Error", "Could not connect to server");
+      Alert.alert(t("error"), t("could_not_connect_server"));
     } finally {
       setIsLoading(false);
     }
@@ -102,13 +219,13 @@ export default function DriverProfile({ route, navigation }) {
           if (user) {
             user.profile_photo_url = uploadResult.url;
           }
-          Alert.alert("Success", "Profile photo updated successfully!");
+          Alert.alert(t("success"), t("success_profile_photo_updated"));
         } else {
-          Alert.alert("Error", uploadResult.message || "Failed to upload photo.");
+          Alert.alert(t("error"), uploadResult.message || t("failed_upload_photo"));
         }
       } catch (error) {
         console.error("Upload Error:", error);
-        Alert.alert("Connection Error", "Could not connect to server to upload photo.");
+        Alert.alert(t("connection_error"), t("upload_photo_connection_error"));
       } finally {
         setIsUploadingPhoto(false);
       }
@@ -118,12 +235,12 @@ export default function DriverProfile({ route, navigation }) {
   const handleProfileImagePress = () => {
     if (profileImage) {
       Alert.alert(
-        "Profile Photo",
-        "What would you like to do?",
+        t("profile_photo"),
+        t("profile_photo_action"),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Remove Photo", onPress: removeProfileImage, style: "destructive" },
-          { text: "Change Photo", onPress: pickImage }
+          { text: t("cancel"), style: "cancel" },
+          { text: t("remove_photo"), onPress: removeProfileImage, style: "destructive" },
+          { text: t("change_photo"), onPress: pickImage }
         ]
       );
     } else {
@@ -149,17 +266,34 @@ export default function DriverProfile({ route, navigation }) {
         if (user) {
           user.profile_photo_url = null;
         }
-        Alert.alert("Success", "Profile photo removed successfully!");
+        Alert.alert(t("success"), t("success_profile_photo_removed"));
       } else {
-        Alert.alert("Error", result.message || "Failed to remove photo.");
+        Alert.alert(t("error"), result.message || t("failed_remove_photo"));
       }
     } catch (error) {
       console.error("Remove Error:", error);
-      Alert.alert("Connection Error", "Could not connect to server to remove photo.");
+      Alert.alert(t("connection_error"), t("remove_photo_connection_error"));
     } finally {
       setIsUploadingPhoto(false);
     }
   };
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate("Dashboard", { user });
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const subscription = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => subscription.remove();
+  }, [navigation, user]);
 
   const menuItems = [
     { icon: "person", label: t("edit_profile"), screen: "EditProfile" },
@@ -174,8 +308,8 @@ export default function DriverProfile({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}>
 
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+          <TouchableOpacity onPress={handleBack}>
+            <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
           </TouchableOpacity>
 
           <Typography variant="h3" style={styles.headerTitle}>
@@ -193,7 +327,7 @@ export default function DriverProfile({ route, navigation }) {
               />
             ) : (
               <View style={styles.profilePlaceholder}>
-                <MaterialIcons name="person" size={50} color={theme.colors.surface} />
+                <MaterialIcons name="person" size={50} color={activeTheme.colors.surface} />
               </View>
             )}
             
@@ -217,30 +351,30 @@ export default function DriverProfile({ route, navigation }) {
         {/* DUTY STATUS: Manual control for shifts */}
         <Card elevation="sm" style={styles.availabilityCard}>
           <View style={styles.availabilityRow}>
-            <View>
+            <View style={styles.statusInfo}>
               <Typography variant="subtitle" weight="bold">
-                Duty Status
+                {t("duty_status")}
               </Typography>
               <Typography variant="caption" color="textMuted">
-                Toggle when starting/ending shift
+                {t("duty_status_hint")}
               </Typography>
             </View>
 
-            <View style={{ alignItems: 'flex-end' }}>
+            <View style={styles.statusAction}>
               <Typography
                 variant="subtitle"
                 weight="semiBold"
-                style={{ color: isOnDuty ? theme.colors.success : theme.colors.error, marginBottom: 4 }}
+                style={[styles.statusValue, { color: isOnDuty ? activeTheme.colors.success : activeTheme.colors.error, marginBottom: 4 }]}
               >
-                {isOnDuty ? "ON DUTY" : "OFF DUTY"}
+                {isOnDuty ? t("on_duty") : t("off_duty")}
               </Typography>
 
               <Switch
                 value={isOnDuty}
                 onValueChange={handleToggleDutyStatus}
                 disabled={isLoading}
-                trackColor={{ false: theme.colors.border, true: `${theme.colors.success}80` }}
-                thumbColor={isOnDuty ? theme.colors.success : theme.colors.surface}
+                trackColor={{ false: activeTheme.colors.border, true: `${activeTheme.colors.success}80` }}
+                thumbColor={isOnDuty ? activeTheme.colors.success : activeTheme.colors.surface}
               />
             </View>
           </View>
@@ -249,26 +383,28 @@ export default function DriverProfile({ route, navigation }) {
         {/* WORK STATUS: Informational badge based on mission state */}
         <Card elevation="sm" style={styles.workStatusCard}>
           <View style={styles.availabilityRow}>
-            <View>
+            <View style={styles.statusInfo}>
               <Typography variant="subtitle" weight="bold">
-                Current Work Status
+                {t("current_work_status")}
               </Typography>
               <Typography variant="caption" color="textMuted">
-                Automatically updated by system
+                {t("work_status_updated")}
               </Typography>
             </View>
 
-            <View style={[
-              styles.statusBadge,
-              { backgroundColor: workStatus === 'Available' ? `${theme.colors.success}20` : `${theme.colors.warning}20` }
-            ]}>
-              <Typography
-                variant="caption"
-                weight="bold"
-                style={{ color: workStatus === 'Available' ? theme.colors.success : theme.colors.warning }}
-              >
-                {workStatus.toUpperCase()}
-              </Typography>
+            <View style={styles.statusAction}>
+              <View style={[
+                styles.statusBadge,
+                { backgroundColor: `${availabilityColor}20` }
+              ]}>
+                <Typography
+                  variant="caption"
+                  weight="bold"
+                  style={[styles.statusValue, { color: availabilityColor }]}
+                >
+                  {t(availabilityKey).toUpperCase()}
+                </Typography>
+              </View>
             </View>
           </View>
         </Card>
@@ -284,13 +420,13 @@ export default function DriverProfile({ route, navigation }) {
                 index !== menuItems.length - 1 && styles.menuItemBorder
               ]}
             >
-              <MaterialIcons name={item.icon} size={22} color={theme.colors.primary} />
+              <MaterialIcons name={item.icon} size={22} color={activeTheme.colors.primary} />
 
               <Typography variant="body" style={styles.menuLabel}>
                 {item.label}
               </Typography>
 
-              <MaterialIcons name="chevron-right" size={20} color={theme.colors.textMuted} />
+              <MaterialIcons name="chevron-right" size={20} color={activeTheme.colors.textMuted} />
             </TouchableOpacity>
           ))}
         </Card>
@@ -300,7 +436,11 @@ export default function DriverProfile({ route, navigation }) {
           <Button
             title={t("logout")}
             onPress={async () => {
+              const driverId = user?.driver_id || user?.emp_id;
               await SecureStore.deleteItemAsync(AUTH_TOKEN_KEY);
+              if (driverId) {
+                await SecureStore.deleteItemAsync(`saved_password_${driverId}`);
+              }
               await AsyncStorage.removeItem("saved_user");
               await AsyncStorage.removeItem("saved_driver_id");
               await AsyncStorage.removeItem("remember_me");
@@ -312,96 +452,9 @@ export default function DriverProfile({ route, navigation }) {
           />
         </View>
 
-        <View style={{ height: theme.spacing.xl }} />
+        <View style={{ height: activeTheme.spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing.lg,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  profileSection: {
-    alignItems: "center",
-    marginBottom: theme.spacing.lg,
-  },
-  profileImage: {
-    width: 90,
-    height: 90,
-    borderRadius: theme.roundness.full,
-  },
-  profilePlaceholder: {
-    width: 90,
-    height: 90,
-    borderRadius: theme.roundness.full,
-    backgroundColor: theme.colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  imageWrapper: {
-    position: "relative",
-    borderRadius: theme.roundness.full,
-    overflow: "hidden",
-  },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  driverName: {
-    marginTop: theme.spacing.sm,
-  },
-  availabilityCard: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-  },
-  availabilityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: theme.spacing.sm,
-    alignItems: "center",
-  },
-  workStatusCard: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-  },
-  statusBadge: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 4,
-    borderRadius: theme.roundness.full,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  menuCard: {
-    marginHorizontal: theme.spacing.lg,
-    padding: 0, 
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing.md,
-  },
-  menuItemBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-  },
-  menuLabel: {
-    marginLeft: theme.spacing.md,
-    flex: 1,
-  },
-  logoutContainer: {
-    margin: theme.spacing.lg,
-  }
-});
