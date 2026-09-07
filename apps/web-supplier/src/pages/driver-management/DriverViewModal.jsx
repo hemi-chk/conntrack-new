@@ -14,7 +14,7 @@ export const DriverViewModal = ({ isOpen, onClose, driver, onEdit, onDelete }) =
     complianceStatus = { text: 'Pending', color: 'text-warning', bg: 'bg-warning/10' };
   } else if (driver.removal_reason) {
     complianceStatus = { text: 'Removed', color: 'text-error', bg: 'bg-error/10' };
-  } else if (driver.deactivation_reason) {
+  } else if (driver.status === 'inactive') {
     complianceStatus = { text: 'Deactivated', color: 'text-error', bg: 'bg-error/10' };
   }
 

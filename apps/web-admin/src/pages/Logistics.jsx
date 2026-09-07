@@ -66,12 +66,13 @@ function Logistics() {
 
   const handleDeactivate = async (e) => {
     e.preventDefault()
-    if (!deactivateForm.reason.trim()) { setDeactivateError('Please provide a reason.'); return }
+    const isReactivating = staffToDeactivate?.status !== 'active'
+    if (!isReactivating && !deactivateForm.reason.trim()) { setDeactivateError('Please provide a reason.'); return }
     try {
       const result = await adminAPI.verifyPassword(deactivateForm.password)
       if (!result.valid) { setDeactivateError('Incorrect password.'); return }
-      const newStatus = staffToDeactivate?.status === 'active' ? 'inactive' : 'active'
-      await adminAPI.updateStaffStatus(staffToDeactivate.id, { status: newStatus, deactivation_reason: deactivateForm.reason })
+      const newStatus = isReactivating ? 'active' : 'inactive'
+      await adminAPI.updateStaffStatus(staffToDeactivate.id, { status: newStatus, deactivation_reason: isReactivating ? null : deactivateForm.reason })
       setStaff(await adminAPI.getStaff('logistics'))
       setShowDeactivateModal(false)
       setStaffToDeactivate(null)
@@ -418,10 +419,12 @@ function Logistics() {
                   {staffToDeactivate?.status === 'active' ? '⚠️ This will suspend their system access temporarily.' : '⚠️ This will restore their system access.'}
                 </p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700">Reason <span className="text-red-500">*</span></label>
-                <textarea value={deactivateForm.reason} onChange={(e) => setDeactivateForm({ ...deactivateForm, reason: e.target.value })} rows={3} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" required />
-              </div>
+              {staffToDeactivate?.status === 'active' && (
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Reason <span className="text-red-500">*</span></label>
+                  <textarea value={deactivateForm.reason} onChange={(e) => setDeactivateForm({ ...deactivateForm, reason: e.target.value })} rows={3} className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none" required />
+                </div>
+              )}
               <div>
                 <label className="text-sm font-medium text-slate-700">Your Password <span className="text-red-500">*</span></label>
                 <input type="password" value={deactivateForm.password} onChange={(e) => { setDeactivateForm({ ...deactivateForm, password: e.target.value }); setDeactivateError('') }} className={`w-full mt-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 ${deactivateError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} required />
