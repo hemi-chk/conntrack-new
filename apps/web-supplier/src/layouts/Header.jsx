@@ -1,7 +1,9 @@
-import { Bell, User, Menu, LogOut } from 'lucide-react'
+import { Bell, User, Menu, LogOut, Sun, Moon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { useProfile } from '../hooks/useProfile'
+import { useNotifications } from '../context/NotificationContext'
+import { useTheme } from '../context/ThemeContext'
 
 function LogoutModal({ onConfirm, onCancel }) {
   return (
@@ -35,9 +37,9 @@ function LogoutModal({ onConfirm, onCancel }) {
 
 export function Header({ onMenuClick }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const user = JSON.parse(localStorage.getItem('user') || '{"name":"Supplier"}')
-  const userName = user.name || 'Supplier'
   const { profileData } = useProfile()
+  const { unreadCount } = useNotifications()
+  const { theme, toggleTheme } = useTheme()
 
   const confirmLogout = () => {
     localStorage.clear()
@@ -79,10 +81,23 @@ export function Header({ onMenuClick }) {
 
         {/* Right side */}
         <div className="flex gap-4 items-center">
-          <button className="relative p-2 rounded-lg transition hover:bg-blue-700">
-            <Bell size={22} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
+          <button
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            className="relative p-2 rounded-lg transition-all duration-300 hover:bg-blue-700 group"
+          >
+            {theme === 'dark' ? (
+              <Sun size={22} className="transition-transform duration-300 group-hover:rotate-12 text-yellow-300" />
+            ) : (
+              <Moon size={22} className="transition-transform duration-300 group-hover:-rotate-12" />
+            )}
           </button>
+          <Link to="/notifications" className="relative p-2 rounded-lg transition hover:bg-blue-700">
+            <Bell size={22} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
+            )}
+          </Link>
           <Link to="/profile" className="flex gap-2 items-center px-3 py-2 bg-blue-700 rounded-lg transition-colors hover:bg-blue-600">
             <div className="overflow-hidden flex justify-center items-center w-8 h-8 bg-white rounded-full">
               {profileData?.supplier_logo ? (
@@ -91,7 +106,7 @@ export function Header({ onMenuClick }) {
                 <User size={16} className="text-primary" />
               )}
             </div>
-            <span className="text-sm font-medium">{userName}</span>
+            <span className="text-sm font-medium">{profileData?.company_name || 'Supplier'}</span>
           </Link>
           <button
             onClick={() => setShowLogoutModal(true)}

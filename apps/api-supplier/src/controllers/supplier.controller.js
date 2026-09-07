@@ -622,3 +622,56 @@ export const addInspectionRecord = async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 }
+
+// --- Notifications ---
+// Scoped to req.supplierId (server-derived from the authenticated session), not a
+// client-supplied supplier_id - matches this file's IDOR-safe convention elsewhere.
+
+export const getNotifications = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('notification_supplier')
+      .select('*')
+      .eq('supplier_id', req.supplierId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    res.json(data)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+export const markNotificationRead = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const { data, error } = await supabase
+      .from('notification_supplier')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('supplier_id', req.supplierId)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Notification not found' })
+    res.json(data[0])
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
+export const markAllNotificationsRead = async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('notification_supplier')
+      .update({ is_read: true })
+      .eq('supplier_id', req.supplierId)
+      .eq('is_read', false)
+
+    if (error) throw error
+    res.json({ message: 'All notifications marked as read' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
