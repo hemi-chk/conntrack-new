@@ -1,7 +1,7 @@
 const supabase = require('../config/supabase');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const { Expo } = require('expo-server-sdk');
 const DRIVER_STATUS_TO_OPERATION_STATUS = {
     assigned: 'driver_assigned',
     started: 'driver_assigned',
@@ -13,10 +13,49 @@ const DRIVER_STATUS_TO_OPERATION_STATUS = {
     delivered: 'completed',
     completed: 'completed'
 };
-
 const getTrackingStatus = (status) => {
     const normalizedStatus = String(status || '').trim().toLowerCase();
     return DRIVER_STATUS_TO_OPERATION_STATUS[normalizedStatus] || null;
+};
+
+const distanceInMeters = (firstLatitude, firstLongitude, secondLatitude, secondLongitude) => {
+    const earthRadius = 6371000;
+    const latitudeDifference = (secondLatitude - firstLatitude) * Math.PI / 180;
+    const longitudeDifference = (secondLongitude - firstLongitude) * Math.PI / 180;
+    const firstLatitudeRadians = firstLatitude * Math.PI / 180;
+    const secondLatitudeRadians = secondLatitude * Math.PI / 180;
+    const haversine = Math.sin(latitudeDifference / 2) ** 2
+        + Math.cos(firstLatitudeRadians) * Math.cos(secondLatitudeRadians) * Math.sin(longitudeDifference / 2) ** 2;
+
+    return 2 * earthRadius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const getStageLocation = (status, order) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const orderType = String(order.order_type || '').trim().toLowerCase();
+    const isArrivalAtPickup = normalizedStatus.includes('pickup')
+        || (orderType === 'import' && normalizedStatus.includes('port'))
+        || (orderType === 'export' && normalizedStatus.includes('yard'));
+    const isArrivalAtDestination = normalizedStatus.includes('deliver')
+        || normalizedStatus.includes('complete')
+        || (orderType === 'import' && normalizedStatus.includes('yard'))
+        || (orderType === 'export' && normalizedStatus.includes('port'));
+
+    if (isArrivalAtPickup) {
+        return {
+            label: orderType === 'import' ? 'port' : 'yard',
+            latitude: Number(order.pickup_latitude ?? order.origin_latitude),
+            longitude: Number(order.pickup_longitude ?? order.origin_longitude),
+        };
+    }
+    if (isArrivalAtDestination) {
+        return {
+            label: orderType === 'import' ? 'yard' : 'port',
+            latitude: Number(order.destination_latitude ?? order.dropoff_latitude),
+            longitude: Number(order.destination_longitude ?? order.dropoff_longitude),
+        };
+    }
+    return null;
 };
 
 const getCurrentLocation = (description, latitude, longitude) => {
@@ -46,8 +85,12 @@ exports.getAssignedOrders = async (req, res) => {
                     cargo_weight,
                     pickup_country:pickup_district,
                     pickup_state:pickup_location,
+                    pickup_latitude,
+                    pickup_longitude,
                     destination_country:destination_district,
                     destination_state:destination_location,
+                    destination_latitude,
+                    destination_longitude,
                     special_instructions,
                     current_status
                 )
@@ -285,10 +328,7 @@ exports.changePassword = async (req, res) => {
                 updated_at: new Date()
             })
             .eq('driver_id', driverId);
-
         if (updateError) throw updateError;
-
-        res.status(200).json({ success: true, message: 'Password updated successfully' });
     } catch (error) {
         console.error('Change Password Error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -357,8 +397,14 @@ exports.getActiveMission = async (req, res) => {
 exports.updateMissionStatus = async (req, res) => {
     try {
         const { assignmentId, orderId, status, locationName, latitude, longitude } = req.body;
+        const normalizedStatus = String(status || '').trim().toLowerCase();
         console.log('--- DB Update Start ---');
         console.log('Assignment ID:', assignmentId, 'New Status:', status);
+
+        if (!assignmentId || !orderId || !normalizedStatus
+            || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+            return res.status(400).json({ success: false, message: 'Assignment, order, status, and GPS coordinates are required' });
+        }
 
         // Confirm this assignment actually belongs to the calling driver before
         // letting them update it or its order.
@@ -375,14 +421,73 @@ exports.updateMissionStatus = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Not your assignment' });
         }
 
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('order_id', orderId)
+            .single();
+
+        if (orderError || !order) {
+            return res.status(404).json({ success: false, message: 'Order not found' });
+        }
+
+        const { data: stages, error: stagesError } = await supabase
+            .from('tracking_stages')
+            .select('stage_name, sequence_order')
+            .ilike('order_type', String(order.order_type || '').trim().toLowerCase())
+            .order('sequence_order', { ascending: true });
+
+        if (stagesError) throw stagesError;
+
+        const requestedStage = (stages || []).find(
+            (stage) => String(stage.stage_name || '').trim().toLowerCase() === normalizedStatus,
+        );
+        if (requestedStage) {
+            const { data: latestHistory } = await supabase
+                .from('order_tracking_history')
+                .select('stage_name')
+                .eq('assignment_id', assignmentId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            const currentIndex = latestHistory
+                ? (stages || []).findIndex((stage) => String(stage.stage_name || '').trim().toLowerCase() === String(latestHistory.stage_name || '').trim().toLowerCase())
+                : -1;
+            const requestedIndex = stages.findIndex((stage) => String(stage.stage_name || '').trim().toLowerCase() === normalizedStatus);
+
+            if (requestedIndex !== currentIndex + 1) {
+                return res.status(409).json({ success: false, message: 'Stages must be completed in order' });
+            }
+        }
+
+        const stageLocation = getStageLocation(normalizedStatus, order);
+        if (stageLocation) {
+            if (!Number.isFinite(stageLocation.latitude) || !Number.isFinite(stageLocation.longitude)) {
+                return res.status(409).json({ success: false, message: `The assigned ${stageLocation.label} location has no GPS coordinates` });
+            }
+
+            const distance = distanceInMeters(
+                Number(latitude),
+                Number(longitude),
+                stageLocation.latitude,
+                stageLocation.longitude,
+            );
+            if (distance > 200) {
+                return res.status(409).json({
+                    success: false,
+                    message: `You are ${(distance / 1000).toFixed(1)} km away from the assigned ${stageLocation.label}. Reach the location before completing this stage.`,
+                });
+            }
+        }
+
         // 1. Only update the high-level assignment status for critical milestones
         // This avoids "check constraint" errors for intermediate stages like 'started'
         const coreStatuses = ['assigned', 'delivered', 'completed'];
-        if (coreStatuses.includes(status.toLowerCase())) {
-            console.log('Updating core assignment status to:', status);
+        if (coreStatuses.includes(normalizedStatus)) {
+            console.log('Updating core assignment status to:', normalizedStatus);
             const { error: assignmentError } = await supabase
                 .from('order_assignments')
-                .update({ status: status.toLowerCase() })
+                .update({ status: normalizedStatus })
                 .eq('assignment_id', assignmentId);
 
             if (assignmentError) {
@@ -400,7 +505,7 @@ exports.updateMissionStatus = async (req, res) => {
             .insert([{
                 order_id: orderId,
                 assignment_id: assignmentId,
-                stage_name: status,
+                stage_name: normalizedStatus,
                 location_name: locationName,
                 latitude: latitude,
                 longitude: longitude,
@@ -425,7 +530,7 @@ exports.updateMissionStatus = async (req, res) => {
             latitude: latitude || null,
             longitude: longitude || null,
             current_location: locationName || null,
-            status: status,
+            status: normalizedStatus,
             recorded_at: new Date()
         }]);
 
@@ -438,7 +543,7 @@ exports.updateMissionStatus = async (req, res) => {
             delivered: 'completed',
             completed: 'completed',
         };
-        const orderStatus = statusMap[status.toLowerCase()];
+        const orderStatus = statusMap[normalizedStatus];
         if (orderStatus) {
             await supabase.from('orders').update({ current_status: orderStatus }).eq('order_id', orderId);
         }
@@ -613,6 +718,69 @@ exports.getDriverIssues = async (req, res) => {
     }
 };
 
+exports.getDriverNotifications = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select(`
+                id,
+                driver_id,
+                order_id,
+                title,
+                message,
+                type,
+                is_read,
+                created_at,
+                orders (order_reference)
+            `)
+            .eq('driver_id', req.driver.driver_id)
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) throw error;
+
+        res.status(200).json({ success: true, data: data || [] });
+    } catch (error) {
+        console.error('Fetch Driver Notifications Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+    }
+};
+
+exports.registerPushToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token || !Expo.isExpoPushToken(token)) {
+            return res.status(400).json({ success: false, message: 'Invalid Expo push token' });
+        }
+
+        const { error } = await supabase
+            .from('drivers')
+            .update({ expo_push_token: token, updated_at: new Date() })
+            .eq('driver_id', req.driver.driver_id);
+
+        if (error) throw error;
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Register Push Token Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to register notifications' });
+    }
+};
+
+exports.clearPushToken = async (req, res) => {
+    try {
+        const { error } = await supabase
+            .from('drivers')
+            .update({ expo_push_token: null, updated_at: new Date() })
+            .eq('driver_id', req.driver.driver_id);
+
+        if (error) throw error;
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Clear Push Token Error:', error);
+        res.status(500).json({ success: false, message: 'Failed to clear notifications' });
+    }
+};
+
 /**
  * 11. Report a New Issue
  */
@@ -631,15 +799,30 @@ exports.reportIssue = async (req, res) => {
             });
         }
 
-        let resolvedOrderId = orderId ? parseInt(orderId) : null;
-        let resolvedSupplierId = supplierId ? parseInt(supplierId) : null;
+        const toIntegerOrNull = (value) => {
+            if (value === null || value === undefined || value === '') return null;
+            const parsed = Number.parseInt(value, 10);
+            return Number.isInteger(parsed) ? parsed : null;
+        };
 
-        if ((!resolvedOrderId || !resolvedSupplierId) && assignmentId) {
+        let resolvedOrderId = toIntegerOrNull(orderId);
+        let resolvedSupplierId = toIntegerOrNull(supplierId);
+        const resolvedAssignmentId = toIntegerOrNull(assignmentId);
+        const resolvedDriverId = toIntegerOrNull(driverId);
+
+        if (!resolvedDriverId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Could not identify the logged-in driver'
+            });
+        }
+
+        if ((!resolvedOrderId || !resolvedSupplierId) && resolvedAssignmentId && resolvedDriverId) {
             const { data: assignment, error: assignmentError } = await supabase
                 .from('order_assignments')
                 .select('order_id, orders (supplier_id)')
-                .eq('assignment_id', parseInt(assignmentId))
-                .eq('driver_id', parseInt(driverId))
+                .eq('assignment_id', resolvedAssignmentId)
+                .eq('driver_id', resolvedDriverId)
                 .maybeSingle();
 
             if (assignmentError) throw assignmentError;
@@ -647,12 +830,12 @@ exports.reportIssue = async (req, res) => {
             resolvedSupplierId = resolvedSupplierId || assignment?.orders?.supplier_id || null;
         }
 
-        if (!resolvedOrderId) {
+        if (!resolvedOrderId && resolvedDriverId) {
             const { data: activeAssignment, error: activeAssignmentError } = await supabase
                 .from('order_assignments')
                 .select('order_id, orders (supplier_id)')
-                .eq('driver_id', parseInt(driverId))
-                .not('status', 'in', '(completed,delivered)')
+            .eq('driver_id', resolvedDriverId)
+            .not('status', 'in', '(completed,delivered)')
                 .order('assigned_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -665,12 +848,12 @@ exports.reportIssue = async (req, res) => {
         const { data, error } = await supabase
             .from('issues')
             .insert([{
-                driver_id: parseInt(driverId),
+                driver_id: resolvedDriverId,
                 order_id: resolvedOrderId,
                 supplier_id: resolvedSupplierId,
                 reported_by: null,
                 issue_type: issueType,
-                priority: priority || 'major',
+                priority: priority || 'medium',
                 description: description,
                 status: 'open',
                 created_at: new Date(),
@@ -687,7 +870,7 @@ exports.reportIssue = async (req, res) => {
         });
     } catch (error) {
         console.error('Report Issue Error:', error);
-        res.status(500).json({ success: false, message: 'Failed to report issue' });
+        res.status(500).json({ success: false, message: `Failed to report issue: ${error.message}` });
     }
 };
 
@@ -955,3 +1138,4 @@ exports.getAssignedVehicle = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
+

@@ -7,41 +7,35 @@
 import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { authFetch } from "../utils/authFetch";
 
 const { width } = Dimensions.get("window");
 
-/**
- * Predefined issue categories for structured reporting.
- */
-// Category wording matches Logistics' issue form so Admin's unified Issues
-// view groups them together instead of showing separate near-duplicate types.
 const ISSUE_TYPES = [
-  { key: "Mechanical Breakdown", label: "Mechanical Breakdown", icon: "directions-car", color: "#EF4444" },
-  { key: "Traffic/Route Delay", label: "Traffic / Route Delay", icon: "schedule", color: "#F59E0B" },
-  { key: "Documentation Issue", label: "Documentation Issue", icon: "description", color: "#6366F1" },
-  { key: "Cargo Damage", label: "Cargo Damage", icon: "local-shipping", color: "#DC2626" },
-  { key: "Other", label: "Other", icon: "help-outline", color: "#64748B" },
+  { key: "Mechanical Breakdown", labelKey: "mechanical_breakdown", icon: "directions-car", color: "#EF4444" },
+  { key: "Traffic/Route Delay", labelKey: "traffic_route_delay", icon: "schedule", color: "#F59E0B" },
+  { key: "Documentation Issue", labelKey: "documentation_issue", icon: "description", color: "#6366F1" },
+  { key: "Cargo Damage", labelKey: "cargo_damage", icon: "local-shipping", color: "#DC2626" },
+  { key: "Other", labelKey: "other", icon: "help-outline", color: "#64748B" },
 ];
 
 const PRIORITIES = [
-  { key: "minor", label: "Minor", color: "#10B981" },
-  { key: "major", label: "Major", color: "#F59E0B" },
-  { key: "critical", label: "Critical", color: "#EF4444" },
+  { key: "low", labelKey: "low", color: "#10B981" },
+  { key: "medium", labelKey: "medium", color: "#F59E0B" },
+  { key: "high", labelKey: "high", color: "#EF4444" },
 ];
 
-// Same 3-stage pipeline Admin and Logistics use - raw DB values stay
-// open/escalated/resolved, only the label/color shown here changes.
 const ISSUE_STATUS_META = {
-  open: { label: "Not Reviewed", color: "#64748B", bg: "#F1F5F9", icon: "schedule" },
-  escalated: { label: "Reviewing", color: "#2563EB", bg: "#DBEAFE", icon: "visibility" },
-  resolved: { label: "Solved", color: "#059669", bg: "#D1FAE5", icon: "check-circle" },
+  open: { labelKey: "not_reviewed", color: "#64748B", bg: "#F1F5F9", icon: "schedule" },
+  escalated: { labelKey: "reviewing", color: "#2563EB", bg: "#DBEAFE", icon: "visibility" },
+  resolved: { labelKey: "solved", color: "#059669", bg: "#D1FAE5", icon: "check-circle" },
 };
 function issueStatusMeta(status) {
   return ISSUE_STATUS_META[status] || ISSUE_STATUS_META.open;
@@ -50,10 +44,12 @@ function issueStatusMeta(status) {
 export default function Support({ route, navigation }) {
   const user = route?.params?.user || {};
   const activeMission = route?.params?.order || {};
+  const { theme: activeTheme } = useTheme();
+  const { t } = useTranslation();
 
   const [showForm, setShowForm] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
-  const [selectedPriority, setSelectedPriority] = useState("major");
+  const [selectedPriority, setSelectedPriority] = useState("medium");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [myIssues, setMyIssues] = useState([]);
@@ -61,13 +57,214 @@ export default function Support({ route, navigation }) {
 
   const driverId = user?.driver_id || user?.emp_id;
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    imageContainer: {
+      width: "100%",
+      height: 260,
+      position: "relative",
+    },
+    image: {
+      width: "100%",
+      height: "100%",
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.4)",
+    },
+    backButtonContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      padding: activeTheme.spacing.lg,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: activeTheme.colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      ...activeTheme.shadows.md,
+    },
+    headerText: {
+      position: "absolute",
+      bottom: 60,
+      left: activeTheme.spacing.lg,
+    },
+    content: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+      marginTop: -30,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      padding: activeTheme.spacing.lg,
+      paddingTop: activeTheme.spacing.xl,
+    },
+    sectionTitle: {
+      marginBottom: activeTheme.spacing.md,
+    },
+    emptyIssuesCard: {
+      padding: 16,
+      borderRadius: 16,
+    },
+    issueCard: {
+      padding: 14,
+      borderRadius: 16,
+      marginBottom: 10,
+    },
+    issueCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    statusPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    reportBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: 16,
+      borderRadius: 16,
+      backgroundColor: `${activeTheme.colors.warning}15`,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.warning,
+    },
+    reportBannerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      flex: 1,
+    },
+    reportIconCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: `${activeTheme.colors.warning}25`,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    formCard: {
+      padding: 20,
+      borderRadius: 20,
+      backgroundColor: activeTheme.colors.surface,
+    },
+    typeGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+    },
+    typeChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: activeTheme.colors.border,
+      backgroundColor: activeTheme.colors.background,
+    },
+    priorityRow: {
+      flexDirection: "row",
+      gap: 10,
+    },
+    priorityChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: activeTheme.colors.border,
+      backgroundColor: activeTheme.colors.background,
+    },
+    priorityDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginRight: 8,
+    },
+    textArea: {
+      borderWidth: 1.5,
+      borderColor: activeTheme.colors.border,
+      borderRadius: 14,
+      padding: 14,
+      minHeight: 100,
+      fontSize: 14,
+      fontFamily: activeTheme.typography.fontFamily.regular,
+      color: activeTheme.colors.text,
+      backgroundColor: activeTheme.colors.background,
+      lineHeight: 20,
+    },
+    formActions: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      alignItems: "center",
+      marginTop: 20,
+      gap: 12,
+    },
+    cancelButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 12,
+    },
+    submitButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: activeTheme.colors.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 12,
+      ...activeTheme.shadows.sm,
+    },
+    contactGrid: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    contactItem: {
+      width: (width - 48 - 24) / 3,
+    },
+    contactCard: {
+      padding: activeTheme.spacing.sm,
+      alignItems: "center",
+      borderRadius: 16,
+    },
+    iconCircle: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    faqCard: {
+      marginBottom: activeTheme.spacing.sm,
+      padding: activeTheme.spacing.md,
+      borderRadius: 12,
+    },
+    faqHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    footer: {
+      marginTop: activeTheme.spacing.xl,
+      paddingBottom: activeTheme.spacing.xl,
+      opacity: 0.6,
+    },
+  });
+
   const fetchMyIssues = async () => {
     if (!driverId) {
       setLoadingIssues(false);
       return;
     }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/driver/issues/${driverId}`);
+      const response = await authFetch(`${API_BASE_URL}/api/driver/issues/${driverId}`);
       const result = await response.json();
       if (result.success) setMyIssues(result.data || []);
     } catch (error) {
@@ -87,18 +284,18 @@ export default function Support({ route, navigation }) {
 
   const resetForm = () => {
     setSelectedType(null);
-    setSelectedPriority("major");
+    setSelectedPriority("medium");
     setDescription("");
     setShowForm(false);
   };
 
   const handleSubmitIssue = async () => {
     if (!selectedType) {
-      Alert.alert("Missing Info", "Please select an issue type.");
+      Alert.alert(t("missing_info"), t("select_issue_type"));
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Missing Info", "Please describe the issue.");
+      Alert.alert(t("missing_info"), t("describe_issue_error"));
       return;
     }
 
@@ -123,23 +320,23 @@ export default function Support({ route, navigation }) {
       const result = await response.json();
 
       if (result.success) {
-        Alert.alert("Issue Reported", "Your issue has been submitted successfully. Our team will review it shortly.");
+        Alert.alert(t("issue_reported"), t("issue_submitted_success"));
         resetForm();
         fetchMyIssues();
       } else {
-        Alert.alert("Error", result.message || "Failed to submit issue.");
+        Alert.alert(t("error"), result.message || result.error || t("failed_submit_issue", { status: response.status }));
       }
     } catch (error) {
       console.error("Report Issue Error:", error);
-      Alert.alert("Connection Error", "Could not connect to server. Please try again.");
+      Alert.alert(t("connection_error"), t("support_connection_error"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const faqs = [
-    { q: "How to update trip status?", a: "Go to active job and use the bottom action button." },
-    { q: "Issues with GPS tracking?", a: "Ensure location services are enabled and app has permission." },
+    { q: t("faq_update_trip_status"), a: t("faq_update_trip_status_answer") },
+    { q: t("faq_gps_tracking"), a: t("faq_gps_tracking_answer") },
   ];
 
   return (
@@ -157,13 +354,13 @@ export default function Support({ route, navigation }) {
               style={styles.backButton}
               onPress={() => navigation?.goBack?.()}
             >
-              <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+              <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
             </TouchableOpacity>
           </SafeAreaView>
           
           <View style={styles.headerText}>
-            <Typography variant="h1" style={{ color: theme.colors.surface }}>Help Center</Typography>
-            <Typography variant="body" style={{ color: theme.colors.surface, opacity: 0.9 }}>How can we assist you today?</Typography>
+            <Typography variant="h1" style={{ color: "#FFFFFF" }}>{t("help_center")}</Typography>
+            <Typography variant="body" style={{ color: "#FFFFFF", opacity: 0.9 }}>{t("help_center_subtitle")}</Typography>
           </View>
         </View>
 
@@ -171,7 +368,7 @@ export default function Support({ route, navigation }) {
 
           {/* ISSUE REPORTING SECTION: Collapsible form for structured problem reports */}
           <Typography variant="subtitle" weight="bold" style={styles.sectionTitle}>
-            Report an Issue
+            {t("report_issue")}
           </Typography>
 
           {!showForm ? (
@@ -179,21 +376,21 @@ export default function Support({ route, navigation }) {
               <Card elevation="md" style={styles.reportBanner}>
                 <View style={styles.reportBannerLeft}>
                   <View style={styles.reportIconCircle}>
-                    <MaterialIcons name="report-problem" size={24} color="#D97706" />
+                    <MaterialIcons name="report-problem" size={24} color={activeTheme.colors.warning} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 14 }}>
-                    <Typography variant="body" weight="bold">Having a problem?</Typography>
-                    <Typography variant="tiny" color="textMuted">Tap here to report a vehicle, delay, or document issue</Typography>
+                    <Typography variant="body" weight="bold">{t("having_problem")}</Typography>
+                    <Typography variant="tiny" color="textMuted">{t("report_issue_hint")}</Typography>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={24} color={theme.colors.border} />
+                <MaterialIcons name="chevron-right" size={24} color={activeTheme.colors.border} />
               </Card>
             </TouchableOpacity>
           ) : (
             <Card elevation="md" style={styles.formCard}>
               {/* Type Selection */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10 }}>
-                What type of issue?
+                {t("issue_type_question")}
               </Typography>
               <View style={styles.typeGrid}>
                 {ISSUE_TYPES.map((type) => {
@@ -208,13 +405,13 @@ export default function Support({ route, navigation }) {
                         isActive && { backgroundColor: `${type.color}18`, borderColor: type.color },
                       ]}
                     >
-                      <MaterialIcons name={type.icon} size={18} color={isActive ? type.color : theme.colors.textMuted} />
+                      <MaterialIcons name={type.icon} size={18} color={isActive ? type.color : activeTheme.colors.textMuted} />
                       <Typography
                         variant="tiny"
                         weight={isActive ? "bold" : "medium"}
-                        style={{ marginLeft: 6, color: isActive ? type.color : theme.colors.textMuted }}
+                        style={{ marginLeft: 6, color: isActive ? type.color : activeTheme.colors.textMuted }}
                       >
-                        {type.label}
+                        {t(type.labelKey)}
                       </Typography>
                     </TouchableOpacity>
                   );
@@ -223,7 +420,7 @@ export default function Support({ route, navigation }) {
 
               {/* Priority Selection */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10, marginTop: 20 }}>
-                Priority
+                {t("priority")}
               </Typography>
               <View style={styles.priorityRow}>
                 {PRIORITIES.map((p) => {
@@ -242,9 +439,9 @@ export default function Support({ route, navigation }) {
                       <Typography
                         variant="tiny"
                         weight={isActive ? "bold" : "medium"}
-                        style={{ color: isActive ? p.color : theme.colors.textMuted }}
+                        style={{ color: isActive ? p.color : activeTheme.colors.textMuted }}
                       >
-                        {p.label}
+                        {t(p.labelKey)}
                       </Typography>
                     </TouchableOpacity>
                   );
@@ -253,12 +450,12 @@ export default function Support({ route, navigation }) {
 
               {/* Detailed Description Input */}
               <Typography variant="caption" weight="bold" style={{ marginBottom: 10, marginTop: 20 }}>
-                Describe the issue
+                {t("describe_issue")}
               </Typography>
               <TextInput
                 style={styles.textArea}
-                placeholder="Explain what happened..."
-                placeholderTextColor={theme.colors.textMuted}
+                placeholder={t("issue_placeholder")}
+                placeholderTextColor={activeTheme.colors.textMuted}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -273,7 +470,7 @@ export default function Support({ route, navigation }) {
                   onPress={resetForm}
                   activeOpacity={0.7}
                 >
-                  <Typography variant="caption" weight="semiBold" color="textMuted">Cancel</Typography>
+                  <Typography variant="caption" weight="semiBold" color="textMuted">{t("cancel")}</Typography>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -287,7 +484,7 @@ export default function Support({ route, navigation }) {
                   ) : (
                     <>
                       <MaterialIcons name="send" size={16} color="white" style={{ marginRight: 6 }} />
-                      <Typography variant="caption" weight="bold" style={{ color: "white" }}>Submit</Typography>
+                      <Typography variant="caption" weight="bold" style={{ color: "white" }}>{t("submit")}</Typography>
                     </>
                   )}
                 </TouchableOpacity>
@@ -296,16 +493,16 @@ export default function Support({ route, navigation }) {
           )}
 
           {/* MY REPORTED ISSUES: past reports and their review status */}
-          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>
-            My Reported Issues
+          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
+            {t("my_reported_issues")}
           </Typography>
 
           {loadingIssues ? (
-            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+            <ActivityIndicator size="small" color={activeTheme.colors.primary} style={{ marginVertical: 12 }} />
           ) : myIssues.length === 0 ? (
             <Card elevation="sm" style={styles.emptyIssuesCard}>
               <Typography variant="caption" color="textMuted" align="center">
-                You haven't reported any issues yet.
+                {t("no_reported_issues")}
               </Typography>
             </Card>
           ) : (
@@ -315,12 +512,12 @@ export default function Support({ route, navigation }) {
                 <Card key={issue.issue_id} elevation="sm" style={styles.issueCard}>
                   <View style={styles.issueCardHeader}>
                     <Typography variant="body" weight="bold" style={{ flex: 1 }}>
-                      {issue.issue_type || "Issue"}
+                      {issue.issue_type || t("issue_label")}
                     </Typography>
                     <View style={[styles.statusPill, { backgroundColor: statusMeta.bg }]}>
                       <MaterialIcons name={statusMeta.icon} size={12} color={statusMeta.color} />
                       <Typography variant="tiny" weight="bold" style={{ color: statusMeta.color, marginLeft: 4 }}>
-                        {statusMeta.label}
+                        {t(statusMeta.labelKey)}
                       </Typography>
                     </View>
                   </View>
@@ -329,7 +526,7 @@ export default function Support({ route, navigation }) {
                   </Typography>
                   {issue.orders?.order_reference && (
                     <Typography variant="tiny" color="textMuted" style={{ marginTop: 4 }}>
-                      Order: {issue.orders.order_reference}
+                      {t("order_label")}: {issue.orders.order_reference}
                     </Typography>
                   )}
                 </Card>
@@ -338,18 +535,18 @@ export default function Support({ route, navigation }) {
           )}
 
           {/* DIRECT SUPPORT CHANNELS */}
-          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>
-            Direct Support
+          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
+            {t("direct_support")}
           </Typography>
           
           <View style={styles.contactGrid}>
             <TouchableOpacity onPress={handleCall} style={styles.contactItem}>
               <Card elevation="md" style={styles.contactCard}>
-                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.primary}15` }]}>
-                  <MaterialIcons name="call" size={26} color={theme.colors.primary} />
+                <View style={[styles.iconCircle, { backgroundColor: `${activeTheme.colors.primary}15` }]}>
+                  <MaterialIcons name="call" size={26} color={activeTheme.colors.primary} />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>Call Us</Typography>
-                <Typography variant="tiny" color="textMuted">Available 24/7</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("call_us")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("available_24_7")}</Typography>
               </Card>
             </TouchableOpacity>
 
@@ -358,32 +555,32 @@ export default function Support({ route, navigation }) {
                 <View style={[styles.iconCircle, { backgroundColor: "#25D36615" }]}>
                   <FontAwesome5 name="whatsapp" size={26} color="#25D366" />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>WhatsApp</Typography>
-                <Typography variant="tiny" color="textMuted">Instant Chat</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("whatsapp")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("instant_chat")}</Typography>
               </Card>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleEmail} style={styles.contactItem}>
               <Card elevation="md" style={styles.contactCard}>
-                <View style={[styles.iconCircle, { backgroundColor: `${theme.colors.accent}15` }]}>
-                  <MaterialIcons name="email" size={26} color={theme.colors.accent} />
+                <View style={[styles.iconCircle, { backgroundColor: `${activeTheme.colors.accent}15` }]}>
+                  <MaterialIcons name="email" size={26} color={activeTheme.colors.accent} />
                 </View>
-                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>Email</Typography>
-                <Typography variant="tiny" color="textMuted">Quick Response</Typography>
+                <Typography variant="caption" weight="bold" style={{ marginTop: 8 }}>{t("email_label")}</Typography>
+                <Typography variant="tiny" color="textMuted">{t("quick_response")}</Typography>
               </Card>
             </TouchableOpacity>
           </View>
 
           {/* FAQ SECTION */}
-          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>
-            Frequently Asked Questions
+          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: activeTheme.spacing.xl }]}>
+            {t("frequently_asked_questions")}
           </Typography>
 
           {faqs.map((faq, i) => (
             <Card key={i} elevation="sm" style={styles.faqCard}>
               <View style={styles.faqHeader}>
                 <Typography variant="body" weight="bold" style={{ flex: 1 }}>{faq.q}</Typography>
-                <MaterialIcons name="keyboard-arrow-down" size={20} color={theme.colors.textMuted} />
+                <MaterialIcons name="keyboard-arrow-down" size={20} color={activeTheme.colors.textMuted} />
               </View>
               <Typography variant="caption" color="textMuted" style={{ marginTop: 8 }}>
                 {faq.a}
@@ -405,211 +602,3 @@ export default function Support({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  imageContainer: {
-    width: "100%",
-    height: 260,
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  backButtonContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    padding: theme.spacing.lg,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    ...theme.shadows.md,
-  },
-  headerText: {
-    position: "absolute",
-    bottom: 60,
-    left: theme.spacing.lg,
-  },
-  content: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    marginTop: -30,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: theme.spacing.lg,
-    paddingTop: theme.spacing.xl,
-  },
-  sectionTitle: {
-    marginBottom: theme.spacing.md,
-  },
-
-  // My Reported Issues
-  emptyIssuesCard: {
-    padding: 16,
-    borderRadius: 16,
-  },
-  issueCard: {
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 10,
-  },
-  issueCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-
-  // Report Banner (collapsed state)
-  reportBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#FFFBEB",
-    borderWidth: 1,
-    borderColor: "#FDE68A",
-  },
-  reportBannerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  reportIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FEF3C7",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  // Form Card
-  formCard: {
-    padding: 20,
-    borderRadius: 20,
-    backgroundColor: theme.colors.surface,
-  },
-  typeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  typeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  priorityRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  priorityChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  priorityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  textArea: {
-    borderWidth: 1.5,
-    borderColor: theme.colors.border,
-    borderRadius: 14,
-    padding: 14,
-    minHeight: 100,
-    fontSize: 14,
-    fontFamily: theme.typography.fontFamily.regular,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.background,
-    lineHeight: 20,
-  },
-  formActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginTop: 20,
-    gap: 12,
-  },
-  cancelButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  submitButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: theme.colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    ...theme.shadows.sm,
-  },
-
-  // Contact
-  contactGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  contactItem: {
-    width: (width - 48 - 24) / 3,
-  },
-  contactCard: {
-    padding: theme.spacing.sm,
-    alignItems: "center",
-    borderRadius: 16,
-  },
-  iconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  faqCard: {
-    marginBottom: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderRadius: 12,
-  },
-  faqHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  footer: {
-    marginTop: theme.spacing.xl,
-    paddingBottom: theme.spacing.xl,
-    opacity: 0.6,
-  },
-});

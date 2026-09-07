@@ -17,12 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../components/Button";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { AUTH_TOKEN_KEY, authFetch } from "../utils/authFetch";
 
 export default function EditProfile({ route, navigation }) {
   const { user } = route.params || {};
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
 
   const [firstName, setFirstName] = useState(user?.first_name || "");
   const [lastName, setLastName] = useState(user?.last_name || "");
@@ -30,9 +31,59 @@ export default function EditProfile({ route, navigation }) {
   const [emergencyContact, setEmergencyContact] = useState(user?.emergency_contact || "");
   const [isLoading, setIsLoading] = useState(false);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    scrollContainer: {
+      paddingHorizontal: activeTheme.spacing.lg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: activeTheme.spacing.lg,
+      marginBottom: activeTheme.spacing.sm,
+    },
+    headerTitle: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    label: {
+      marginBottom: activeTheme.spacing.xs,
+    },
+    input: {
+      backgroundColor: activeTheme.colors.surface,
+      padding: activeTheme.spacing.md,
+      borderRadius: activeTheme.roundness.md,
+      marginBottom: activeTheme.spacing.md,
+      color: activeTheme.colors.text,
+      fontFamily: activeTheme.typography.fontFamily.regular,
+      fontSize: activeTheme.typography.sizes.md,
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+    },
+    saveButton: {
+      marginTop: activeTheme.spacing.sm,
+      marginBottom: activeTheme.spacing.lg,
+    },
+    secondaryButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: activeTheme.spacing.md,
+    },
+    secondaryButtonText: {
+      marginLeft: activeTheme.spacing.sm,
+    },
+    logoutButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: activeTheme.spacing.md,
+    }
+  });
+
   const handleSave = async () => {
     if (!firstName || !lastName || !phone) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert(t("error"), t("please_fill_all_fields"));
       return;
     }
 
@@ -53,14 +104,14 @@ export default function EditProfile({ route, navigation }) {
 
       const result = await response.json();
       if (result.success) {
-        Alert.alert("Success", "Profile updated successfully");
+        Alert.alert(t("success"), t("profile_updated_success"));
         navigation.goBack();
       } else {
-        Alert.alert("Error", "Failed to update profile");
+        Alert.alert(t("error"), t("failed_update_profile"));
       }
     } catch (error) {
       console.log("Update Error:", error);
-      Alert.alert("Error", "Could not connect to server");
+      Alert.alert(t("error"), t("could_not_connect_update_profile"));
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +126,7 @@ export default function EditProfile({ route, navigation }) {
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
-              <MaterialIcons name="arrow-back" size={24} color={theme.colors.text} />
+              <MaterialIcons name="arrow-back" size={24} color={activeTheme.colors.text} />
             </TouchableOpacity>
 
             <Typography variant="h3" style={styles.headerTitle}>
@@ -83,20 +134,20 @@ export default function EditProfile({ route, navigation }) {
             </Typography>
           </View>
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("first_name") || "First Name"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("first_name")}</Typography>
           <TextInput 
             value={firstName} 
             onChangeText={setFirstName} 
             style={styles.input} 
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={activeTheme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("last_name") || "Last Name"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("last_name")}</Typography>
           <TextInput 
             value={lastName} 
             onChangeText={setLastName} 
             style={styles.input} 
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={activeTheme.colors.textMuted}
           />
 
           <Typography variant="body" weight="medium" style={styles.label}>{t("phone_number")}</Typography>
@@ -105,21 +156,21 @@ export default function EditProfile({ route, navigation }) {
             onChangeText={setPhone} 
             style={styles.input} 
             keyboardType="phone-pad"
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={activeTheme.colors.textMuted}
           />
 
-          <Typography variant="body" weight="medium" style={styles.label}>{t("emergency_contact") || "Emergency Contact"}</Typography>
+          <Typography variant="body" weight="medium" style={styles.label}>{t("emergency_contact")}</Typography>
           <TextInput 
             value={emergencyContact} 
             onChangeText={setEmergencyContact} 
             style={styles.input} 
             keyboardType="phone-pad"
-            placeholderTextColor={theme.colors.textMuted}
-            placeholder={t("enter_emergency_contact") || "Emergency Contact Phone Number"}
+            placeholderTextColor={activeTheme.colors.textMuted}
+            placeholder={t("enter_emergency_contact")}
           />
 
           <Button 
-            title={isLoading ? "Saving..." : t("save_changes")}
+            title={isLoading ? t("saving") : t("save_changes")}
             style={styles.saveButton}
             disabled={isLoading}
             onPress={handleSave}
@@ -129,7 +180,7 @@ export default function EditProfile({ route, navigation }) {
             style={styles.secondaryButton}
             onPress={() => navigation.navigate("ChangePassword", { user })}
           >
-            <MaterialIcons name="lock" size={20} color={theme.colors.primary} />
+            <MaterialIcons name="lock" size={20} color={activeTheme.colors.primary} />
             <Typography variant="body" color="primary" style={styles.secondaryButtonText}>
               {t("change_password")}
             </Typography>
@@ -156,65 +207,16 @@ export default function EditProfile({ route, navigation }) {
               ])
             }
           >
-            <MaterialIcons name="logout" size={20} color={theme.colors.error} />
+            <MaterialIcons name="logout" size={20} color={activeTheme.colors.error} />
             <Typography variant="body" weight="semiBold" color="error" style={styles.secondaryButtonText}>
               {t("sign_out")}
             </Typography>
           </TouchableOpacity>
 
-          <View style={{ height: theme.spacing.xl }} />
+          <View style={{ height: activeTheme.spacing.xl }} />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
-  },
-  headerTitle: {
-    marginLeft: theme.spacing.sm,
-  },
-  label: {
-    marginBottom: theme.spacing.xs,
-  },
-  input: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
-    marginBottom: theme.spacing.md,
-    color: theme.colors.text,
-    fontFamily: theme.typography.fontFamily.regular,
-    fontSize: theme.typography.sizes.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  saveButton: {
-    marginTop: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
-  },
-  secondaryButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.md,
-  },
-  secondaryButtonText: {
-    marginLeft: theme.spacing.sm,
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: theme.spacing.md,
-  }
-});

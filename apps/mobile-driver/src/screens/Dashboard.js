@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Alert,
+    BackHandler,
     Dimensions,
     Image,
     ScrollView,
@@ -20,11 +21,12 @@ import {
     View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Typography } from "../components/Typography";
 import { API_BASE_URL } from "../constants/config";
-import { theme } from "../constants/theme";
+import { useTheme } from "../constants/theme";
 import { useOrder } from "../context/OrderContext";
 import { authFetch } from "../utils/authFetch";
 
@@ -32,6 +34,7 @@ const { width } = Dimensions.get("window");
 
 export default function Dashboard({ route, navigation }) {
   const { t } = useTranslation();
+  const { theme: activeTheme } = useTheme();
   
   // Extract user data passed from Login or previous screen
   const user = route?.params?.user || {};
@@ -46,7 +49,32 @@ export default function Dashboard({ route, navigation }) {
   useEffect(() => {
     fetchActiveMission();
     fetchRecentIssues();
+    const notificationPoll = setInterval(checkForNewAssignments, 15000);
+
+    const handleBackPress = () => {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Dashboard", params: { user } }],
+      });
+      return true;
+    };
+
+    const subscription = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
+    return () => {
+      subscription.remove();
+      clearInterval(notificationPoll);
+    };
   }, []);
+
+  const checkForNewAssignments = async () => {
+    try {
+      const response = await authFetch(`${API_BASE_URL}/api/driver/notifications`);
+      const result = await response.json();
+      if (!response.ok || !result.success) return;
+    } catch (error) {
+      console.error("Dashboard: Notification Poll Error:", error);
+    }
+  };
 
   /**
    * Fetches the current active assignment for the driver from the backend.
@@ -218,10 +246,161 @@ export default function Dashboard({ route, navigation }) {
    * Utility to map alert types to theme colors.
    */
   const getColor = (type) => {
-    if (type === "success") return theme.colors.success;
-    if (type === "warning") return theme.colors.warning;
-    return theme.colors.secondary;
+    if (type === "success") return activeTheme.colors.success;
+    if (type === "warning") return activeTheme.colors.warning;
+    return activeTheme.colors.secondary;
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: activeTheme.colors.background,
+    },
+    scrollContainer: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: activeTheme.spacing.lg,
+      paddingTop: activeTheme.spacing.md,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.xl,
+    },
+    profileIconContainer: {
+      backgroundColor: activeTheme.colors.surface,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: activeTheme.colors.border,
+      ...activeTheme.shadows.md,
+      position: "relative",
+    },
+    onlineBadge: {
+      position: "absolute",
+      bottom: 2,
+      right: 2,
+      width: 13,
+      height: 13,
+      borderRadius: 6.5,
+      backgroundColor: activeTheme.colors.success,
+      borderWidth: 2,
+      borderColor: activeTheme.colors.surface,
+    },
+    sectionTitle: {
+      marginBottom: activeTheme.spacing.md,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.md,
+      marginTop: activeTheme.spacing.lg,
+    },
+    currentJobCard: {
+      backgroundColor: activeTheme.colors.primary,
+      marginBottom: activeTheme.spacing.xl,
+      padding: activeTheme.spacing.lg,
+      borderRadius: activeTheme.roundness.xl,
+      borderWidth: 0,
+    },
+    jobHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.lg,
+    },
+    jobRouteContainer: {
+      flexDirection: "row",
+      marginBottom: activeTheme.spacing.lg,
+      paddingLeft: 4,
+    },
+    routeIconColumn: {
+      alignItems: "center",
+      marginRight: activeTheme.spacing.md,
+      paddingVertical: 6,
+    },
+    routeDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: activeTheme.colors.surface,
+      borderWidth: 2,
+      borderColor: activeTheme.colors.primary,
+    },
+    routeLine: {
+      width: 2,
+      height: 34,
+      backgroundColor: "rgba(255, 255, 255, 0.35)",
+      marginVertical: 4,
+    },
+    routeTextColumn: {
+      justifyContent: "space-between",
+      flex: 1,
+    },
+    viewDetailsButton: {
+      backgroundColor: activeTheme.colors.surface,
+      borderRadius: activeTheme.roundness.lg,
+    },
+    viewDetailsButtonText: {
+      color: activeTheme.colors.primary,
+    },
+    jobActionRow: {
+      marginTop: 6,
+    },
+    quickActionsGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "space-between",
+    },
+    quickActionItem: {
+      width: "48%",
+      marginBottom: activeTheme.spacing.md,
+    },
+    quickActionIconContainer: {
+      padding: activeTheme.spacing.md,
+      alignItems: "center",
+      borderRadius: activeTheme.roundness.lg,
+    },
+    iconBg: {
+      width: 54,
+      height: 54,
+      borderRadius: 27,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    alertCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: activeTheme.spacing.sm,
+      padding: activeTheme.spacing.md,
+      borderRadius: activeTheme.roundness.md,
+    },
+    alertIconContainer: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      justifyContent: "center",
+      alignItems: "center",
+      marginRight: activeTheme.spacing.sm + 4,
+    },
+    alertTextContainer: {
+      flex: 1,
+      marginRight: activeTheme.spacing.sm,
+    },
+    noJobCard: {
+      alignItems: "center",
+      justifyContent: "center",
+      padding: activeTheme.spacing.xl,
+      marginBottom: activeTheme.spacing.xl,
+      borderRadius: activeTheme.roundness.lg,
+    },
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -248,10 +427,10 @@ export default function Dashboard({ route, navigation }) {
             {user?.profile_photo_url ? (
               <Image 
                 source={{ uri: user.profile_photo_url }} 
-                style={{ width: 40, height: 40, borderRadius: 20 }} 
+                style={{ width: 42, height: 42, borderRadius: 21 }}
               />
             ) : (
-              <MaterialIcons name="person" size={26} color={theme.colors.primary} />
+              <MaterialIcons name="person" size={28} color={activeTheme.colors.primary} />
             )}
             <View style={styles.onlineBadge} />
           </TouchableOpacity>
@@ -262,16 +441,16 @@ export default function Dashboard({ route, navigation }) {
         </Typography>
         
         {isLoading ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+          <ActivityIndicator size="large" color={activeTheme.colors.primary} style={{ marginVertical: 20 }} />
         ) : activeMission ? (
-          <Card elevation="lg" style={styles.currentJobCard}>
+          <Card elevation="lg" bordered={false} style={styles.currentJobCard}>
             <View style={styles.jobHeader}>
-              <View style={styles.jobBadge}>
-                <Typography variant="tiny" weight="bold" style={{ color: theme.colors.surface }}>
-                  {activeMission.orders?.order_type?.toUpperCase() || t("in_progress")}
-                </Typography>
-              </View>
-              <Typography variant="body" weight="bold" style={{ color: theme.colors.surface }}>
+              <Badge
+                label={activeMission.orders?.order_type?.toUpperCase() || t("in_progress")}
+                variant="accent"
+                showDot={true}
+              />
+              <Typography variant="body" weight="bold" style={{ color: activeTheme.colors.surface }}>
                 {activeMission.orders?.order_reference || "N/A"}
               </Typography>
             </View>
@@ -280,13 +459,13 @@ export default function Dashboard({ route, navigation }) {
               <View style={styles.routeIconColumn}>
                 <View style={styles.routeDot} />
                 <View style={styles.routeLine} />
-                <View style={[styles.routeDot, { backgroundColor: theme.colors.accent }]} />
+                <View style={[styles.routeDot, { backgroundColor: activeTheme.colors.accent, borderColor: activeTheme.colors.accent }]} />
               </View>
               <View style={styles.routeTextColumn}>
-                <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface }}>
+                <Typography variant="subtitle" weight="semiBold" style={{ color: activeTheme.colors.surface }}>
                   {activeMission.orders?.origin_name || t("freezone_warehouse")}
                 </Typography>
-                <Typography variant="subtitle" weight="semiBold" style={{ color: theme.colors.surface, marginTop: 20 }}>
+                <Typography variant="subtitle" weight="semiBold" style={{ color: activeTheme.colors.surface, marginTop: 22 }}>
                   {activeMission.orders?.destination_name || t("colombo_port_terminal")}
                 </Typography>
               </View>
@@ -296,15 +475,17 @@ export default function Dashboard({ route, navigation }) {
               <Button
                 title={t("view_details")}
                 variant="secondary"
+                icon="arrow-forward"
+                iconPosition="right"
                 style={styles.viewDetailsButton}
                 textStyle={styles.viewDetailsButtonText}
-                onPress={() => navigation.navigate("OrderDetails", { order: activeMission })}
+                onPress={() => navigation.navigate("OrderDetails", { order: activeMission, user })}
               />
             </View>
           </Card>
         ) : (
           <Card elevation="sm" style={styles.noJobCard}>
-            <MaterialIcons name="event-busy" size={32} color={theme.colors.textMuted} />
+            <MaterialIcons name="event-busy" size={36} color={activeTheme.colors.textMuted} />
             <Typography variant="body" color="textMuted" style={{ marginTop: 8 }}>
               {t("no_active_mission")}
             </Typography>
@@ -317,13 +498,12 @@ export default function Dashboard({ route, navigation }) {
 
         <View style={styles.quickActionsGrid}>
           {quickActions.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              activeOpacity={0.8}
-              onPress={() => item.onPress ? item.onPress() : navigation.navigate(item.screen)}
-              style={styles.quickActionItem}
-            >
-              <Card elevation="md" style={styles.quickActionIconContainer}>
+            <View key={index} style={styles.quickActionItem}>
+              <Card
+                elevation="sm"
+                onPress={item.onPress ? item.onPress : () => navigation.navigate(item.screen)}
+                style={styles.quickActionIconContainer}
+              >
                 <View style={[styles.iconBg, { backgroundColor: `${item.color}15` }]}>
                   <MaterialIcons
                     name={item.icon}
@@ -331,11 +511,11 @@ export default function Dashboard({ route, navigation }) {
                     color={item.color}
                   />
                 </View>
-                <Typography variant="caption" weight="medium" style={{ marginTop: 8 }}>
+                <Typography variant="caption" weight="medium" style={{ marginTop: 10 }}>
                   {item.label}
                 </Typography>
               </Card>
-            </TouchableOpacity>
+            </View>
           ))}
         </View>
 
@@ -371,7 +551,7 @@ export default function Dashboard({ route, navigation }) {
                     {formatTime(issue.created_at)}
                   </Typography>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color={theme.colors.border} />
+                <MaterialIcons name="chevron-right" size={20} color={activeTheme.colors.border} />
               </Card>
             );
           })
@@ -383,160 +563,8 @@ export default function Dashboard({ route, navigation }) {
           </View>
         )}
 
-        <View style={{ height: theme.spacing.xl }} />
+        <View style={{ height: activeTheme.spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.xl,
-  },
-  profileIconContainer: {
-    backgroundColor: theme.colors.surface,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    ...theme.shadows.md,
-    position: "relative",
-  },
-  onlineBadge: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.success,
-    borderWidth: 2,
-    borderColor: theme.colors.surface,
-  },
-  sectionTitle: {
-    marginBottom: theme.spacing.md,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.md,
-    marginTop: theme.spacing.lg,
-  },
-  currentJobCard: {
-    backgroundColor: theme.colors.primary,
-    marginBottom: theme.spacing.xl,
-    padding: theme.spacing.lg,
-    borderRadius: theme.roundness.xl,
-  },
-  jobHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.lg,
-  },
-  jobBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.roundness.sm,
-  },
-  jobRouteContainer: {
-    flexDirection: "row",
-    marginBottom: theme.spacing.lg,
-    paddingLeft: 4,
-  },
-  routeIconColumn: {
-    alignItems: "center",
-    marginRight: theme.spacing.md,
-    paddingVertical: 6,
-  },
-  routeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: theme.colors.surface,
-  },
-  routeLine: {
-    width: 2,
-    height: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    marginVertical: 4,
-  },
-  routeTextColumn: {
-    justifyContent: "space-between",
-  },
-  viewDetailsButton: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.roundness.lg,
-  },
-  viewDetailsButtonText: {
-    color: theme.colors.primary,
-  },
-  jobActionRow: {
-    marginTop: 10,
-  },
-  quickActionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  quickActionItem: {
-    width: "48%",
-    marginBottom: theme.spacing.md,
-  },
-  quickActionIconContainer: {
-    padding: theme.spacing.md,
-    alignItems: "center",
-  },
-  iconBg: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  alertCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: theme.spacing.sm,
-    padding: theme.spacing.md,
-  },
-  alertIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: theme.spacing.md,
-  },
-  alertTextContainer: {
-    flex: 1,
-  },
-  noJobCard: {
-    padding: theme.spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.roundness.xl,
-    marginBottom: theme.spacing.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderStyle: "dashed",
-  },
-});
