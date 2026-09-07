@@ -95,6 +95,7 @@ export default function OrdersPage({ title, type }) {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
+    const [sortBy, setSortBy] = useState("newest");
 
     // ---------------- FETCH ORDERS ----------------
     useEffect(() => {
@@ -144,6 +145,15 @@ export default function OrdersPage({ title, type }) {
             (statusFilter === "All" ||
                 status === statusFilter)
         );
+    });
+
+    const sortedOrders = [...filtered].sort((a, b) => {
+        const firstDate = new Date(a.created_at || 0).getTime();
+        const secondDate = new Date(b.created_at || 0).getTime();
+
+        return sortBy === "oldest"
+            ? firstDate - secondDate
+            : secondDate - firstDate;
     });
 
     return (
@@ -282,6 +292,24 @@ export default function OrdersPage({ title, type }) {
                                     Pending
                                 </option>
 
+                            </select>
+
+                        </div>
+
+                        {/* Sort By */}
+                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                Sort By
+                            </span>
+
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="cursor-pointer bg-transparent text-xs font-bold text-slate-800 outline-none"
+                            >
+                                <option value="newest">Newest</option>
+                                <option value="oldest">Oldest</option>
                             </select>
 
                         </div>
@@ -427,7 +455,7 @@ export default function OrdersPage({ title, type }) {
 
                             <TableBody className="divide-y divide-slate-100">
 
-                                {filtered.map((order) => (
+                                {sortedOrders.map((order) => (
 
                                     <TableRow
                                         key={order.order_id}
