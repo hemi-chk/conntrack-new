@@ -3,9 +3,13 @@ import "leaflet/dist/leaflet.css";
 import {
   CalendarDays,
   CheckCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   PackageOpen,
   RefreshCw,
+  Search,
   Ship,
   Truck,
 } from "lucide-react";
@@ -31,6 +35,24 @@ L.Icon.Default.mergeOptions({
 });
 
 const LIVE_GPS_REFRESH_MS = 5000;
+const TRACKING_ORDERS_PER_PAGE = 6;
+
+const TRACKABLE_STATUS_KEYS = new Set([
+  "driver_assigned",
+  "in_transit",
+  "at_freezone",
+  "at_port",
+  "completed",
+]);
+
+const TRACKING_STATUS_OPTIONS = [
+  "All",
+  "Driver Assigned",
+  "In Transit",
+  "At Freezone",
+  "At Port",
+  "Completed",
+];
 
 const OFFICIAL_PROGRESS_STAGES = [
   {
@@ -340,11 +362,44 @@ function Tracking() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [lastGpsRefreshAt, setLastGpsRefreshAt] = useState(null);
 
-  const trackingOrder = getStoredTrackingOrder();
+  // Tracking order list + filters.
+  // The list is loaded once from the Operations backend, while the selected
+  // order continues to use the focused tracking endpoint for its live GPS.
+  const [trackingOrders, setTrackingOrders] = useState([]);
+  const [allTrackingRecords, setAllTrackingRecords] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState("All");
+  const [gpsFilter, setGpsFilter] = useState("All");
+
+  const [showTrackableOrders, setShowTrackableOrders] = useState(true);
+  const [showTrackingDetails, setShowTrackingDetails] = useState(() =>
+    Boolean(getStoredTrackingOrder())
+  );
+  const [showOrderDetails, setShowOrderDetails] = useState(true);
+  const [showOrderProgress, setShowOrderProgress] = useState(true);
+  const [showRouteMap, setShowRouteMap] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [trackingOrder, setTrackingOrder] = useState(() =>
+    getStoredTrackingOrder()
+  );
 
   useEffect(() => {
     fetchOrderProgressStages();
-    fetchSelectedOrderTracking();
+    fetchTrackingOrders();
+
+    const storedOrder = getStoredTrackingOrder();
+
+    if (storedOrder) {
+      setTrackingOrder(storedOrder);
+      setShowTrackingDetails(true);
+      fetchSelectedOrderTracking({
+        order: storedOrder,
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -355,11 +410,19 @@ function Tracking() {
     const interval = setInterval(() => {
       fetchSelectedOrderTracking({
         silent: true,
+        order: trackingOrder,
       });
     }, LIVE_GPS_REFRESH_MS);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [
+    trackingOrder?.order_id,
+    trackingOrder?.dbId,
+    trackingOrder?.databaseOrderId,
+    trackingOrder?.order_reference,
+    trackingOrder?.orderReference,
+    trackingOrder?.id,
+  ]);
 
   function getStoredTrackingOrder() {
     try {
@@ -439,8 +502,53 @@ function Tracking() {
     }
   };
 
+  const fetchTrackingOrders = async () => {
+    try {
+      setOrdersLoading(true);
+
+      const [ordersResponse, trackingResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/operations/orders`),
+        fetch(`${API_BASE_URL}/api/operations/tracking`),
+      ]);
+
+      const ordersResult = await parseResponse(ordersResponse, []);
+      const trackingResult = await parseResponse(trackingResponse, []);
+
+      if (!ordersResponse.ok) {
+        throw new Error(
+          ordersResult?.error || "Failed to fetch tracking orders"
+        );
+      }
+
+      if (!trackingResponse.ok) {
+        throw new Error(
+          trackingResult?.error || "Failed to fetch tracking overview"
+        );
+      }
+
+      setTrackingOrders(
+        Array.isArray(ordersResult) ? ordersResult : []
+      );
+
+      setAllTrackingRecords(
+        Array.isArray(trackingResult) ? trackingResult : []
+      );
+    } catch (error) {
+      console.error(
+        "Operations tracking order list error:",
+        error.message
+      );
+
+      setTrackingOrders([]);
+      setAllTrackingRecords([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
   const fetchSelectedOrderTracking = async (options = {}) => {
     const silent = options?.silent === true;
+    const sourceOrder = options?.order || trackingOrder;
 
     try {
       if (!silent) {
@@ -448,16 +556,16 @@ function Tracking() {
       }
 
       const selectedOrderId =
-        trackingOrder?.order_id ||
-        trackingOrder?.dbId ||
-        trackingOrder?.db_id ||
-        trackingOrder?.databaseOrderId ||
+        sourceOrder?.order_id ||
+        sourceOrder?.dbId ||
+        sourceOrder?.db_id ||
+        sourceOrder?.databaseOrderId ||
         "";
 
       const selectedOrderReference =
-        trackingOrder?.order_reference ||
-        trackingOrder?.orderReference ||
-        trackingOrder?.id ||
+        sourceOrder?.order_reference ||
+        sourceOrder?.orderReference ||
+        sourceOrder?.id ||
         "";
 
       if (!selectedOrderId && !selectedOrderReference) {
@@ -519,6 +627,62 @@ function Tracking() {
     }
   };
 
+  const selectTrackingOrder = async (order) => {
+    if (!order) {
+      return;
+    }
+
+    const payload = {
+      ...order,
+      id:
+        order.order_reference ||
+        order.orderReference ||
+        order.orderId ||
+        order.id,
+      order_reference:
+        order.order_reference ||
+        order.orderReference ||
+        order.orderId ||
+        order.id,
+      orderReference:
+        order.order_reference ||
+        order.orderReference ||
+        order.orderId ||
+        order.id,
+      order_id:
+        order.order_id ||
+        order.dbId ||
+        order.databaseOrderId ||
+        null,
+      dbId:
+        order.order_id ||
+        order.dbId ||
+        order.databaseOrderId ||
+        null,
+      databaseOrderId:
+        order.order_id ||
+        order.dbId ||
+        order.databaseOrderId ||
+        null,
+    };
+
+    setTrackingOrder(payload);
+    setShowTrackingDetails(true);
+
+    sessionStorage.setItem(
+      "trackingOrder",
+      JSON.stringify(payload)
+    );
+
+    setTrackingRecords([]);
+    setTrackingError("");
+    setLastGpsRefreshAt(null);
+
+    await fetchSelectedOrderTracking({
+      order: payload,
+    });
+  };
+
   const selectedTrackingOrder = useMemo(() => {
     const latestRecord =
       getLatestTrackingRecord(trackingRecords);
@@ -533,11 +697,216 @@ function Tracking() {
     return null;
   }, [trackingOrder, trackingRecords]);
 
-  const displayOrders = selectedTrackingOrder
-    ? [selectedTrackingOrder]
-    : [];
+  const latestTrackingByOrder = useMemo(() => {
+    const map = new Map();
 
-  const activeOrder = displayOrders[0] || null;
+    allTrackingRecords.forEach((record) => {
+      const orderId =
+        record?.order_id ||
+        record?.orders?.order_id ||
+        null;
+
+      const orderReference =
+        record?.orders?.order_reference ||
+        record?.order_reference ||
+        "";
+
+      const keys = [];
+
+      if (orderId !== null && orderId !== undefined) {
+        keys.push(`id:${orderId}`);
+      }
+
+      if (orderReference) {
+        keys.push(
+          `ref:${String(orderReference).trim().toLowerCase()}`
+        );
+      }
+
+      keys.forEach((key) => {
+        const existing = map.get(key);
+
+        if (
+          !existing ||
+          new Date(record.recorded_at || 0).getTime() >
+            new Date(existing.recorded_at || 0).getTime()
+        ) {
+          map.set(key, record);
+        }
+      });
+    });
+
+    return map;
+  }, [allTrackingRecords]);
+
+  const normalizedTrackingOrders = useMemo(() => {
+    return trackingOrders
+      .filter((order) =>
+        TRACKABLE_STATUS_KEYS.has(
+          getStatusKey(
+            order.current_status ||
+              order.status
+          )
+        )
+      )
+      .map((order) => {
+        const databaseOrderId =
+          order.order_id ||
+          order.dbId ||
+          order.databaseOrderId ||
+          null;
+
+        const reference =
+          order.order_reference ||
+          order.orderReference ||
+          order.id ||
+          "";
+
+        const latestRecord =
+          (databaseOrderId !== null &&
+          databaseOrderId !== undefined
+            ? latestTrackingByOrder.get(
+                `id:${databaseOrderId}`
+              )
+            : null) ||
+          (reference
+            ? latestTrackingByOrder.get(
+                `ref:${String(reference)
+                  .trim()
+                  .toLowerCase()}`
+              )
+            : null) ||
+          null;
+
+        return {
+          ...normalizeSelectedOrder(order, latestRecord),
+          sourceOrder: order,
+          hasGps: Boolean(
+            latestRecord &&
+              Number.isFinite(Number(latestRecord.latitude)) &&
+              Number.isFinite(Number(latestRecord.longitude))
+          ),
+        };
+      });
+  }, [
+    trackingOrders,
+    latestTrackingByOrder,
+  ]);
+
+  const filteredTrackingOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return normalizedTrackingOrders.filter((order) => {
+      const prettyStatus = String(order.status || "")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+
+      const matchesStatus =
+        statusFilter === "All" ||
+        prettyStatus === statusFilter;
+
+      const matchesType =
+        typeFilter === "All" ||
+        String(order.type || "")
+          .trim()
+          .toLowerCase() ===
+          typeFilter.toLowerCase();
+
+      const matchesGps =
+        gpsFilter === "All" ||
+        (gpsFilter === "GPS Available" && order.hasGps) ||
+        (gpsFilter === "No GPS" && !order.hasGps);
+
+      const searchableText = [
+        order.orderId,
+        order.type,
+        order.pickupDistrict,
+        order.pickupLocation,
+        order.destinationDistrict,
+        order.destinationLocation,
+        order.containerNo,
+        order.vehicleNo,
+        order.supplier,
+        order.driver,
+        prettyStatus,
+        order.currentLocation,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch =
+        !query || searchableText.includes(query);
+
+      return (
+        matchesStatus &&
+        matchesType &&
+        matchesGps &&
+        matchesSearch
+      );
+    });
+  }, [
+    normalizedTrackingOrders,
+    searchTerm,
+    statusFilter,
+    typeFilter,
+    gpsFilter,
+  ]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      filteredTrackingOrders.length /
+        TRACKING_ORDERS_PER_PAGE
+    )
+  );
+
+  const activePage = Math.min(
+    currentPage,
+    totalPages
+  );
+
+  const firstOrderIndex =
+    (activePage - 1) *
+    TRACKING_ORDERS_PER_PAGE;
+
+  const lastOrderIndex =
+    firstOrderIndex +
+    TRACKING_ORDERS_PER_PAGE;
+
+  const displayOrders =
+    filteredTrackingOrders.slice(
+      firstOrderIndex,
+      lastOrderIndex
+    );
+
+  const showingFrom =
+    filteredTrackingOrders.length === 0
+      ? 0
+      : firstOrderIndex + 1;
+
+  const showingTo = Math.min(
+    lastOrderIndex,
+    filteredTrackingOrders.length
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    statusFilter,
+    typeFilter,
+    gpsFilter,
+  ]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const activeOrder =
+    selectedTrackingOrder || null;
 
   const orderedStages = useMemo(() => {
     return [...progressStages]
@@ -826,6 +1195,24 @@ function Tracking() {
       pickup: pickupLocation,
       destination: destinationLocation,
 
+      cargoType:
+        orderData.cargo_type ||
+        order.cargoType ||
+        order.cargo_type ||
+        "N/A",
+
+      cargoWeight:
+        orderData.cargo_weight ??
+        order.cargoWeight ??
+        order.cargo_weight ??
+        "N/A",
+
+      vehicleType:
+        orderData.vehicle_type ||
+        order.vehicleType ||
+        order.vehicle_type ||
+        "N/A",
+
       containerNo:
         orderData.container_no ||
         order.containerNo ||
@@ -850,10 +1237,22 @@ function Tracking() {
       statusKey:
         getStatusKey(officialOrderStatus),
 
+      pickupDate:
+        orderData.pickup_date ||
+        order.pickupDate ||
+        order.pickup_date ||
+        "N/A",
+
       expectedDay:
         orderData.expected_arrival ||
         order.expectedDay ||
         order.expected_arrival ||
+        "N/A",
+
+      specialInstructions:
+        orderData.special_instructions ||
+        order.specialInstructions ||
+        order.special_instructions ||
         "N/A",
 
       currentLocation:
@@ -1026,506 +1425,1101 @@ function Tracking() {
   };
 
   return (
-    <div className="bg-[#EBF4FF] p-6 h-full overflow-auto space-y-6">
-      {selectedTrackingOrder && (
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex justify-between items-start gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-[#1E293B]">
-                Tracking Order -{" "}
-                {selectedTrackingOrder.orderId}
-              </h1>
+    <div className="min-h-full bg-[#EBF4FF] p-5 md:p-6">
+      <div className="mx-auto max-w-[1500px] space-y-5">
 
-              <p className="text-sm text-slate-500 mt-1">
-                {selectedTrackingOrder.pickupLocation} →{" "}
-                {selectedTrackingOrder.destinationLocation}
-              </p>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <button
+            type="button"
+            onClick={() =>
+              setShowTrackableOrders((prev) => !prev)
+            }
+            className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#F8FBFF]"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EBF4FF] text-[#052659]">
+                <Truck size={18} />
+              </div>
 
-              <p className="text-xs text-slate-500 mt-2">
-                Pickup District:{" "}
-                {selectedTrackingOrder.pickupDistrict} |{" "}
-                Destination District:{" "}
-                {selectedTrackingOrder.destinationDistrict}
-              </p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-[#1E293B]">
+                    Trackable Orders
+                  </h2>
 
-              <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                <MapPin size={14} />
-                Current Location:{" "}
-                {selectedTrackingOrder.currentLocation}
-              </p>
+                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-[#052659] px-2 text-xs font-semibold text-white">
+                    {normalizedTrackingOrders.length}
+                  </span>
+                </div>
 
-              {lastGpsRefreshAt && (
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Last refreshed:{" "}
-                  {lastGpsRefreshAt.toLocaleTimeString()}
-                </p>
-              )}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() =>
-                  fetchSelectedOrderTracking()
-                }
-                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E40AF] hover:bg-[#EFF6FF] flex items-center gap-2"
-              >
-                <RefreshCw size={15} />
-                Refresh
-              </button>
+            <ChevronDown
+              size={20}
+              className={`shrink-0 text-[#052659] transition-transform duration-300 ${
+                showTrackableOrders
+                  ? "rotate-180"
+                  : ""
+              }`}
+            />
+          </button>
 
-              <button
-                onClick={() => {
-                  sessionStorage.removeItem(
-                    "trackingOrder"
-                  );
+          {showTrackableOrders && (
+            <div className="border-t border-slate-100">
+              <div className="border-b border-slate-100 bg-white px-4 py-4">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                  <div className="relative min-w-0 flex-1 xl:max-w-2xl">
+                    <Search
+                      size={17}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
 
-                  window.location.reload();
-                }}
-                className="text-sm px-4 py-2 rounded-md border border-slate-300 text-[#1E293B] hover:bg-slate-50"
-              >
-                Clear Selection
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!selectedTrackingOrder && (
-        <div className="bg-white p-5 rounded-xl shadow text-sm text-slate-500">
-          Select an order from the Orders page and click{" "}
-          <span className="font-semibold text-[#1E40AF]">
-            Track Order
-          </span>{" "}
-          to view its route and live driver GPS.
-        </div>
-      )}
-
-      {trackingError && (
-        <div className="bg-orange-50 border border-orange-100 text-[#EA580C] rounded-xl px-4 py-3 text-sm">
-          {trackingError}
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[#EFF6FF] text-[#1E293B] text-sm font-medium border-b border-slate-200">
-              <tr>
-                <th className="py-3 px-4 text-left whitespace-nowrap">
-                  Order ID
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Type
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Pickup District
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Pickup Location
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Destination District
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Destination Location
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Container No
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Vehicle No
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Supplier
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Driver
-                </th>
-                <th className="px-4 text-left whitespace-nowrap">
-                  Status
-                </th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-200">
-              {trackingLoading ? (
-                <tr>
-                  <td
-                    colSpan="11"
-                    className="text-center py-6 text-slate-500"
-                  >
-                    Loading tracking data...
-                  </td>
-                </tr>
-              ) : displayOrders.length > 0 ? (
-                displayOrders.map((order) => (
-                  <tr
-                    key={order.orderId}
-                    className="hover:bg-gray-50"
-                  >
-                    <td className="py-3 px-4 font-medium text-[#1E293B] whitespace-nowrap">
-                      {order.orderId}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.type}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.pickupDistrict}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.pickupLocation}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.destinationDistrict}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.destinationLocation}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.containerNo}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.vehicleNo}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.supplier}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      {order.driver}
-                    </td>
-
-                    <td className="px-4 text-[#1E293B] whitespace-nowrap">
-                      <span className="px-3 py-1 rounded-md text-xs font-medium bg-[#EFF6FF] text-[#1E40AF]">
-                        {prettifyStatus(order.status)}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan="11"
-                    className="text-center py-6 text-slate-500"
-                  >
-                    Select an order from Orders page to
-                    track the driver.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <div className="flex justify-between mb-6">
-          <h3 className="font-semibold text-lg text-[#1E293B]">
-            Status{" "}
-            <span className="text-[#1E40AF] text-sm">
-              {stageLoading
-                ? "Loading Stages..."
-                : "Order Progress"}
-            </span>
-          </h3>
-
-          <span className="text-sm text-slate-500 flex items-center gap-1">
-            <CalendarDays size={16} />
-            Expected Day:{" "}
-            {formatDate(activeOrder?.expectedDay)}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between relative overflow-x-auto pb-4">
-          {orderedStages.map((stage, index) => {
-            const isCompleted =
-              activeStageIndex >= 0 &&
-              index <= activeStageIndex;
-
-            const isLineCompleted =
-              activeStageIndex >= 0 &&
-              index < activeStageIndex;
-
-            return (
-              <div
-                key={
-                  stage.progress_stage_id ||
-                  stage.stage_key
-                }
-                className="flex-1 min-w-[145px] text-center relative"
-              >
-                {index !==
-                  orderedStages.length - 1 && (
-                  <div className="absolute top-4 left-1/2 w-full h-1 bg-slate-200 z-0">
-                    <div
-                      className={`h-1 ${
-                        isLineCompleted
-                          ? "bg-[#1E40AF]"
-                          : "bg-slate-200"
-                      } w-full`}
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(event) =>
+                        setSearchTerm(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Search by order ID, district, location, driver or supplier..."
+                      className="w-full rounded-xl border border-slate-200 bg-[#F8FBFF] py-2.5 pl-10 pr-4 text-sm text-[#1E293B] outline-none transition focus:border-[#5483B3] focus:ring-2 focus:ring-[#EBF4FF]"
                     />
                   </div>
-                )}
 
-                <div
-                  className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center text-sm relative z-10 ${
-                    isCompleted
-                      ? "bg-[#1E40AF] text-white"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {index + 1}
+                  <select
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(
+                        event.target.value
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+                  >
+                    <option value="All">
+                      All Statuses
+                    </option>
+
+                    {TRACKING_STATUS_OPTIONS
+                      .filter(
+                        (status) =>
+                          status !== "All"
+                      )
+                      .map((status) => (
+                        <option
+                          key={status}
+                          value={status}
+                        >
+                          {status}
+                        </option>
+                      ))}
+                  </select>
+
+                  <select
+                    value={typeFilter}
+                    onChange={(event) =>
+                      setTypeFilter(
+                        event.target.value
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+                  >
+                    <option value="All">
+                      All Types
+                    </option>
+                    <option value="Import">
+                      Import
+                    </option>
+                    <option value="Export">
+                      Export
+                    </option>
+                  </select>
+
+                  <select
+                    value={gpsFilter}
+                    onChange={(event) =>
+                      setGpsFilter(
+                        event.target.value
+                      )
+                    }
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-[#1E293B] outline-none focus:border-[#052659] focus:ring-2 focus:ring-[#EBF4FF]"
+                  >
+                    <option value="All">
+                      All GPS States
+                    </option>
+                    <option value="GPS Available">
+                      GPS Available
+                    </option>
+                    <option value="No GPS">
+                      No GPS
+                    </option>
+                  </select>
                 </div>
 
-                <p
-                  className={`text-sm mt-2 font-medium ${
-                    isCompleted
-                      ? "text-[#1E293B]"
-                      : "text-slate-500"
-                  }`}
-                >
-                  {stage.stage_name}
-                </p>
-
-                {mapStageTime(index) && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    {mapStageTime(index)}
-                  </p>
-                )}
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      <div className="bg-white rounded-xl shadow p-4">
-        {trackingLoading ? (
-          <div className="h-72 flex items-center justify-center text-slate-500 text-sm">
-            Loading vehicle location...
-          </div>
-        ) : selectedTrackingOrder ? (
-          <div className="relative">
-            <MapContainer
-              center={mapCenter}
-              zoom={8}
-              className="h-72 rounded-lg"
-            >
-              <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+              {trackingError && (
+                <div className="mx-4 mt-4 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-[#EA580C]">
+                  {trackingError}
+                </div>
+              )}
 
-              <MapViewportController
-                plannedRoutePositions={
-                  plannedRoutePositions
-                }
-                pickupPosition={pickupPosition}
-                destinationPosition={
-                  destinationPosition
-                }
-                latestDriverPosition={
-                  latestDriverPosition
-                }
-              />
-
-              {pickupPosition && (
-                <Marker position={pickupPosition}>
-                  <Popup>
-                    <div>
-                      <p className="font-semibold">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-slate-200 bg-[#EFF6FF] text-[#1E293B]">
+                    <tr>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        Order ID
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        Type
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
                         Pickup
-                      </p>
-                      <p>
-                        {
-                          selectedTrackingOrder.pickupLocation
-                        }
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-
-              {destinationPosition && (
-                <Marker position={destinationPosition}>
-                  <Popup>
-                    <div>
-                      <p className="font-semibold">
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
                         Destination
-                      </p>
-                      <p>
-                        {
-                          selectedTrackingOrder.destinationLocation
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        Supplier
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        Driver
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        Status
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-semibold">
+                        GPS
+                      </th>
+                      <th className="whitespace-nowrap px-4 py-3 text-center font-semibold">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-200">
+                    {ordersLoading ? (
+                      <tr>
+                        <td
+                          colSpan="9"
+                          className="py-8 text-center text-slate-500"
+                        >
+                          Loading trackable orders...
+                        </td>
+                      </tr>
+                    ) : displayOrders.length > 0 ? (
+                      displayOrders.map(
+                        (order) => {
+                          const selected =
+                            selectedTrackingOrder &&
+                            String(
+                              selectedTrackingOrder.orderId
+                            ) ===
+                              String(
+                                order.orderId
+                              );
+
+                          return (
+                            <tr
+                              key={order.orderId}
+                              className={
+                                selected
+                                  ? "bg-[#EFF6FF]"
+                                  : "bg-white hover:bg-slate-50"
+                              }
+                            >
+                              <td className="whitespace-nowrap px-4 py-4 font-semibold text-[#052659]">
+                                {order.orderId}
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                                {order.type}
+                              </td>
+
+                              <td className="px-4 py-4">
+                                <p className="font-medium text-[#1E293B]">
+                                  {order.pickupLocation}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  {order.pickupDistrict}
+                                </p>
+                              </td>
+
+                              <td className="px-4 py-4">
+                                <p className="font-medium text-[#1E293B]">
+                                  {order.destinationLocation}
+                                </p>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  {order.destinationDistrict}
+                                </p>
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                                {order.supplier}
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4 text-[#1E293B]">
+                                {order.driver}
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4">
+                                <span className="inline-flex rounded-full bg-[#EFF6FF] px-3 py-1 text-xs font-medium text-[#1E40AF]">
+                                  {prettifyStatus(
+                                    order.status
+                                  )}
+                                </span>
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4">
+                                <span
+                                  className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                                    order.hasGps
+                                      ? "bg-green-100 text-[#16A34A]"
+                                      : "bg-slate-100 text-slate-500"
+                                  }`}
+                                >
+                                  {order.hasGps
+                                    ? "GPS Available"
+                                    : "No GPS"}
+                                </span>
+                              </td>
+
+                              <td className="whitespace-nowrap px-4 py-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    selectTrackingOrder(
+                                      order.sourceOrder ||
+                                        order
+                                    )
+                                  }
+                                  className="rounded-lg bg-[#052659] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#5483B3]"
+                                >
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          );
                         }
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-
-              {plannedRoutePositions.length > 1 && (
-                <Polyline
-                  positions={plannedRoutePositions}
-                  pathOptions={{
-                    color: "#93C5FD",
-                    weight: 6,
-                    opacity: 0.9,
-                  }}
-                />
-              )}
-
-              {latestDriverPosition && (
-                <Marker
-                  position={latestDriverPosition}
-                  icon={liveDriverIcon}
-                >
-                  <Popup>
-                    <div>
-                      <p className="font-semibold">
-                        Live Driver Location
-                      </p>
-
-                      <p>
-                        {formatGpsLocation(
-                          latestGpsRecord
-                        )}
-                      </p>
-
-                      <p>
-                        GPS Status:{" "}
-                        {prettifyStatus(
-                          latestGpsRecord?.status
-                        )}
-                      </p>
-
-                      <p>
-                        Recorded:{" "}
-                        {formatDateTime(
-                          latestGpsRecord?.recorded_at
-                        )}
-                      </p>
-
-                      <p>
-                        Driver:{" "}
-                        {latestGpsRecord?.drivers
-                          ? `${
-                              latestGpsRecord.drivers
-                                .first_name || ""
-                            } ${
-                              latestGpsRecord.drivers
-                                .last_name || ""
-                            }`.trim()
-                          : selectedTrackingOrder.driver ||
-                            "Not assigned"}
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
-              )}
-            </MapContainer>
-
-            {routeLoading && (
-              <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-md bg-white/95 px-3 py-2 text-xs font-medium text-[#1E40AF] shadow">
-                Loading road route...
+                      )
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="9"
+                          className="py-8 text-center text-slate-500"
+                        >
+                          No trackable orders match the selected filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            )}
 
-            {!latestDriverPosition && (
-              <div className="pointer-events-none absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-md bg-white/95 px-3 py-2 text-xs text-slate-600 shadow">
-                Waiting for live GPS from the assigned
-                driver
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="h-72 flex flex-col items-center justify-center text-slate-500 text-sm">
-            <p>Select an order to track.</p>
-            <p className="text-xs mt-1">
-              Open Orders and click Track Order on the
-              required order.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white rounded-xl shadow p-6">
-        <div className="border-b border-slate-200 pb-4 mb-6">
-          <h3 className="text-lg font-semibold text-[#1E293B]">
-            Shipment History
-          </h3>
-        </div>
-
-        <div className="space-y-6 text-sm">
-          {trackingRecords.length > 0 ? (
-            [...trackingRecords]
-              .sort(
-                (a, b) =>
-                  new Date(b.recorded_at) -
-                  new Date(a.recorded_at)
-              )
-              .map((record) => (
-                <div
-                  key={record.tracking_id}
-                  className="flex items-start gap-4"
-                >
-                  {getHistoryIcon(record.status)}
-
-                  <div>
-                    <p className="font-medium text-[#1E293B]">
-                      {prettifyStatus(record.status)}
+              {!ordersLoading &&
+                filteredTrackingOrders.length >
+                  0 && (
+                  <div className="flex flex-col gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-slate-500">
+                      Showing {showingFrom}–
+                      {showingTo} of{" "}
+                      {
+                        filteredTrackingOrders.length
+                      }{" "}
+                      {filteredTrackingOrders.length ===
+                      1
+                        ? "order"
+                        : "orders"}
                     </p>
 
-                    <p className="text-slate-500">
-                      {formatDateTime(
-                        record.recorded_at
-                      )}{" "}
-                      -{" "}
-                      {record.current_location ||
-                        formatGpsLocation(record)}{" "}
-                      - Driver:{" "}
-                      {record.drivers
-                        ? `${
-                            record.drivers
-                              .first_name || ""
-                          } ${
-                            record.drivers
-                              .last_name || ""
-                          }`.trim()
-                        : selectedTrackingOrder?.driver ||
-                          "Not assigned"}
-                    </p>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage(
+                            (page) =>
+                              Math.max(
+                                1,
+                                page - 1
+                              )
+                          )
+                        }
+                        disabled={
+                          activePage === 1
+                        }
+                        aria-label="Previous page"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronLeft
+                          size={18}
+                        />
+                      </button>
+
+                      <div className="min-w-[96px] text-center text-sm font-medium text-[#1E293B]">
+                        Page {activePage} of{" "}
+                        {totalPages}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCurrentPage(
+                            (page) =>
+                              Math.min(
+                                totalPages,
+                                page + 1
+                              )
+                          )
+                        }
+                        disabled={
+                          activePage ===
+                          totalPages
+                        }
+                        aria-label="Next page"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EFF6FF] disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <ChevronRight
+                          size={18}
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
-          ) : (
-            <div className="flex items-start gap-4">
-              <CheckCircle
-                size={18}
-                className="text-slate-400 mt-1"
-              />
-
-              <div>
-                <p className="font-medium text-[#1E293B]">
-                  No Shipment History
-                </p>
-
-                <p className="text-slate-500">
-                  No container tracking records found for
-                  this order.
-                </p>
-              </div>
+                )}
             </div>
           )}
         </div>
+
       </div>
+
+      {showTrackingDetails &&
+        selectedTrackingOrder && (
+          <div
+            className="fixed inset-0 z-[999] flex items-center justify-center overflow-y-auto bg-black/45 p-4 md:p-6"
+            onMouseDown={(event) => {
+              if (
+                event.target ===
+                event.currentTarget
+              ) {
+                setShowTrackingDetails(
+                  false
+                );
+              }
+            }}
+          >
+            <div
+              className="my-4 flex max-h-[92vh] w-[96vw] max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-white/70 bg-[#EBF4FF] shadow-2xl"
+              onMouseDown={(event) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+                <div className="min-w-0">
+                  <h2 className="truncate text-xl font-bold text-[#1E293B]">
+                    Tracking Order -{" "}
+                    {
+                      selectedTrackingOrder.orderId
+                    }
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    {
+                      selectedTrackingOrder.pickupLocation
+                    }{" "}
+                    →{" "}
+                    {
+                      selectedTrackingOrder.destinationLocation
+                    }
+                  </p>
+
+                  <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                    <MapPin size={14} />
+                    Current Location:{" "}
+                    {
+                      selectedTrackingOrder.currentLocation
+                    }
+                  </p>
+
+                  {lastGpsRefreshAt && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Last refreshed:{" "}
+                      {lastGpsRefreshAt.toLocaleTimeString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      fetchSelectedOrderTracking()
+                    }
+                    disabled={trackingLoading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-[#1E40AF] transition hover:bg-[#EFF6FF] disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={
+                        trackingLoading
+                          ? "animate-spin"
+                          : ""
+                      }
+                    />
+                    Refresh
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowTrackingDetails(
+                        false
+                      )
+                    }
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl text-slate-500 transition hover:bg-slate-50 hover:text-[#052659]"
+                    title="Close"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-5 overflow-y-auto p-4 md:p-5">
+
+                {trackingError && (
+                  <div className="rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-[#EA580C]">
+                    {trackingError}
+                  </div>
+                )}
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowOrderDetails((prev) => !prev)
+                    }
+                    className="flex w-full items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 text-left transition hover:bg-[#F8FBFF]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1E40AF] text-white">
+                        <Truck size={20} />
+                      </div>
+
+                      <div>
+                        <h3 className="text-base font-semibold text-[#1E293B]">
+                          Order Details
+                        </h3>
+
+                        <p className="text-xs text-slate-500">
+                          {selectedTrackingOrder.orderId}
+                        </p>
+                      </div>
+                    </div>
+
+                    <ChevronDown
+                      size={20}
+                      className={`shrink-0 text-[#052659] transition-transform duration-300 ${
+                        showOrderDetails
+                          ? "rotate-180"
+                          : ""
+                      }`}
+                    />
+                  </button>
+
+                  {showOrderDetails && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[1180px] table-fixed text-sm">
+                        <tbody>
+                          <tr className="border-b border-slate-100">
+                            <TrackingOrderCell
+                              label="Order ID"
+                              value={selectedTrackingOrder.orderId}
+                            />
+
+                            <TrackingOrderCell
+                              label="Type"
+                              value={selectedTrackingOrder.type}
+                            />
+
+                            <TrackingOrderCell
+                              label="Cargo Type"
+                              value={selectedTrackingOrder.cargoType}
+                            />
+
+                            <TrackingOrderCell
+                              label="Cargo Weight"
+                              value={
+                                selectedTrackingOrder.cargoWeight !== "N/A"
+                                  ? `${selectedTrackingOrder.cargoWeight} kg`
+                                  : "N/A"
+                              }
+                            />
+
+                            <TrackingOrderCell
+                              label="Vehicle Type"
+                              value={selectedTrackingOrder.vehicleType}
+                            />
+
+                            <TrackingOrderCell
+                              label="Container No"
+                              value={selectedTrackingOrder.containerNo}
+                            />
+                          </tr>
+
+                          <tr className="border-b border-slate-100">
+                            <TrackingOrderCell
+                              label="Pickup District"
+                              value={selectedTrackingOrder.pickupDistrict}
+                            />
+
+                            <TrackingOrderCell
+                              label="Pickup Location"
+                              value={selectedTrackingOrder.pickupLocation}
+                            />
+
+                            <TrackingOrderCell
+                              label="Destination District"
+                              value={selectedTrackingOrder.destinationDistrict}
+                            />
+
+                            <TrackingOrderCell
+                              label="Destination Location"
+                              value={selectedTrackingOrder.destinationLocation}
+                            />
+
+                            <TrackingOrderCell
+                              label="Supplier"
+                              value={selectedTrackingOrder.supplier}
+                            />
+
+                            <TrackingOrderCell
+                              label="Driver"
+                              value={selectedTrackingOrder.driver}
+                            />
+                          </tr>
+
+                          <tr>
+                            <TrackingOrderCell
+                              label="Vehicle No"
+                              value={selectedTrackingOrder.vehicleNo}
+                            />
+
+                            <TrackingOrderCell
+                              label="Current Status"
+                              value={prettifyStatus(selectedTrackingOrder.status)}
+                            />
+
+                            <TrackingOrderCell
+                              label="Current Location"
+                              value={selectedTrackingOrder.currentLocation}
+                            />
+
+                            <TrackingOrderCell
+                              label="Pickup Date"
+                              value={formatDate(selectedTrackingOrder.pickupDate)}
+                            />
+
+                            <TrackingOrderCell
+                              label="Expected Arrival"
+                              value={formatDate(selectedTrackingOrder.expectedDay)}
+                            />
+
+                            <TrackingOrderCell
+                              label="Special Instructions"
+                              value={selectedTrackingOrder.specialInstructions}
+                            />
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowOrderProgress((prev) => !prev)
+                    }
+                    className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#F8FBFF]"
+                  >
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#1E293B]">
+                        Order Progress
+                      </h3>
+
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {prettifyStatus(selectedTrackingOrder.status)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <span className="hidden items-center gap-1 text-sm text-slate-500 sm:flex">
+                        <CalendarDays size={16} />
+                        Expected Day:{" "}
+                        {formatDate(activeOrder?.expectedDay)}
+                      </span>
+
+                      <ChevronDown
+                        size={20}
+                        className={`shrink-0 text-[#052659] transition-transform duration-300 ${
+                          showOrderProgress
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {showOrderProgress && (
+                    <div className="border-t border-slate-100 px-5 pb-5 pt-6">
+                      <div className="flex w-full items-start">
+                    {orderedStages.map(
+                      (stage, index) => {
+                        const isReached =
+                          activeStageIndex >=
+                            0 &&
+                          index <=
+                            activeStageIndex;
+
+                        const isCurrent =
+                          index ===
+                          activeStageIndex;
+
+                        const isLineCompleted =
+                          activeStageIndex >=
+                            0 &&
+                          index <
+                            activeStageIndex;
+
+                        const isCompletedOrder =
+                          getStatusKey(
+                            activeOrder?.status
+                          ) ===
+                          "completed";
+
+                        const circleClass =
+                          isCurrent
+                            ? isCompletedOrder
+                              ? "bg-[#16A34A] text-white ring-4 ring-green-100"
+                              : "bg-[#1E40AF] text-white ring-4 ring-blue-100"
+                            : isReached
+                            ? "bg-[#1E40AF] text-white"
+                            : "bg-slate-100 text-slate-500";
+
+                        return (
+                          <div
+                            key={
+                              stage.progress_stage_id ||
+                              stage.stage_key
+                            }
+                            className="relative min-w-0 flex-1 text-center"
+                          >
+                            {index !==
+                              orderedStages.length -
+                                1 && (
+                              <div className="absolute left-1/2 top-4 h-1 w-full bg-slate-200">
+                                <div
+                                  className={`h-1 w-full ${
+                                    isLineCompleted
+                                      ? "bg-[#1E40AF]"
+                                      : "bg-slate-200"
+                                  }`}
+                                />
+                              </div>
+                            )}
+
+                            <div
+                              className={`relative z-10 mx-auto flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${circleClass}`}
+                            >
+                              {index + 1}
+                            </div>
+
+                            <p
+                              className={`mt-2 px-1 text-xs font-semibold md:text-sm ${
+                                isCurrent
+                                  ? "text-[#1E40AF]"
+                                  : isReached
+                                  ? "text-[#1E293B]"
+                                  : "text-slate-500"
+                              }`}
+                            >
+                              {
+                                stage.stage_name
+                              }
+                            </p>
+
+                            {mapStageTime(
+                              index
+                            ) && (
+                              <p
+                                className={`mt-1 text-[11px] ${
+                                  isCurrent
+                                    ? "font-semibold text-[#1E40AF]"
+                                    : "text-slate-500"
+                                }`}
+                              >
+                                {mapStageTime(
+                                  index
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowRouteMap((prev) => !prev)
+                    }
+                    className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[#F8FBFF]"
+                  >
+                    <h3 className="text-base font-semibold text-[#1E293B]">
+                      Route & Live GPS
+                    </h3>
+
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${
+                          latestDriverPosition
+                            ? "bg-green-100 text-[#16A34A]"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {latestDriverPosition
+                          ? "Live GPS Available"
+                          : "Waiting for GPS"}
+                      </span>
+
+                      <ChevronDown
+                        size={20}
+                        className={`shrink-0 text-[#052659] transition-transform duration-300 ${
+                          showRouteMap
+                            ? "rotate-180"
+                            : ""
+                        }`}
+                      />
+                    </div>
+                  </button>
+
+                  {showRouteMap && (
+                    <div className="border-t border-slate-100 p-4">
+                      {trackingLoading ? (
+                    <div className="flex h-[500px] items-center justify-center text-sm text-slate-500">
+                      Loading vehicle location...
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <MapContainer
+                        center={mapCenter}
+                        zoom={8}
+                        className="h-[500px] rounded-xl"
+                      >
+                        <TileLayer
+                          attribution="&copy; OpenStreetMap contributors"
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+
+                        <MapViewportController
+                          plannedRoutePositions={
+                            plannedRoutePositions
+                          }
+                          pickupPosition={
+                            pickupPosition
+                          }
+                          destinationPosition={
+                            destinationPosition
+                          }
+                          latestDriverPosition={
+                            latestDriverPosition
+                          }
+                        />
+
+                        {pickupPosition && (
+                          <Marker
+                            position={
+                              pickupPosition
+                            }
+                          >
+                            <Popup>
+                              <div>
+                                <p className="font-semibold">
+                                  Pickup
+                                </p>
+                                <p>
+                                  {
+                                    selectedTrackingOrder.pickupLocation
+                                  }
+                                </p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+
+                        {destinationPosition && (
+                          <Marker
+                            position={
+                              destinationPosition
+                            }
+                          >
+                            <Popup>
+                              <div>
+                                <p className="font-semibold">
+                                  Destination
+                                </p>
+                                <p>
+                                  {
+                                    selectedTrackingOrder.destinationLocation
+                                  }
+                                </p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+
+                        {plannedRoutePositions.length >
+                          1 && (
+                          <Polyline
+                            positions={
+                              plannedRoutePositions
+                            }
+                            pathOptions={{
+                              color:
+                                "#93C5FD",
+                              weight: 6,
+                              opacity: 0.9,
+                            }}
+                          />
+                        )}
+
+                        {latestDriverPosition && (
+                          <Marker
+                            position={
+                              latestDriverPosition
+                            }
+                            icon={
+                              liveDriverIcon
+                            }
+                          >
+                            <Popup>
+                              <div>
+                                <p className="font-semibold">
+                                  Live Driver Location
+                                </p>
+
+                                <p>
+                                  {formatGpsLocation(
+                                    latestGpsRecord
+                                  )}
+                                </p>
+
+                                <p>
+                                  GPS Status:{" "}
+                                  {prettifyStatus(
+                                    latestGpsRecord?.status
+                                  )}
+                                </p>
+
+                                <p>
+                                  Recorded:{" "}
+                                  {formatDateTime(
+                                    latestGpsRecord?.recorded_at
+                                  )}
+                                </p>
+
+                                <p>
+                                  Driver:{" "}
+                                  {latestGpsRecord?.drivers
+                                    ? `${
+                                        latestGpsRecord
+                                          .drivers
+                                          .first_name ||
+                                        ""
+                                      } ${
+                                        latestGpsRecord
+                                          .drivers
+                                          .last_name ||
+                                        ""
+                                      }`.trim()
+                                    : selectedTrackingOrder.driver ||
+                                      "Not assigned"}
+                                </p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
+                      </MapContainer>
+
+                      {routeLoading && (
+                        <div className="pointer-events-none absolute left-3 top-3 z-[500] rounded-md bg-white/95 px-3 py-2 text-xs font-medium text-[#1E40AF] shadow">
+                          Loading road route...
+                        </div>
+                      )}
+
+                      {!latestDriverPosition && (
+                        <div className="pointer-events-none absolute bottom-3 left-1/2 z-[500] -translate-x-1/2 rounded-md bg-white/95 px-3 py-2 text-xs text-slate-600 shadow">
+                          Waiting for live GPS
+                          from the assigned
+                          driver
+                        </div>
+                      )}
+                    </div>
+                  )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-5 border-b border-slate-200 pb-4">
+                    <h3 className="text-lg font-semibold text-[#1E293B]">
+                      Shipment History
+                    </h3>
+                  </div>
+
+                  <div className="space-y-5 text-sm">
+                    {trackingRecords.length >
+                    0 ? (
+                      [...trackingRecords]
+                        .sort(
+                          (a, b) =>
+                            new Date(
+                              b.recorded_at
+                            ) -
+                            new Date(
+                              a.recorded_at
+                            )
+                        )
+                        .map(
+                          (record) => (
+                            <div
+                              key={
+                                record.tracking_id
+                              }
+                              className="flex items-start gap-4"
+                            >
+                              {getHistoryIcon(
+                                record.status
+                              )}
+
+                              <div>
+                                <p className="font-medium text-[#1E293B]">
+                                  {prettifyStatus(
+                                    record.status
+                                  )}
+                                </p>
+
+                                <p className="text-slate-500">
+                                  {formatDateTime(
+                                    record.recorded_at
+                                  )}{" "}
+                                  -{" "}
+                                  {record.current_location ||
+                                    formatGpsLocation(
+                                      record
+                                    )}{" "}
+                                  - Driver:{" "}
+                                  {record.drivers
+                                    ? `${
+                                        record
+                                          .drivers
+                                          .first_name ||
+                                        ""
+                                      } ${
+                                        record
+                                          .drivers
+                                          .last_name ||
+                                        ""
+                                      }`.trim()
+                                    : selectedTrackingOrder?.driver ||
+                                      "Not assigned"}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        )
+                    ) : (
+                      <div className="flex items-start gap-4">
+                        <CheckCircle
+                          size={18}
+                          className="mt-1 text-slate-400"
+                        />
+
+                        <div>
+                          <p className="font-medium text-[#1E293B]">
+                            No Shipment History
+                          </p>
+
+                          <p className="text-slate-500">
+                            No container tracking
+                            records found for this
+                            order.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sessionStorage.removeItem(
+                        "trackingOrder"
+                      );
+                      setTrackingOrder(
+                        null
+                      );
+                      setTrackingRecords(
+                        []
+                      );
+                      setTrackingError("");
+                      setLastGpsRefreshAt(
+                        null
+                      );
+                      setPlannedRoutePositions(
+                        []
+                      );
+                      setShowTrackingDetails(
+                        false
+                      );
+                    }}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-[#1E293B] transition hover:bg-slate-50"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        )}
     </div>
+  );
+}
+
+
+function TrackingOrderCell({
+  label,
+  value,
+}) {
+  return (
+    <td className="w-1/6 px-5 py-4 align-top">
+      <p className="mb-1 text-xs font-medium text-slate-500">
+        {label}
+      </p>
+
+      <p className="break-words text-sm font-semibold leading-5 text-[#1E293B]">
+        {value || "N/A"}
+      </p>
+    </td>
   );
 }
 

@@ -3,6 +3,8 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Eye,
   History,
@@ -21,6 +23,7 @@ const API_BASE_URL = `${
 }/api/operations`;
 
 const ISSUE_REFRESH_MS = 10000;
+const ISSUES_PER_PAGE = 5;
 
 const TRACKABLE_ORDER_STAGES = new Set([
   "Driver Assigned",
@@ -40,6 +43,7 @@ function Issues({ onNavigate }) {
   const [followUpMessage, setFollowUpMessage] = useState("");
   const [issueMessages, setIssueMessages] = useState([]);
   const [lastRefreshAt, setLastRefreshAt] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const tabs = [
     "All",
@@ -812,6 +816,31 @@ function Issues({ onNavigate }) {
     });
   }, [issues, tab, search]);
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredIssues.length / ISSUES_PER_PAGE)
+  );
+
+  const activePage = Math.min(currentPage, totalPages);
+
+  const firstIssueIndex =
+    (activePage - 1) * ISSUES_PER_PAGE;
+
+  const paginatedIssues = filteredIssues.slice(
+    firstIssueIndex,
+    firstIssueIndex + ISSUES_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tab, search]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const getPriorityBadge = (priority) => {
     if (priority === "Critical") {
       return (
@@ -1002,7 +1031,7 @@ function Issues({ onNavigate }) {
                     </td>
                   </tr>
                 ) : (
-                  filteredIssues.map((issue) => (
+                  paginatedIssues.map((issue) => (
                     <tr
                       key={
                         issue.issueDbId ||
@@ -1070,6 +1099,42 @@ function Issues({ onNavigate }) {
               </tbody>
             </table>
           </div>
+
+          {!isLoading && filteredIssues.length > 0 && (
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-4 py-4">
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((page) =>
+                    Math.max(1, page - 1)
+                  )
+                }
+                disabled={activePage === 1}
+                aria-label="Previous page"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EBF4FF] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={18} />
+              </button>
+
+              <div className="min-w-[96px] text-center text-sm font-medium text-[#1E293B]">
+                Page {activePage} of {totalPages}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((page) =>
+                    Math.min(totalPages, page + 1)
+                  )
+                }
+                disabled={activePage === totalPages}
+                aria-label="Next page"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-[#1E293B] transition hover:border-[#052659] hover:bg-[#EBF4FF] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
