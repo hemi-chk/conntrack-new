@@ -748,7 +748,7 @@ export const downloadReportPdf = async (req, res) => {
 
     try {
         const { orders, stats } = await getReportData(fromDate, toDate);
-        const document = new PDFDocument({
+        const doc = new PDFDocument({
             size: 'A4',
             margins: { top: 42, right: 36, bottom: 42, left: 36 },
             bufferPages: true
@@ -760,137 +760,225 @@ export const downloadReportPdf = async (req, res) => {
         res.status(200);
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        document.pipe(res);
+        doc.pipe(res);
 
         const navy = '#12355B';
         const muted = '#64748B';
         const light = '#E2E8F0';
-        const pageWidth = document.page.width - document.page.margins.left - document.page.margins.right;
+        const LM = doc.page.margins.left;
+        const PW = doc.page.width - doc.page.margins.left - doc.page.margins.right;
 
+        // Helper: write text at an absolute position WITHOUT moving the
+        // document cursor. doc.save()/doc.restore() only saves the PDF
+        // graphics state (colors, transforms) — it does NOT save doc.x /
+        // doc.y which are plain JS properties. We must save and restore
+        // those manually.
+        const writeText = (str, x, y, opts = {}) => {
+            const savedX = doc.x;
+            const savedY = doc.y;
+            doc.save();
+            doc.text(str, x, y, { lineBreak: false, ...opts });
+            doc.restore();
+            doc.x = savedX;
+            doc.y = savedY;
+        };
+
+        // ── drawHeader ──
         const drawHeader = () => {
-            document.fillColor(navy).fontSize(18).font('Helvetica-Bold')
-                .text('LOGISTICS OPERATIONS REPORT');
-            document.fillColor(muted).fontSize(9).font('Helvetica')
-                .text('ConnTrack Integrated Logistics System');
-            document.moveDown(0.6);
-            document.moveTo(document.page.margins.left, document.y)
-                .lineTo(document.page.width - document.page.margins.right, document.y)
+            const startY = doc.y;
+
+            doc.font('Helvetica-Bold').fontSize(18).fillColor(navy);
+            writeText('LOGISTICS OPERATIONS REPORT', LM, startY);
+            doc.y = startY + 22;
+
+            doc.font('Helvetica').fontSize(9).fillColor(muted);
+            writeText('ConnTrack Integrated Logistics System', LM, doc.y);
+            doc.y += 14;
+
+            doc.save();
+            doc.moveTo(LM, doc.y)
+                .lineTo(doc.page.width - doc.page.margins.right, doc.y)
                 .strokeColor(navy).lineWidth(1.5).stroke();
-            document.moveDown(0.6);
-            document.fillColor(muted).fontSize(9)
-                .text(`Reporting period: ${fromDate} to ${toDate}`)
-                .text(`Generated: ${new Date().toLocaleString()}`);
-            document.moveDown(1);
+            doc.restore();
+            doc.y += 10;
+
+            doc.font('Helvetica').fontSize(9).fillColor(muted);
+            writeText(`Reporting period: ${fromDate} to ${toDate}`, LM, doc.y);
+            doc.y += 13;
+            writeText(`Generated: ${new Date().toLocaleString()}`, LM, doc.y);
+            doc.y += 18;
+            doc.x = LM;
         };
 
+        // ── drawFooter ──
         const drawFooter = (pageNumber, pageCount) => {
-            const footerY = document.page.height - 28;
-            document.font('Helvetica').fontSize(8).fillColor(muted)
-                .text('Confidential logistics report', document.page.margins.left, footerY, { continued: true })
-                .text(`Page ${pageNumber} of ${pageCount}`, { align: 'right' });
+            const oldBottom = doc.page.margins.bottom;
+            doc.page.margins.bottom = 0;
+            const fy = doc.page.height - 25;
+            doc.font('Helvetica').fontSize(8).fillColor(muted);
+            writeText('Confidential logistics report', LM, fy);
+            writeText(`Page ${pageNumber} of ${pageCount}`, LM + PW - 80, fy);
+            doc.page.margins.bottom = oldBottom;
         };
 
-        const drawMetric = (label, value, x, y, width) => {
-            document.roundedRect(x, y, width, 48, 5).fillAndStroke('#F8FAFC', light);
-            document.fillColor(muted).font('Helvetica-Bold').fontSize(8).text(label.toUpperCase(), x + 10, y + 9, { width: width - 20 });
-            document.fillColor(navy).font('Helvetica-Bold').fontSize(17).text(String(value), x + 10, y + 24, { width: width - 20 });
+        // ── drawMetric ──
+        const drawMetric = (label, value, x, y, w) => {
+            doc.save();
+            doc.roundedRect(x, y, w, 48, 5).fillAndStroke('#F8FAFC', light);
+            doc.restore();
+
+            doc.font('Helvetica-Bold').fontSize(8).fillColor(muted);
+            writeText(label.toUpperCase(), x + 10, y + 9, { width: w - 20 });
+            doc.font('Helvetica-Bold').fontSize(17).fillColor(navy);
+            writeText(String(value), x + 10, y + 24, { width: w - 20 });
         };
 
+        // ══════════════════════════════════════════════════
+        //  PAGE 1: Header
+        // ══════════════════════════════════════════════════
         drawHeader();
+
+        // ── KPI boxes ──
         const metricGap = 8;
-        const metricWidth = (pageWidth - metricGap * 3) / 4;
-        const metricY = document.y;
-        drawMetric('Total orders', stats.total, document.page.margins.left, metricY, metricWidth);
-        drawMetric('Completed', stats.completedCount, document.page.margins.left + metricWidth + metricGap, metricY, metricWidth);
-        drawMetric('Imports', stats.imports, document.page.margins.left + (metricWidth + metricGap) * 2, metricY, metricWidth);
-        drawMetric('Exports', stats.exports, document.page.margins.left + (metricWidth + metricGap) * 3, metricY, metricWidth);
-        document.y = metricY + 70;
+        const metricW = (PW - metricGap * 3) / 4;
+        const metricY = doc.y;
+        drawMetric('Total orders', stats.total, LM, metricY, metricW);
+        drawMetric('Completed', stats.completedCount, LM + metricW + metricGap, metricY, metricW);
+        drawMetric('Imports', stats.imports, LM + (metricW + metricGap) * 2, metricY, metricW);
+        drawMetric('Exports', stats.exports, LM + (metricW + metricGap) * 3, metricY, metricW);
+        doc.x = LM;
+        doc.y = metricY + 62;
 
-        document.fillColor(navy).font('Helvetica-Bold').fontSize(12).text('Order Manifest');
-        document.moveDown(0.5);
+        // ── Section title ──
+        doc.font('Helvetica-Bold').fontSize(12).fillColor(navy);
+        writeText('Order Manifest', LM, doc.y);
+        doc.y += 20;
+        doc.x = LM;
 
-        const columns = [
-            { label: 'Order ID', width: 72 },
-            { label: 'Customer', width: 135 },
-            { label: 'Route', width: 155 },
-            { label: 'Date', width: 72 },
-            { label: 'Status', width: pageWidth - 434 }
+        // ── Table columns ──
+        const cols = [
+            { label: 'Order ID', w: 70 },
+            { label: 'Customer', w: 130 },
+            { label: 'Route',    w: 160 },
+            { label: 'Date',     w: 75 },
+            { label: 'Status',   w: PW - (70 + 130 + 160 + 75) }
         ];
-        const tableX = document.page.margins.left;
-        const rowHeight = 26;
-        const drawTableHeader = () => {
-            let x = tableX;
-            document.rect(tableX, document.y, pageWidth, rowHeight).fill(navy);
-            columns.forEach(column => {
-                document.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(8).text(column.label, x + 5, document.y + 9, { width: column.width - 10 });
-                x += column.width;
-            });
-            document.y += rowHeight;
-        };
+        const rowH = 24;
 
-        drawTableHeader();
-        orders.forEach((order, index) => {
-            if (document.y > document.page.height - document.page.margins.bottom - 45) {
-                document.addPage();
-                drawHeader();
-                drawTableHeader();
+        // ── drawTableHeader ──
+        const drawTableHeader = () => {
+            const hy = doc.y;
+            // Navy background bar
+            doc.save();
+            doc.rect(LM, hy, PW, rowH).fill(navy);
+            doc.restore();
+
+            // Column labels in white — each writeText is fully isolated
+            let cx = LM;
+            for (let i = 0; i < cols.length; i++) {
+                doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#FFFFFF');
+                writeText(cols[i].label, cx + 6, hy + 7, { width: cols[i].w - 12 });
+                cx += cols[i].w;
             }
 
-            const rowY = document.y;
-            if (index % 2 === 0) document.rect(tableX, rowY, pageWidth, rowHeight).fill('#F8FAFC');
-            document.rect(tableX, rowY, pageWidth, rowHeight).strokeColor(light).lineWidth(0.5).stroke();
-            const route = order.route || `${order.pickup_location || order.pickup_district || 'N/A'} -> ${order.destination_location || order.destination_district || 'N/A'}`;
-            const values = [
+            doc.x = LM;
+            doc.y = hy + rowH;
+        };
+
+        // ── drawDataRow ──
+        const drawDataRow = (order, idx) => {
+            const ry = doc.y;
+
+            // Alternate row bg
+            if (idx % 2 === 0) {
+                doc.save();
+                doc.rect(LM, ry, PW, rowH).fill('#F8FAFC');
+                doc.restore();
+            }
+            // Row border
+            doc.save();
+            doc.rect(LM, ry, PW, rowH).strokeColor(light).lineWidth(0.5).stroke();
+            doc.restore();
+
+            const route = order.route
+                || `${order.pickup_location || order.pickup_district || order.pickup_state || 'N/A'} -> ${order.destination_location || order.destination_district || order.destination_state || 'N/A'}`;
+            const cells = [
                 `#${String(order.order_id).padStart(5, '0')}`,
-                order.customer_name || 'Unknown Customer',
+                order.customer_name || 'Internal',
                 route,
                 order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A',
                 (order.current_status || 'created').replace(/_/g, ' ')
             ];
-            let x = tableX;
-            values.forEach((value, valueIndex) => {
-                document.fillColor('#1E293B').font('Helvetica').fontSize(8).text(String(value), x + 5, rowY + 9, { width: columns[valueIndex].width - 10, height: rowHeight - 10, ellipsis: true });
-                x += columns[valueIndex].width;
-            });
-            document.y = rowY + rowHeight;
+
+            let cx = LM;
+            for (let i = 0; i < cells.length; i++) {
+                doc.font('Helvetica').fontSize(8).fillColor('#1E293B');
+                writeText(String(cells[i]), cx + 6, ry + 7, {
+                    width: cols[i].w - 12,
+                    height: rowH - 8,
+                    ellipsis: true
+                });
+                cx += cols[i].w;
+            }
+
+            doc.x = LM;
+            doc.y = ry + rowH;
+        };
+
+        // ══════════════════════════════════════════════════
+        //  Render table
+        // ══════════════════════════════════════════════════
+        drawTableHeader();
+        orders.forEach((order, idx) => {
+            if (doc.y > doc.page.height - doc.page.margins.bottom - 50) {
+                doc.addPage();
+                drawHeader();
+                drawTableHeader();
+            }
+            drawDataRow(order, idx);
         });
 
-        // Add Signature Block for printed document authorization
-        if (document.y > document.page.height - document.page.margins.bottom - 110) {
-            document.addPage();
+        // ══════════════════════════════════════════════════
+        //  Signature block
+        // ══════════════════════════════════════════════════
+        if (doc.y > doc.page.height - doc.page.margins.bottom - 100) {
+            doc.addPage();
             drawHeader();
         }
 
-        document.moveDown(1.5);
-        const sigY = document.y;
-        const sigWidth = (pageWidth - 40) / 2;
+        doc.y += 20;
+        const sigY = doc.y;
+        const sigW = (PW - 40) / 2;
 
-        // Signature Line 1: Authorized Logistics Officer
-        document.moveTo(document.page.margins.left, sigY + 35)
-            .lineTo(document.page.margins.left + sigWidth, sigY + 35)
+        // Signature 1
+        doc.save();
+        doc.moveTo(LM, sigY + 30).lineTo(LM + sigW, sigY + 30)
             .strokeColor('#64748B').lineWidth(1).stroke();
-        document.fillColor('#1E293B').font('Helvetica-Bold').fontSize(9)
-            .text('Authorized Logistics Officer', document.page.margins.left, sigY + 42, { width: sigWidth });
-        document.fillColor('#64748B').font('Helvetica').fontSize(8)
-            .text('Signature & Date', document.page.margins.left, sigY + 54, { width: sigWidth });
+        doc.restore();
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1E293B');
+        writeText('Authorized Logistics Officer', LM, sigY + 37, { width: sigW });
+        doc.font('Helvetica').fontSize(7.5).fillColor('#64748B');
+        writeText('Signature & Date', LM, sigY + 48, { width: sigW });
 
-        // Signature Line 2: Operations Manager / Supervisor
-        const rightSigX = document.page.margins.left + sigWidth + 40;
-        document.moveTo(rightSigX, sigY + 35)
-            .lineTo(rightSigX + sigWidth, sigY + 35)
+        // Signature 2
+        const rsx = LM + sigW + 40;
+        doc.save();
+        doc.moveTo(rsx, sigY + 30).lineTo(rsx + sigW, sigY + 30)
             .strokeColor('#64748B').lineWidth(1).stroke();
-        document.fillColor('#1E293B').font('Helvetica-Bold').fontSize(9)
-            .text('Operations Manager / Supervisor', rightSigX, sigY + 42, { width: sigWidth });
-        document.fillColor('#64748B').font('Helvetica').fontSize(8)
-            .text('Signature & Date', rightSigX, sigY + 54, { width: sigWidth });
+        doc.restore();
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1E293B');
+        writeText('Operations Manager / Supervisor', rsx, sigY + 37, { width: sigW });
+        doc.font('Helvetica').fontSize(7.5).fillColor('#64748B');
+        writeText('Signature & Date', rsx, sigY + 48, { width: sigW });
 
-        const range = document.bufferedPageRange();
-        for (let index = range.start; index < range.start + range.count; index += 1) {
-            document.switchToPage(index);
-            drawFooter(index + 1, range.count);
+        // ── Page numbers ──
+        const range = doc.bufferedPageRange();
+        for (let i = range.start; i < range.start + range.count; i++) {
+            doc.switchToPage(i);
+            drawFooter(i + 1, range.count);
         }
 
-        document.end();
+        doc.end();
     } catch (error) {
         if (!res.headersSent) {
             res.status(500).json({ message: 'Failed to generate report PDF', error: error.message });

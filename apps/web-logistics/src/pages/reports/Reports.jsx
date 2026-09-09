@@ -204,15 +204,17 @@ export default function Reports() {
             y += 28;
 
             const drawTableHeader = () => {
+                const headerY = y;
+                const columnX = [margin + 3, margin + 25, margin + 70, margin + 128, margin + 152];
                 pdfDocument.setFillColor(18, 53, 91);
-                pdfDocument.rect(margin, y, pageWidth - margin * 2, 8, "F");
+                pdfDocument.rect(margin, headerY, pageWidth - margin * 2, 8, "F");
                 pdfDocument.setTextColor(255, 255, 255);
-                pdfDocument.setFontSize(7);
+                pdfDocument.setFontSize(7.5);
                 pdfDocument.setFont("helvetica", "bold");
                 ["Order ID", "Customer", "Route", "Date", "Status"].forEach((label, index) => {
-                    pdfDocument.text(label, [margin + 3, margin + 25, margin + 68, margin + 145, margin + 170][index], y + 5);
+                    pdfDocument.text(label, columnX[index], headerY + 5.5);
                 });
-                y += 8;
+                y = headerY + 8;
             };
 
             pdfDocument.setTextColor(18, 53, 91);
@@ -237,7 +239,7 @@ export default function Reports() {
                 const route = order.route || `${order.pickup_location || order.pickup_district || "N/A"} -> ${order.destination_location || order.destination_district || "N/A"}`;
                 const values = [
                     `#${String(order.order_id).padStart(5, "0")}`,
-                    order.customer_name || "Unknown Customer",
+                    order.customer_name || "Internal",
                     route,
                     order.created_at ? new Date(order.created_at).toLocaleDateString() : "N/A",
                     (order.current_status || "created").replace(/_/g, " "),
@@ -246,9 +248,9 @@ export default function Reports() {
                 pdfDocument.setFontSize(7);
                 pdfDocument.setFont("helvetica", "normal");
                 values.forEach((value, valueIndex) => {
-                    const x = [margin + 3, margin + 25, margin + 68, margin + 145, margin + 170][valueIndex];
-                    const width = [20, 40, 74, 22, 25][valueIndex];
-                    pdfDocument.text(pdfDocument.splitTextToSize(String(value), width)[0], x, y + 5);
+                    const x = [margin + 3, margin + 25, margin + 70, margin + 128, margin + 152][valueIndex];
+                    const width = [20, 42, 55, 22, 26][valueIndex];
+                    pdfDocument.text(pdfDocument.splitTextToSize(String(value), width)[0], x, y + 5.5);
                 });
                 y += 8;
             });
