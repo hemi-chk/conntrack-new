@@ -1,104 +1,192 @@
-# ConnTrack - Logistics Management System 🚚
+# ConnTrack - Enterprise Logistics & Fleet Management System 🚚
 
-Welcome to the **ConnTrack** platform. This repository contains the **Driver Mobile Application** and its associated **Node.js Backend**, providing a real-time, professional solution for logistics operations.
+Welcome to **ConnTrack**, an enterprise logistics, fleet management, and supply chain tracking platform. Built as a modern monorepo using **Turborepo**, ConnTrack delivers real-time visibility, automated logistics workflows, multi-portal web applications, and a dedicated mobile driver application.
 
-## 📱 Project Overview
+---
 
-The ConnTrack Driver system is designed to streamline delivery workflows. It focuses on high-accuracy tracking, robust document management, and professional user experiences.
+## 🏗️ Architecture Overview
 
-### Key Features
-- **Real-time GPS Tracking**: Integrated `expo-location` with live coordinate reporting and reverse-geocoded location names.
-- **Dynamic Document Management**: Access to clearance documents (Gate Pass, Clearance Permits, etc.) with support for multiple location checkpoints (Port, Warehouse, BOI).
-- **Driver Profile & Security**: 
-    - Profile photo upload and management.
-    - Duty status toggling (Active/Inactive).
-    - Secure password update flow.
-- **Multi-language Support (i18n)**: Full localization for English, Sinhala, and Tamil.
-- **Notification System**: Real-time reporting and monitoring of issues (Vehicle issues, delays, etc.).
+ConnTrack is structured as a **Microservices Monorepo** managed with `npm` workspaces and `Turborepo`. Services communicate synchronously via an **API Gateway** and asynchronously via **RabbitMQ** message queues, using **Supabase** (PostgreSQL) for unified persistence and storage.
+
+```text
+                               ┌─────────────────────────┐
+                               │       Client Apps       │
+                               └────────────┬────────────┘
+                                            │
+                     ┌──────────────────────┴──────────────────────┐
+                     │                                             │
+             ┌───────▼─────────┐                           ┌───────▼────────┐
+             │   Web Portals   │                           │ Mobile Driver  │
+             │ (React + Vite)  │                           │ (React Native) │
+             └───────┬─────────┘                           └───────┬────────┘
+                     │                                             │
+                     └──────────────────────┬──────────────────────┘
+                                            │
+                                  ┌─────────▼─────────┐
+                                  │    API Gateway    │ (Port 5000)
+                                  └─────────┬─────────┘
+                                            │
+     ┌──────────────┬──────────────┬────────┼──────────────┬──────────────┐
+     │              │              │        │              │              │
+┌────▼─────┐   ┌────▼─────┐   ┌────▼────┐ ┌─▼────────┐   ┌─▼────────┐   ┌─▼────────┐
+│api-auth  │   │api-admin │   │api-oper │ │api-logis │   │api-suppl │   │api-driver│
+│(Port 5001)   │(Port 5002)   │(P:5003) │ │(P:5004)  │   │(P:5005)  │   │(P:5006)  │
+└────┬─────┘   └────┬─────┘   └────┬────┘ └─┬────────┘   └─┬────────┘   └─┬────────┘
+     │              │              │        │              │              │
+     └──────────────┴──────────────┼────────┴──────────────┴──────────────┘
+                                   │
+                   ┌───────────────┴───────────────┐
+                   │  RabbitMQ Broker + Supabase   │
+                   └───────────────────────────────┘
+```
+
+---
+
+## 📦 Workspace Structure
+
+### 🚀 Applications (`apps/`)
+
+#### Backend Microservices
+* **[api-gateway](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-gateway)** *(Port 5000)*: Central routing proxy directing traffic across microservices.
+* **[api-auth](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-auth)** *(Port 5001)*: Authentication, JWT token verification, and role permissions.
+* **[api-admin](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-admin)** *(Port 5002)*: Platform settings, user management, and audit logs.
+* **[api-operations](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-operations)** *(Port 5003)*: Dispatching, task assignment, and fleet operations logic.
+* **[api-logistics](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-logistics)** *(Port 5004)*: Shipment routing, tracking updates, and analytics/reporting.
+* **[api-supplier](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-supplier)** *(Port 5005)*: Supplier order management, inventory dispatching, and vendor APIs.
+* **[api-driver](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-driver)** *(Port 5006)*: Driver profile management, duty status, document verification, and live location ingestion.
+
+#### Web Portals
+* **[web-admin](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-admin)**: Enterprise administration dashboard for system configurability and user management.
+* **[web-logistics](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-logistics)**: Logistics management portal for trip scheduling, live tracking, and document verification.
+* **[web-operations](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-operations)**: Real-time operations center for dispatch monitoring and issue management.
+* **[web-supplier](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-supplier)**: Vendor dashboard to manage goods dispatch, manifests, and delivery statuses.
+
+#### Mobile Applications
+* **[mobile-driver](file:///c:/Users/HP/Desktop/conntrack-new/apps/mobile-driver)**: Cross-platform mobile app (iOS/Android) for drivers with location tracking, document viewing (Gate Pass, BOI Clearance, Port Permits), duty status management, and offline-capable notifications.
+
+---
+
+### 🧩 Shared Packages (`packages/`)
+
+* **[@conntrack/api-core](file:///c:/Users/HP/Desktop/conntrack-new/packages/api-core)**: Shared Express middleware, standardized response helpers, error handlers, and authentication utilities.
+* **[@conntrack/database](file:///c:/Users/HP/Desktop/conntrack-new/packages/database)**: Shared Supabase DB client initializers and common database querying modules.
+* **[@conntrack/messaging](file:///c:/Users/HP/Desktop/conntrack-new/packages/messaging)**: RabbitMQ AMQP wrapper routines for event pub/sub across backend microservices.
+* **[@conntrack/ui](file:///c:/Users/HP/Desktop/conntrack-new/packages/ui)**: Shared UI component design system (Tailwind CSS, Radix UI primitives, icons, and theme configuration).
+
+---
 
 ## 🛠️ Technology Stack
 
-### Frontend (Mobile)
-- **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/)
-- **Navigation**: React Navigation (Stack & Tabs)
-- **Localization**: `react-i18next`
-- **Location Services**: `expo-location`
+* **Monorepo Engine**: [Turborepo](https://turbo.build/) & npm Workspaces
+* **Backend Microservices**: Node.js, Express.js
+* **Messaging & Async Events**: [RabbitMQ](https://www.rabbitmq.com/) (AMQP)
+* **Database & Storage**: [Supabase](https://supabase.com/) (PostgreSQL & Storage Buckets)
+* **Web Frontend**: React 19, Vite, Tailwind CSS v4, Lucide React, Recharts, Leaflet
+* **Mobile Frontend**: React Native, Expo, React Navigation, `expo-location`, `react-i18next`
+* **Containerization**: Docker & Docker Compose
 
-### Backend (Server)
-- **Runtime**: Node.js & Express
-- **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
-- **Storage**: Supabase Storage (for documents and profile photos)
-- **Authentication**: Custom identifier-based logic (Driver ID / Employee ID)
+---
+
+## 🔑 Core Features
+
+* 📍 **Live GPS & Route Tracking**: Coordinate ingestion from mobile drivers with interactive map overlays on web portals.
+* 📄 **Document & Checkpoint Management**: Digital Gate Passes, Port Permits, and BOI Clearance verification with file preview and download capabilities.
+* 🌐 **Multi-Language Support (i18n)**: Driver mobile localization supporting English, Sinhala (සිංහල), and Tamil (தமிழ்).
+* 🚨 **Event-Driven Issue Reporting**: Real-time notifications and alerts for vehicle breakdowns, traffic delays, or document discrepancies routed through RabbitMQ.
+* 🔐 **Secure Role-Based Authentication**: Custom JWT authentication tailored for mobile drivers alongside Supabase Auth for web dashboard users.
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Repository Setup
+### 1. Prerequisites
+Ensure you have the following installed on your local system:
+* **Node.js** `>= 18.0.0`
+* **npm** `>= 10.0.0`
+* **Docker Desktop** (for RabbitMQ & full container stack)
+
+### 2. Installation
+Clone the repository and install dependencies at the monorepo root:
+
 ```bash
 git clone https://github.com/hemi-chk/conntrack-new.git
 cd conntrack-new
-git checkout feature/driver-ui
+npm install
 ```
 
-### 2. Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure environment variables:
-   - Copy `.env.example` to `.env`.
-   - Add your `SUPABASE_URL` and `SUPABASE_KEY`.
-4. Start the server:
-   ```bash
-   npm run dev
-   ```
+### 3. Environment Configuration
+Copy `.env.example` to create `.env` in the root directory and configure your Supabase credentials and secret keys:
 
-### 3. Mobile App Setup
-1. Navigate to the mobile driver directory:
-   ```bash
-   cd apps/mobile-driver
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Configure API endpoint:
-   - Update `src/constants/config.js` with your local IP or server URL.
-4. Start Expo:
-   ```bash
-   npx expo start
-   ```
+```bash
+cp .env.example .env
+```
+
+Key environment variables:
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-role-key
+DRIVER_JWT_SECRET=your-random-jwt-secret
+AMQP_URL=amqp://conntrack:conntrack123@localhost:5672
+```
 
 ---
 
-## 📂 Project Structure
+## 💻 Running the Application
 
-```text
-conntrack-new/
-├── apps/
-│   └── mobile-driver/       # Expo React Native application
-│       ├── src/
-│       │   ├── components/  # Atomic UI elements
-│       │   ├── constants/   # Theme & Global Config
-│       │   ├── i18n/        # Translation JSONs
-│       │   ├── navigation/  # Navigation logic
-│       │   └── screens/     # Dashboard, Tracking, Profile, etc.
-├── backend/                 # Node.js Express server
-│   ├── src/
-│   │   ├── config/          # Supabase & DB connections
-│   │   ├── controllers/     # Professional JSDoc documented logic
-│   │   ├── routes/          # API endpoint definitions
-│   └── scratch/             # Utility scripts
-└── package.json             # Root monorepo configuration
+### Option A: Local Development Mode (Turborepo)
+
+Start all backend services and web applications concurrently:
+
+```bash
+npm run dev
 ```
 
-## 🤝 Contribution Guidelines
-When contributing, ensure all core logic is documented using JSDoc. Maintain modular UI components and follow the established color palette defined in `theme.js`.
+To run a specific application individually:
+```bash
+npm run dev --filter=web-logistics
+# or
+npm run dev --filter=api-driver
+```
+
+### Option B: Running via Docker Compose
+
+Spin up RabbitMQ and all containerized microservices:
+
+```bash
+docker-compose up -d
+```
+
+### Option C: Mobile Driver App Setup
+
+To start the Expo development server for the mobile app:
+
+```bash
+cd apps/mobile-driver
+npm install
+npx expo start
+```
 
 ---
-© 2026 ConnTrack Logistics Management Systems
+
+## 📜 Available NPM Scripts
+
+From the repository root:
+
+| Script | Description |
+| :--- | :--- |
+| `npm run dev` | Runs all microservices and web portals concurrently using Turborepo |
+| `npm run build` | Builds all packages and production artifacts across workspaces |
+| `npm run lint` | Runs ESLint verification across all packages and apps |
+
+---
+
+## 🤝 Contribution & Coding Standards
+
+* **JSDoc Documentation**: All core API controllers and service handlers must maintain JSDoc annotations.
+* **Component Design**: UI components should leverage `@conntrack/ui` design tokens and atomic patterns.
+* **Service Scoping**: Keep microservice responsibilities strictly decoupled; use `@conntrack/messaging` for cross-service events.
+
+---
+
+© 2026 ConnTrack Logistics Management Systems. All rights reserved.
