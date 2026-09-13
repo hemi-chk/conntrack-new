@@ -1,21 +1,23 @@
-import { useState } from "react";
-import { Country, State } from "country-state-city";
+import { useRef, useState } from "react";
+import { uploadFile } from "./services/api";
 
 function CreateOrder({ onNavigate }) {
-  // Initial form structure used to reset the form after submit/cancel
+  const API_BASE_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5000";
+
   const initialState = {
     orderId: "Auto-generated",
-    orderType: "Export",
+    orderType: "",
     cargoType: "",
     cargoWeight: "",
-    pickupCountry: "",
-    pickupState: "",
-    destinationCountry: "",
-    destinationState: "",
+    pickupDistrict: "",
+    pickupLocation: "",
+    destinationDistrict: "",
+    destinationLocation: "",
     pickupDate: "",
     arrivalDate: "",
     vehicleSize: "",
-    vehicleNo: "",
+    containerNo: "",
     notes: "",
     instructions: {
       fragileCargo: false,
@@ -29,7 +31,6 @@ function CreateOrder({ onNavigate }) {
     },
   };
 
-  // Fixed cargo category list shown in the Cargo Type dropdown
   const cargoTypes = [
     "Electronics",
     "Furniture",
@@ -52,228 +53,474 @@ function CreateOrder({ onNavigate }) {
     "Pharmaceuticals",
     "Frozen Goods",
     "General Cargo",
+    "Other",
   ];
+
+  const allDistricts = [
+    "Ampara District",
+    "Anuradhapura District",
+    "Badulla District",
+    "Batticaloa District",
+    "Colombo District",
+    "Galle District",
+    "Gampaha District",
+    "Hambantota District",
+    "Jaffna District",
+    "Kalutara District",
+    "Kandy District",
+    "Kegalle District",
+    "Kilinochchi District",
+    "Kurunegala District",
+    "Mannar District",
+    "Matale District",
+    "Matara District",
+    "Monaragala District",
+    "Mullaitivu District",
+    "Nuwara Eliya District",
+    "Polonnaruwa District",
+    "Puttalam District",
+    "Ratnapura District",
+    "Trincomalee District",
+    "Vavuniya District",
+  ];
+
+  // Port side is fixed. Airports are intentionally excluded because
+  // this Operations module handles seaport container movements only.
+  const portDistrictLocations = {
+    "Colombo District": ["Colombo Port"],
+    "Galle District": ["Galle Port"],
+    "Hambantota District": ["Hambantota Port"],
+    "Trincomalee District": ["Trincomalee Port"],
+    "Jaffna District": ["Kankesanthurai Port"],
+    "Ampara District": ["Oluvil Port"],
+  };
+
+  const portDistricts = Object.keys(portDistrictLocations);
 
   const [form, setForm] = useState(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingId, setIsGeneratingId] = useState(false);
 
-  // Prevents selecting previous dates for pickup/arrival
+  const fieldRefs = useRef({});
+
   const today = new Date().toISOString().split("T")[0];
 
-  // Country and state data are loaded from country-state-city package
-  const countries = Country.getAllCountries();
+  const isImport = form.orderType === "Import";
+  const isExport = form.orderType === "Export";
 
-  const pickupStates = form.pickupCountry
-    ? State.getStatesOfCountry(form.pickupCountry)
-    : [];
+  // IMPORT = Port -> Inland place
+  // EXPORT = Inland place -> Port
+  const pickupDistrictOptions = isImport
+    ? portDistricts
+    : isExport
+      ? allDistricts
+      : [];
 
-  const destinationStates = form.destinationCountry
-    ? State.getStatesOfCountry(form.destinationCountry)
-    : [];
+  const destinationDistrictOptions = isImport
+    ? allDistricts
+    : isExport
+      ? portDistricts
+      : [];
 
-  // Converts country ISO code into readable country name before saving to database
-  const getCountryName = (code) => {
-    return Country.getCountryByCode(code)?.name || code;
+  const availablePickupPorts =
+    isImport && form.pickupDistrict
+      ? portDistrictLocations[form.pickupDistrict] || []
+      : [];
+
+  const availableDestinationPorts =
+    isExport && form.destinationDistrict
+      ? portDistrictLocations[form.destinationDistrict] || []
+      : [];
+
+  const setFieldRef = (name) => (element) => {
+    fieldRefs.current[name] = element;
   };
 
-  // Calls backend API to generate the next Import/Export order ID
+  const moveToField = (fieldName) => {
+    const element = fieldRefs.current[fieldName];
+    if (!element) return;
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    window.setTimeout(() => {
+      if (typeof element.focus === "function") {
+        element.focus({ preventScroll: true });
+      }
+    }, 350);
+  };
+
+  const showValidationError = (message, fieldName) => {
+    alert(message);
+    moveToField(fieldName);
+  };
+
   const generateOrderId = async (type) => {
     try {
       setIsGeneratingId(true);
 
       const response = await fetch(
-        `http://localhost:5000/api/operations/orders/next-id?type=${type.toLowerCase()}`
+        `${API_BASE_URL}/api/operations/orders/next-id?type=${type.toLowerCase()}`
       );
 
-      const result = await response.json();
+      const responseText = await response.text();
+
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Order ID API returned an invalid response. Status: ${response.status}`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(result.error || "Failed to generate order ID");
       }
 
-      // Updates order type and auto-generated order reference
+      if (!result.orderId) {
+        throw new Error("Backend did not return a new order ID");
+      }
+
       setForm((prev) => ({
         ...prev,
         orderType: type,
         orderId: result.orderId,
+        pickupDistrict: "",
+        pickupLocation: "",
+        destinationDistrict: "",
+        destinationLocation: "",
       }));
     } catch (error) {
       alert(error.message);
+      moveToField("orderType");
     } finally {
       setIsGeneratingId(false);
     }
   };
 
-  // Handles normal input/select changes and validates cargo weight
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === "cargoWeight") {
-      if (value === "") {
-        setForm({
-          ...form,
-          cargoWeight: "",
-        });
-        return;
-      }
-
-      const numericValue = Number(value);
-
-      if (numericValue <= 0) {
-        setForm({
-          ...form,
-          cargoWeight: "",
-        });
-        alert("Cargo weight must be greater than 0 kg");
-        return;
-      }
+    if (name === "pickupDate") {
+      setForm((prev) => ({
+        ...prev,
+        pickupDate: value,
+        arrivalDate:
+          prev.arrivalDate && prev.arrivalDate < value
+            ? ""
+            : prev.arrivalDate,
+      }));
+      return;
     }
 
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       [name]: value,
-    });
+    }));
   };
 
-  // Updates special instruction checkbox values
+  const handlePickupDistrictChange = (e) => {
+    const value = e.target.value;
+
+    setForm((prev) => ({
+      ...prev,
+      pickupDistrict: value,
+      pickupLocation: "",
+    }));
+  };
+
+  const handleDestinationDistrictChange = (e) => {
+    const value = e.target.value;
+
+    setForm((prev) => ({
+      ...prev,
+      destinationDistrict: value,
+      destinationLocation: "",
+    }));
+  };
+
   const handleInstructionChange = (e) => {
     const { name, checked } = e.target;
 
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       instructions: {
-        ...form.instructions,
+        ...prev.instructions,
         [name]: checked,
       },
-    });
+    }));
   };
 
-  // Stores selected document files in form state
   const handleDocumentChange = (e) => {
     const { name, files } = e.target;
+    const file = files?.[0] || null;
 
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       documents: {
-        ...form.documents,
-        [name]: files && files[0] ? files[0] : null,
+        ...prev.documents,
+        [name]: file,
       },
-    });
+    }));
   };
 
-  // Validates form, prepares payload, and sends new order to backend
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Required field validation before sending data to backend
+  const validateForm = () => {
     if (
       !form.orderId ||
       form.orderId === "Auto-generated" ||
-      !form.orderType ||
-      !form.cargoType ||
-      !form.cargoWeight ||
-      Number(form.cargoWeight) <= 0 ||
-      !form.pickupCountry ||
-      !form.pickupState ||
-      !form.destinationCountry ||
-      !form.destinationState ||
-      !form.pickupDate ||
-      !form.arrivalDate ||
-      !form.vehicleSize ||
-      !form.vehicleNo
+      !form.orderType
     ) {
-      alert(
-        "Please select Import or Export to generate Order ID and fill all required fields correctly"
+      return {
+        message: "Please select Import or Export to generate the Order ID.",
+        field: "orderType",
+      };
+    }
+
+    if (!form.cargoType) {
+      return {
+        message: "Please select a cargo type.",
+        field: "cargoType",
+      };
+    }
+
+    if (!form.cargoWeight || Number(form.cargoWeight) <= 0) {
+      return {
+        message: "Cargo weight must be greater than 0 kg.",
+        field: "cargoWeight",
+      };
+    }
+
+    if (!form.pickupDistrict) {
+      return {
+        message: "Please select the pickup district.",
+        field: "pickupDistrict",
+      };
+    }
+
+    if (!form.pickupLocation.trim()) {
+      return {
+        message: isImport
+          ? "Please select the pickup port."
+          : "Please enter the pickup warehouse, factory, yard, or customer location.",
+        field: "pickupLocation",
+      };
+    }
+
+    if (!form.destinationDistrict) {
+      return {
+        message: "Please select the destination district.",
+        field: "destinationDistrict",
+      };
+    }
+
+    if (!form.destinationLocation.trim()) {
+      return {
+        message: isExport
+          ? "Please select the destination port."
+          : "Please enter the destination warehouse, factory, yard, or customer location.",
+        field: "destinationLocation",
+      };
+    }
+
+    if (isImport) {
+      const validPickupPorts =
+        portDistrictLocations[form.pickupDistrict] || [];
+
+      if (!validPickupPorts.includes(form.pickupLocation)) {
+        return {
+          message:
+            "The selected pickup port does not belong to the selected pickup district.",
+          field: "pickupLocation",
+        };
+      }
+    }
+
+    if (isExport) {
+      const validDestinationPorts =
+        portDistrictLocations[form.destinationDistrict] || [];
+
+      if (!validDestinationPorts.includes(form.destinationLocation)) {
+        return {
+          message:
+            "The selected destination port does not belong to the selected destination district.",
+          field: "destinationLocation",
+        };
+      }
+    }
+
+    if (!form.pickupDate) {
+      return {
+        message: "Please select the pickup date.",
+        field: "pickupDate",
+      };
+    }
+
+    if (!form.arrivalDate) {
+      return {
+        message: "Please select the expected arrival date.",
+        field: "arrivalDate",
+      };
+    }
+
+    if (form.pickupDate < today) {
+      return {
+        message: "Pickup date cannot be in the past.",
+        field: "pickupDate",
+      };
+    }
+
+    if (form.arrivalDate < form.pickupDate) {
+      return {
+        message: "Expected arrival cannot be earlier than the pickup date.",
+        field: "arrivalDate",
+      };
+    }
+
+    if (!form.vehicleSize) {
+      return {
+        message: "Please select a vehicle type.",
+        field: "vehicleSize",
+      };
+    }
+
+    if (!form.containerNo.trim()) {
+      return {
+        message: "Please enter the container number.",
+        field: "containerNo",
+      };
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      showValidationError(
+        validationError.message,
+        validationError.field
       );
       return;
     }
 
-    // Converts selected checkbox instructions into an array
-    const selectedInstructions = Object.entries(form.instructions)
-      .filter(([, value]) => value)
-      .map(([key]) => key);
-
-    // Payload format matches backend/database column names
-    const payload = {
-      order_reference: form.orderId,
-      order_type: form.orderType.toLowerCase(),
-      cargo_type: form.cargoType,
-      cargo_weight: Number(form.cargoWeight),
-      pickup_country: getCountryName(form.pickupCountry),
-      pickup_state: form.pickupState,
-      destination_country: getCountryName(form.destinationCountry),
-      destination_state: form.destinationState,
-      pickup_date: form.pickupDate,
-      expected_arrival: form.arrivalDate,
-      vehicle_type: form.vehicleSize,
-      container_no: form.vehicleNo,
-
-      // Combines checkbox instructions and additional notes into one text field
-      special_instructions: [...selectedInstructions, form.notes]
-        .filter(Boolean)
-        .join(", "),
-    };
-
     try {
       setIsSubmitting(true);
 
-      const response = await fetch("http://localhost:5000/api/operations/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const selectedInstructions = Object.entries(form.instructions)
+        .filter(([, value]) => value)
+        .map(([key]) => key);
 
-      const result = await response.json();
+      // Optional at order creation in this version.
+      const commercialInvoiceUrl = await uploadFile(
+        "order-documents",
+        form.documents.commercialInvoice,
+        "commercial-invoices"
+      );
+
+      const packingListUrl = await uploadFile(
+        "order-documents",
+        form.documents.packingList,
+        "packing-lists"
+      );
+
+      const payload = {
+        order_reference: form.orderId,
+        order_type: form.orderType.toLowerCase(),
+        cargo_type: form.cargoType,
+        cargo_weight: Number(form.cargoWeight),
+        pickup_district: form.pickupDistrict,
+        pickup_location: form.pickupLocation.trim(),
+        destination_district: form.destinationDistrict,
+        destination_location: form.destinationLocation.trim(),
+        pickup_date: form.pickupDate,
+        expected_arrival: form.arrivalDate,
+        vehicle_type: form.vehicleSize,
+        container_no: form.containerNo.trim(),
+        commercial_invoice_url: commercialInvoiceUrl,
+        packing_list_url: packingListUrl,
+        special_instructions: [...selectedInstructions, form.notes.trim()]
+          .filter(Boolean)
+          .join(", "),
+      };
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/operations/orders`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const responseText = await response.text();
+
+      let result = {};
+
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Create Order API returned an invalid response. Status: ${response.status}`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(result.error || "Failed to create order");
       }
 
-      alert("Order created successfully and saved to database!");
-
-      // Clears form after successful order creation
+      alert("Order created successfully.");
       setForm(initialState);
 
-      // Redirects user to Orders page after order is created
       if (onNavigate) {
         onNavigate("/orders");
       }
     } catch (error) {
+      console.error("Create order error:", error);
       alert(error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Clears all form fields without submitting
   const handleCancel = () => {
     setForm(initialState);
+
+    window.setTimeout(() => {
+      moveToField("orderType");
+    }, 50);
   };
 
   return (
-    <div className="bg-[#EFF6FF] p-6 h-full overflow-auto">
+    <div className="bg-[#EBF4FF] p-6 h-full overflow-auto">
       <form
         onSubmit={handleSubmit}
         className="bg-[#FFFFFF] rounded-xl shadow-md p-6 max-w-6xl mx-auto border border-[#BFDBFE]"
       >
-        <h2 className="text-xl font-semibold text-[#1E293B] mb-6">
+        <h2 className="text-xl font-semibold text-[#1E293B] mb-2">
           Create New Order
         </h2>
 
-        <div className="grid grid-cols-2 gap-5 text-sm">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
           <Field label="Order Type">
             <div className="flex gap-3">
               <button
+                ref={setFieldRef("orderType")}
                 type="button"
                 onClick={() => generateOrderId("Import")}
                 disabled={isGeneratingId || isSubmitting}
                 className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 disabled:opacity-50 ${
                   form.orderType === "Import"
-                    ? "bg-[#1E40AF] text-[#FFFFFF] border-[#1E40AF]"
-                    : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    ? "bg-[#052659] text-[#FFFFFF] border-[#052659]"
+                    : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EBF4FF]"
                 }`}
               >
                 Import
@@ -285,8 +532,8 @@ function CreateOrder({ onNavigate }) {
                 disabled={isGeneratingId || isSubmitting}
                 className={`px-5 py-2 rounded-md border font-medium transition-all duration-200 disabled:opacity-50 ${
                   form.orderType === "Export"
-                    ? "bg-[#1E40AF] text-[#FFFFFF] border-[#1E40AF]"
-                    : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EFF6FF]"
+                    ? "bg-[#052659] text-[#FFFFFF] border-[#052659]"
+                    : "bg-[#FFFFFF] text-[#1E293B] border-[#BFDBFE] hover:bg-[#EBF4FF]"
                 }`}
               >
                 Export
@@ -300,18 +547,21 @@ function CreateOrder({ onNavigate }) {
               value={isGeneratingId ? "Generating..." : form.orderId}
               disabled
               placeholder="Auto-generated by system"
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#EFF6FF] text-[#1E293B] outline-none cursor-not-allowed"
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#EBF4FF] text-[#1E293B] outline-none cursor-not-allowed"
             />
           </Field>
 
           <Field label="Cargo Type">
             <select
+              ref={setFieldRef("cargoType")}
               name="cargoType"
               value={form.cargoType}
               onChange={handleChange}
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
-              <option value="">Select Cargo Type</option>
+              <option value="" disabled hidden>
+                Select Cargo Type
+              </option>
               {cargoTypes.map((cargoType) => (
                 <option key={cargoType} value={cargoType}>
                   {cargoType}
@@ -322,6 +572,7 @@ function CreateOrder({ onNavigate }) {
 
           <Field label="Cargo Weight (kg)">
             <input
+              ref={setFieldRef("cargoWeight")}
               type="number"
               name="cargoWeight"
               value={form.cargoWeight}
@@ -333,86 +584,139 @@ function CreateOrder({ onNavigate }) {
             />
           </Field>
 
-          <Field label="Pickup Country">
+          <Field label={isImport ? "Pickup Port District" : "Pickup District"}>
             <select
-              name="pickupCountry"
-              value={form.pickupCountry}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  pickupCountry: e.target.value,
-                  pickupState: "",
-                })
-              }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
+              ref={setFieldRef("pickupDistrict")}
+              name="pickupDistrict"
+              value={form.pickupDistrict}
+              onChange={handlePickupDistrictChange}
+              disabled={!form.orderType}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
             >
-              <option value="">Select Country</option>
-              {countries.map((country) => (
-                <option key={country.isoCode} value={country.isoCode}>
-                  {country.name}
+              <option value="">
+                {!form.orderType
+                  ? "Select Import or Export First"
+                  : isImport
+                    ? "Select Pickup Port District"
+                    : "Select Pickup District"}
+              </option>
+
+              {pickupDistrictOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Pickup State / District">
+          <Field label={isImport ? "Pickup Port" : "Pickup Location / Address"}>
+            {isImport ? (
+              <select
+                ref={setFieldRef("pickupLocation")}
+                name="pickupLocation"
+                value={form.pickupLocation}
+                onChange={handleChange}
+                disabled={!form.pickupDistrict}
+                className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {form.pickupDistrict
+                    ? "Select Pickup Port"
+                    : "Select Pickup Port District First"}
+                </option>
+
+                {availablePickupPorts.map((port) => (
+                  <option key={port} value={port}>
+                    {port}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                ref={setFieldRef("pickupLocation")}
+                type="text"
+                name="pickupLocation"
+                value={form.pickupLocation}
+                onChange={handleChange}
+                disabled={!form.pickupDistrict}
+                placeholder={
+                  form.pickupDistrict
+                    ? "Enter warehouse, factory, yard or customer location"
+                    : "Select Pickup District First"
+                }
+                className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+              />
+            )}
+          </Field>
+
+          <Field label={isExport ? "Destination Port District" : "Destination District"}>
             <select
-              name="pickupState"
-              value={form.pickupState}
-              onChange={handleChange}
-              disabled={!form.pickupCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF]"
+              ref={setFieldRef("destinationDistrict")}
+              name="destinationDistrict"
+              value={form.destinationDistrict}
+              onChange={handleDestinationDistrictChange}
+              disabled={!form.orderType}
+              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
             >
-              <option value="">Select State</option>
-              {pickupStates.map((state) => (
-                <option key={state.isoCode} value={state.name}>
-                  {state.name}
+              <option value="">
+                {!form.orderType
+                  ? "Select Import or Export First"
+                  : isExport
+                    ? "Select Destination Port District"
+                    : "Select Destination District"}
+              </option>
+
+              {destinationDistrictOptions.map((district) => (
+                <option key={district} value={district}>
+                  {district}
                 </option>
               ))}
             </select>
           </Field>
 
-          <Field label="Destination Country">
-            <select
-              name="destinationCountry"
-              value={form.destinationCountry}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  destinationCountry: e.target.value,
-                  destinationState: "",
-                })
-              }
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
-            >
-              <option value="">Select Country</option>
-              {countries.map((country) => (
-                <option key={country.isoCode} value={country.isoCode}>
-                  {country.name}
+          <Field label={isExport ? "Destination Port" : "Destination Location / Address"}>
+            {isExport ? (
+              <select
+                ref={setFieldRef("destinationLocation")}
+                name="destinationLocation"
+                value={form.destinationLocation}
+                onChange={handleChange}
+                disabled={!form.destinationDistrict}
+                className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {form.destinationDistrict
+                    ? "Select Destination Port"
+                    : "Select Destination Port District First"}
                 </option>
-              ))}
-            </select>
-          </Field>
 
-          <Field label="Destination State / District">
-            <select
-              name="destinationState"
-              value={form.destinationState}
-              onChange={handleChange}
-              disabled={!form.destinationCountry}
-              className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF]"
-            >
-              <option value="">Select State</option>
-              {destinationStates.map((state) => (
-                <option key={state.isoCode} value={state.name}>
-                  {state.name}
-                </option>
-              ))}
-            </select>
+                {availableDestinationPorts.map((port) => (
+                  <option key={port} value={port}>
+                    {port}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                ref={setFieldRef("destinationLocation")}
+                type="text"
+                name="destinationLocation"
+                value={form.destinationLocation}
+                onChange={handleChange}
+                disabled={!form.destinationDistrict}
+                placeholder={
+                  form.destinationDistrict
+                    ? "Enter warehouse, factory, yard or customer location"
+                    : "Select Destination District First"
+                }
+                className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF] disabled:bg-[#EFF6FF] disabled:cursor-not-allowed"
+              />
+            )}
           </Field>
 
           <Field label="Pickup Date">
             <input
+              ref={setFieldRef("pickupDate")}
               type="date"
               name="pickupDate"
               value={form.pickupDate}
@@ -424,6 +728,7 @@ function CreateOrder({ onNavigate }) {
 
           <Field label="Expected Arrival">
             <input
+              ref={setFieldRef("arrivalDate")}
               type="date"
               name="arrivalDate"
               value={form.arrivalDate}
@@ -433,14 +738,15 @@ function CreateOrder({ onNavigate }) {
             />
           </Field>
 
-          <Field label="Vehicle Size">
+          <Field label="Vehicle Type">
             <select
+              ref={setFieldRef("vehicleSize")}
               name="vehicleSize"
               value={form.vehicleSize}
               onChange={handleChange}
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
             >
-              <option value="">Select Vehicle</option>
+              <option value="">Select Vehicle Type</option>
               <option value="HCV">HCV</option>
               <option value="LCV">LCV</option>
             </select>
@@ -448,8 +754,9 @@ function CreateOrder({ onNavigate }) {
 
           <Field label="Container No">
             <input
-              name="vehicleNo"
-              value={form.vehicleNo}
+              ref={setFieldRef("containerNo")}
+              name="containerNo"
+              value={form.containerNo}
               onChange={handleChange}
               placeholder="Enter Container No"
               className="w-full px-4 py-3 border border-[#BFDBFE] rounded-lg bg-[#FFFFFF] text-[#1E293B] outline-none focus:border-[#1E40AF] focus:ring-2 focus:ring-[#EFF6FF]"
@@ -458,20 +765,20 @@ function CreateOrder({ onNavigate }) {
         </div>
 
         <div className="mt-6">
-          <label className="block mb-3 font-medium text-sm text-[#1E293B]">
+          <label className="block mb-1 font-medium text-sm text-[#1E293B]">
             Upload Relevant Documents
           </label>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DocumentUpload
-              label="1. Commercial Invoice"
+              label="1. Commercial Invoice (Optional)"
               name="commercialInvoice"
               file={form.documents.commercialInvoice}
               onChange={handleDocumentChange}
             />
 
             <DocumentUpload
-              label="2. Packing List"
+              label="2. Packing List (Optional)"
               name="packingList"
               file={form.documents.packingList}
               onChange={handleDocumentChange}
@@ -484,7 +791,7 @@ function CreateOrder({ onNavigate }) {
             Special Instructions
           </label>
 
-          <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#EFF6FF]">
+          <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#EBF4FF]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <CheckboxInstruction
                 label="Fragile cargo"
@@ -536,7 +843,7 @@ function CreateOrder({ onNavigate }) {
             type="button"
             onClick={handleCancel}
             disabled={isSubmitting || isGeneratingId}
-            className="px-6 py-2 border border-[#BFDBFE] rounded-md text-[#1E293B] bg-[#FFFFFF] hover:bg-[#EFF6FF] transition disabled:opacity-50"
+            className="px-6 py-2 border border-[#BFDBFE] rounded-md text-[#1E293B] bg-[#FFFFFF] hover:bg-[#EBF4FF] transition disabled:opacity-50"
           >
             Cancel
           </button>
@@ -544,9 +851,9 @@ function CreateOrder({ onNavigate }) {
           <button
             type="submit"
             disabled={isSubmitting || isGeneratingId}
-            className="px-6 py-2 bg-[#1E40AF] text-[#FFFFFF] rounded-md hover:opacity-90 transition disabled:opacity-50"
+            className="px-6 py-2 bg-[#052659] text-[#FFFFFF] rounded-md hover:opacity-90 transition disabled:opacity-50"
           >
-            {isSubmitting ? "Creating..." : "Create & Submit to Logistics"}
+            {isSubmitting ? "Creating..." : "Create Order"}
           </button>
         </div>
       </form>
@@ -554,20 +861,17 @@ function CreateOrder({ onNavigate }) {
   );
 }
 
-// Reusable wrapper for form label + input/select field
 function Field({ label, children }) {
   return (
     <div>
       <label className="block mb-2 font-medium text-sm text-[#1E293B]">
         {label}
       </label>
-
       {children}
     </div>
   );
 }
 
-// Reusable upload component for order documents
 function DocumentUpload({ label, name, file, onChange }) {
   return (
     <div className="border border-[#BFDBFE] rounded-lg p-4 bg-[#FFFFFF]">
@@ -576,7 +880,7 @@ function DocumentUpload({ label, name, file, onChange }) {
       </label>
 
       <div className="flex items-center gap-4">
-        <label className="px-4 py-2 bg-[#EFF6FF] text-[#1E293B] border border-[#BFDBFE] rounded-md cursor-pointer hover:border-[#1E40AF] transition">
+        <label className="px-4 py-2 bg-[#EBF4FF] text-[#1E293B] border border-[#BFDBFE] rounded-md cursor-pointer hover:border-[#052659] transition">
           Choose File
 
           <input
@@ -584,10 +888,11 @@ function DocumentUpload({ label, name, file, onChange }) {
             name={name}
             onChange={onChange}
             className="hidden"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
           />
         </label>
 
-        <span className="text-sm text-[#1E293B]">
+        <span className="text-sm text-[#1E293B] break-all">
           {file ? file.name : "No file chosen"}
         </span>
       </div>
@@ -595,7 +900,6 @@ function DocumentUpload({ label, name, file, onChange }) {
   );
 }
 
-// Reusable checkbox component for special instruction options
 function CheckboxInstruction({ label, name, checked, onChange }) {
   return (
     <label className="flex items-center gap-3 cursor-pointer">
@@ -604,9 +908,8 @@ function CheckboxInstruction({ label, name, checked, onChange }) {
         name={name}
         checked={checked}
         onChange={onChange}
-        className="w-4 h-4 accent-[#1E40AF]"
+        className="w-4 h-4 accent-[#052659]"
       />
-
       <span className="text-[#1E293B]">{label}</span>
     </label>
   );

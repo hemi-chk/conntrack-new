@@ -11,8 +11,11 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     vehicle_number: '',
     type: 'LCV',
     availability_status: 'available',
+    condition_status: 'good',
     insurance_expiry: '',
-    port_pass_expiry: ''
+    port_pass_expiry: '',
+    insurance_file: null,
+    port_pass_file: null
   });
   const [error, setError] = useState('');
 
@@ -22,8 +25,11 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
         vehicle_number: vehicle.vehicle_number || '',
         type: vehicle.vehicle_type || vehicle.type || 'LCV',
         availability_status: vehicle.availability_status || vehicle.status || 'available',
+        condition_status: vehicle.condition_status || 'good',
         insurance_expiry: vehicle.insurance_expiry ? new Date(vehicle.insurance_expiry).toISOString().split('T')[0] : '',
-        port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : ''
+        port_pass_expiry: vehicle.port_pass_expiry ? new Date(vehicle.port_pass_expiry).toISOString().split('T')[0] : '',
+        insurance_file: null,
+        port_pass_file: null
       });
     }
   }, [vehicle, isOpen]);
@@ -38,10 +44,15 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
     setError('');
   };
 
-  const validate = () => {
-    const { vehicle_number, type, availability_status, insurance_expiry, port_pass_expiry } = formData;
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
+  };
 
-    if (!vehicle_number || !type || !availability_status || !insurance_expiry || !port_pass_expiry) {
+  const validate = () => {
+    const { vehicle_number, type, availability_status, condition_status, insurance_expiry, port_pass_expiry } = formData;
+
+    if (!vehicle_number || !type || !availability_status || !condition_status || !insurance_expiry || !port_pass_expiry) {
       return 'All fields are required. Please fill in every field.';
     }
 
@@ -97,6 +108,14 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
                 <option value="HCV">HCV</option>
               </select>
             </div>
+            <div>
+              <label className={labelCls}>Condition Status *</label>
+              <select name="condition_status" value={formData.condition_status} onChange={handleChange} className={inputCls}>
+                <option value="good">good</option>
+                <option value="maintenance">maintenance</option>
+                <option value="out_of_service">out_of_service</option>
+              </select>
+            </div>
 
             {/* Row 2: Status & Documents */}
             <div>
@@ -114,6 +133,16 @@ export const EditVehicleModal = ({ isOpen, onClose, vehicle, onUpdate }) => {
             <div>
               <label className={labelCls}>Port Pass Expiry *</label>
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
+            </div>
+
+            {/* Row 3: Document Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
 
           </div>

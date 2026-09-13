@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, Send } from 'lucide-react';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 const inputCls = "w-full border border-gray-300 rounded-xl px-4 py-3 text-lg font-black text-primary outline-none focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all bg-white shadow-sm";
 const labelCls = "block mb-1.5 text-xs font-bold text-gray-400 uppercase tracking-widest text-center";
@@ -16,12 +17,6 @@ export const EditBidModal = ({ isOpen, onClose, bid, onUpdateConfirm }) => {
   }, [bid, isOpen]);
 
   if (!isOpen || !bid) return null;
-
-  const formatCurrency = (val) => {
-    if (!val) return '';
-    const num = val.toString().replace(/\D/g, '');
-    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  };
 
   const handleAmountChange = (e) => {
     const val = e.target.value;

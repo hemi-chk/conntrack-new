@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, MapPin, Truck, Calendar, Package, Send, Trash2, AlertTriangle } from 'lucide-react';
+import { formatCurrency } from '../../utils/formatCurrency';
 
 export const ViewBidModal = ({ isOpen, onClose, bid, onActionSuccess, isReadOnly }) => {
   const [amount, setAmount] = useState('');
@@ -18,12 +19,6 @@ export const ViewBidModal = ({ isOpen, onClose, bid, onActionSuccess, isReadOnly
   const order = bidding.orders || {};
   const isExpired = bidding.end_time ? new Date(bidding.end_time) < new Date() : false;
   const disableActions = isExpired || isReadOnly;
-
-  const formatCurrency = (val) => {
-    if (!val) return '';
-    const num = val.toString().replace(/\D/g, '');
-    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  };
 
   const DetailItem = ({ label, value, icon: Icon }) => (
     <div className="flex flex-col">

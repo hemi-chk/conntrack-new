@@ -83,6 +83,7 @@ export default function Settings({ route, navigation }) {
             await AsyncStorage.removeItem("saved_driver_id");
             await AsyncStorage.removeItem("saved_password");
             await AsyncStorage.removeItem("remember_me");
+            await AsyncStorage.removeItem("driver_token");
             
             // Hard reset of navigation to ensure session cleanup
             navigation.reset({

@@ -1,4 +1,34 @@
+import crypto from 'crypto'
+import bcrypt from 'bcryptjs'
 import { supabase } from '@conntrack/api-core'
+
+// =============================================
+// FILE UPLOAD
+// WHY: Storage uploads must happen server-side so the service-role
+// key never reaches the browser
+// =============================================
+export const uploadFile = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' })
+    const { bucket, folder = '' } = req.body
+    if (!bucket) return res.status(400).json({ error: 'bucket is required' })
+
+    const fileExt = req.file.originalname.split('.').pop()
+    const fileName = `${folder ? folder + '/' : ''}${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: true })
+
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(fileName)
+    res.json({ url: data.publicUrl })
+  } catch (error) {
+    console.error('Upload Error:', error)
+    res.status(500).json({ error: error.message })
+  }
+}
 
 // =============================================
 // DASHBOARD STATS
@@ -72,13 +102,19 @@ export const getAllDrivers = async (req, res) => {
 
 export const addDriver = async (req, res) => {
   try {
+    // Every driver needs a password to log in - generate one now rather than
+    // leaving password_hash null, which used to let anyone log in as them
+    // with any password at all.
+    const tempPassword = crypto.randomBytes(6).toString('base64url')
+    const password_hash = await bcrypt.hash(tempPassword, 10)
+
     const { data, error } = await supabase
       .from('drivers')
-      .insert(req.body)
+      .insert({ ...req.body, password_hash })
       .select()
 
     if (error) throw error
-    res.json(data)
+    res.json({ driver: data, tempPassword })
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -220,7 +256,11 @@ export const addStaff = async (req, res) => {
       })
       .select()
 
-    if (error) throw error
+    if (error) {
+      // Roll back the auth user so this email isn't permanently blocked by an orphaned account
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw error
+    }
     res.json(data)
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -255,6 +295,16 @@ export const grantSupplierAccess = async (req, res) => {
   try {
     const { supplier_id, email, password } = req.body
 
+    const { data: supplier, error: supplierError } = await supabase
+      .from('suppliers')
+      .select('company_name, contact_person, contact_number')
+      .eq('supplier_id', supplier_id)
+      .single()
+    if (supplierError) throw supplierError
+
+    const [first_name, ...rest] = (supplier.contact_person || supplier.company_name || 'Supplier').trim().split(' ')
+    const last_name = rest.join(' ') || supplier.company_name || 'Contact'
+
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -270,9 +320,19 @@ export const grantSupplierAccess = async (req, res) => {
         status: 'active',
         is_temp_account: false,
         employee_id: String(supplier_id),
+        first_name,
+        last_name,
+        contact_number: supplier.contact_number || 'N/A',
+        position: 'Supplier Contact',
+        national_id: 'N/A',
+        address: 'N/A',
       })
       .select()
-    if (error) throw error
+    if (error) {
+      // Roll back the auth user so this email isn't permanently blocked by an orphaned account
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw error
+    }
 
     res.json(data)
   } catch (error) {
@@ -345,12 +405,44 @@ export const getAllIssues = async (req, res) => {
         *,
         orders (order_reference),
         suppliers (company_name),
-        drivers (first_name, last_name)
+        drivers (first_name, last_name),
+        reporter:profiles!reported_by (first_name, last_name, role)
       `)
       .order('created_at', { ascending: false })
 
     if (error) throw error
     res.json(data)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+const ISSUE_STATUSES = ['open', 'escalated', 'resolved']
+
+export const updateIssueStatus = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { status } = req.body
+
+    if (!ISSUE_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of: ${ISSUE_STATUSES.join(', ')}` })
+    }
+
+    const updateData = { status }
+    if (status === 'resolved') {
+      updateData.resolved_at = new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('issues')
+      .update(updateData)
+      .eq('issue_id', id)
+      .select()
+
+    if (error) throw error
+    if (!data || data.length === 0) return res.status(404).json({ error: 'Issue not found' })
+
+    res.json(data[0])
   } catch (error) {
     res.status(500).json({ error: error.message })
   }

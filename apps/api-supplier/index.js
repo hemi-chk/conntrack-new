@@ -1,9 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { verifyToken, authorizeRole } from '@conntrack/api-core'
 import { connectMessaging, createConsumer } from '@conntrack/messaging'
 import { supabase } from '@conntrack/database'
 import supplierRoutes from './src/routes/supplier.routes.js'
+import { resolveSupplierId } from './src/middleware/resolveSupplier.js'
 
 dotenv.config()
 
@@ -14,7 +16,7 @@ app.use(cors())
 app.use(express.json())
 
 // Mounted at '/' because Gateway rewrites '/api/supplier' by stripping it
-app.use('/', supplierRoutes)
+app.use('/', verifyToken, authorizeRole('supplier'), resolveSupplierId, supplierRoutes)
 
 app.get('/health', (req, res) => {
   res.json({ service: 'supplier', status: 'ok' })

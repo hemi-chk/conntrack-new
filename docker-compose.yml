@@ -3,8 +3,9 @@ version: "3.9"
 x-api-env: &api-env
   SUPABASE_URL: ${SUPABASE_URL}
   SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
-  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+  SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
   AMQP_URL: amqp://${RABBITMQ_USER:-conntrack}:${RABBITMQ_PASS:-conntrack123}@rabbitmq:5672
+  DRIVER_JWT_SECRET: ${DRIVER_JWT_SECRET}
 
 services:
   # ── Message Broker ───────────────────────────────────────────────────────────
@@ -143,6 +144,9 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+        VITE_OPERATIONS_URL: ${VITE_OPERATIONS_URL:-http://localhost:3002}
+        VITE_SUPPLIER_URL: ${VITE_SUPPLIER_URL:-http://localhost:3004}
+        VITE_LOGISTICS_URL: ${VITE_LOGISTICS_URL:-http://localhost:3003}
     container_name: conntrack-web-admin
     ports:
       - "3001:80"
@@ -156,6 +160,7 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+        VITE_ADMIN_URL: ${VITE_ADMIN_URL:-http://localhost:3001}
     container_name: conntrack-web-operations
     ports:
       - "3002:80"
@@ -169,6 +174,7 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+        VITE_ADMIN_URL: ${VITE_ADMIN_URL:-http://localhost:3001}
     container_name: conntrack-web-logistics
     ports:
       - "3003:80"
@@ -182,6 +188,7 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_API_URL: ${VITE_API_URL:-http://localhost:5000}
+        VITE_ADMIN_URL: ${VITE_ADMIN_URL:-http://localhost:3001}
     container_name: conntrack-web-supplier
     ports:
       - "3004:80"

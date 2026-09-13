@@ -35,13 +35,13 @@ const Profile = () => {
 
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8 bg-slate-50/30 min-h-screen">
-            <h1 className="text-3xl font-bold text-[#1E40AF]">Logistics Handler Profile</h1>
+            <h1 className="text-3xl font-bold text-[#052659]">Logistics Handler Profile</h1>
 
             {/* --- TOP HEADER CARD --- */}
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardContent className="p-8 flex items-center gap-8">
                     <div className="bg-blue-50 p-6 rounded-2xl">
-                        <Truck size={48} className="text-[#1E40AF]" />
+                        <Truck size={48} className="text-[#052659]" />
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ const Profile = () => {
                 <Card className="border-none shadow-sm bg-white">
                     <CardContent className="p-8 space-y-8">
                         <div className="flex items-center gap-3 border-b pb-4">
-                            <FileText className="text-[#1E40AF]" size={24} />
+                            <FileText className="text-[#052659]" size={24} />
                             <h3 className="text-xl font-bold text-slate-800">Operational Details</h3>
                         </div>
 
@@ -88,7 +88,7 @@ const Profile = () => {
                 <Card className="border-none shadow-sm bg-white">
                     <CardContent className="p-8 space-y-8">
                         <div className="flex items-center gap-3 border-b pb-4">
-                            <User className="text-[#1E40AF]" size={24} />
+                            <User className="text-[#052659]" size={24} />
                             <h3 className="text-xl font-bold text-slate-800">Primary Contact</h3>
                         </div>
 

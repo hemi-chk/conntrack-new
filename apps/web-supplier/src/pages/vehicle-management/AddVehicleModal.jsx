@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 
@@ -11,13 +11,30 @@ const emptyForm = {
   availability_status: 'available',
   condition_status: 'good',
   insurance_expiry: '',
-  port_pass_expiry: ''
+  port_pass_expiry: '',
+  insurance_file: null,
+  port_pass_file: null
 };
 
 export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
   const { profileData } = useProfile();
   const [formData, setFormData] = useState(emptyForm);
   const [error, setError] = useState('');
+  const insuranceFileRef = useRef(null);
+  const portPassFileRef = useRef(null);
+
+  // Reset only when the modal opens - not on every submit attempt, so a
+  // failed add doesn't wipe what the supplier already typed/uploaded, and
+  // reopening after Cancel doesn't show stale data from last time. File
+  // inputs are uncontrolled, so they need clearing via ref, not state.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(emptyForm);
+      setError('');
+      if (insuranceFileRef.current) insuranceFileRef.current.value = '';
+      if (portPassFileRef.current) portPassFileRef.current.value = '';
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -27,6 +44,11 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setError('');
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files } = e.target;
+    setFormData(prev => ({ ...prev, [name]: files?.[0] || null }));
   };
 
   const validate = () => {
@@ -60,7 +82,6 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
       ...formData,
       supplier_id: profileData?.id || profileData?.supplier_id
     });
-    setFormData(emptyForm);
   };
 
   return (
@@ -114,6 +135,16 @@ export const AddVehicleModal = ({ isOpen, onClose, onAdd }) => {
             <div>
               <label className={labelCls}>Port Pass Expiry *</label>
               <input type="date" name="port_pass_expiry" min={today} value={formData.port_pass_expiry} onChange={handleChange} className={inputCls} />
+            </div>
+
+            {/* Row 3: Document Uploads */}
+            <div>
+              <label className={labelCls}>Insurance Copy</label>
+              <input ref={insuranceFileRef} type="file" name="insurance_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Port Pass Copy</label>
+              <input ref={portPassFileRef} type="file" name="port_pass_file" accept=".pdf,image/*" onChange={handleFileChange} className={inputCls} />
             </div>
 
           </div>

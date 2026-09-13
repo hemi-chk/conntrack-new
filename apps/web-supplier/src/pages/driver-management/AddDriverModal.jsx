@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useProfile } from '../../hooks/useProfile';
 const inputCls = "w-full border border-gray-300 rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors bg-white";
@@ -17,6 +17,16 @@ export const AddDriverModal = ({ isOpen, onClose, onAdd }) => {
   const [error, setError] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
+
+  // Reset only when the modal opens - not on every submit attempt, so a
+  // failed add doesn't wipe what the supplier already typed, and reopening
+  // after Cancel doesn't show stale data from last time.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(emptyForm);
+      setError('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -71,7 +81,6 @@ export const AddDriverModal = ({ isOpen, onClose, onAdd }) => {
     if (err) { setError(err); return; }
 
     onAdd({ ...formData, supplier_id: profileData?.id || profileData?.supplier_id });
-    setFormData(emptyForm);
   };
 
   return (

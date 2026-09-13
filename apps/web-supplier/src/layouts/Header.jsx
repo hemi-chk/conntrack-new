@@ -1,6 +1,7 @@
 import { Bell, User, Menu, LogOut } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
+import { useProfile } from '../hooks/useProfile'
 
 function LogoutModal({ onConfirm, onCancel }) {
   return (
@@ -36,10 +37,12 @@ export function Header({ onMenuClick }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const user = JSON.parse(localStorage.getItem('user') || '{"name":"Supplier"}')
   const userName = user.name || 'Supplier'
+  const { profileData } = useProfile()
 
   const confirmLogout = () => {
     localStorage.clear()
-    window.location.href = 'http://127.0.0.1:5173?logout=true'
+    const adminUrl = import.meta.env.VITE_ADMIN_URL || 'http://127.0.0.1:5173'
+    window.location.href = `${adminUrl}?logout=true`
   }
 
   return (
@@ -81,8 +84,12 @@ export function Header({ onMenuClick }) {
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-400 rounded-full"></span>
           </button>
           <Link to="/profile" className="flex gap-2 items-center px-3 py-2 bg-blue-700 rounded-lg transition-colors hover:bg-blue-600">
-            <div className="flex justify-center items-center w-8 h-8 bg-white rounded-full">
-              <User size={16} className="text-primary" />
+            <div className="overflow-hidden flex justify-center items-center w-8 h-8 bg-white rounded-full">
+              {profileData?.supplier_logo ? (
+                <img src={profileData.supplier_logo} alt="" className="object-cover w-full h-full" />
+              ) : (
+                <User size={16} className="text-primary" />
+              )}
             </div>
             <span className="text-sm font-medium">{userName}</span>
           </Link>

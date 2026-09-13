@@ -4,7 +4,7 @@
  * and an issue reporting form that syncs with the management backend.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Dimensions, TextInput, ActivityIndicator, Modal, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Linking from "expo-linking";
@@ -19,21 +19,35 @@ const { width } = Dimensions.get("window");
 /**
  * Predefined issue categories for structured reporting.
  */
+// Category wording matches Logistics' issue form so Admin's unified Issues
+// view groups them together instead of showing separate near-duplicate types.
 const ISSUE_TYPES = [
-  { key: "vehicle_issue", label: "Vehicle Issue", icon: "directions-car", color: "#EF4444" },
-  { key: "delay_issue", label: "Delay / Route Issue", icon: "schedule", color: "#F59E0B" },
-  { key: "document_issue", label: "Document Issue", icon: "description", color: "#6366F1" },
-  { key: "other", label: "Other", icon: "help-outline", color: "#64748B" },
+  { key: "Mechanical Breakdown", label: "Mechanical Breakdown", icon: "directions-car", color: "#EF4444" },
+  { key: "Traffic/Route Delay", label: "Traffic / Route Delay", icon: "schedule", color: "#F59E0B" },
+  { key: "Documentation Issue", label: "Documentation Issue", icon: "description", color: "#6366F1" },
+  { key: "Cargo Damage", label: "Cargo Damage", icon: "local-shipping", color: "#DC2626" },
+  { key: "Other", label: "Other", icon: "help-outline", color: "#64748B" },
 ];
 
 /**
  * Priority levels to help the support team triage reports.
  */
 const PRIORITIES = [
-  { key: "low", label: "Low", color: "#10B981" },
-  { key: "medium", label: "Medium", color: "#F59E0B" },
-  { key: "high", label: "High", color: "#EF4444" },
+  { key: "minor", label: "Minor", color: "#10B981" },
+  { key: "major", label: "Major", color: "#F59E0B" },
+  { key: "critical", label: "Critical", color: "#EF4444" },
 ];
+
+// Same 3-stage pipeline Admin and Logistics use - raw DB values stay
+// open/escalated/resolved, only the label/color shown here changes.
+const ISSUE_STATUS_META = {
+  open: { label: "Not Reviewed", color: "#64748B", bg: "#F1F5F9", icon: "schedule" },
+  escalated: { label: "Reviewing", color: "#2563EB", bg: "#DBEAFE", icon: "visibility" },
+  resolved: { label: "Solved", color: "#059669", bg: "#D1FAE5", icon: "check-circle" },
+};
+function issueStatusMeta(status) {
+  return ISSUE_STATUS_META[status] || ISSUE_STATUS_META.open;
+}
 
 export default function Support({ route, navigation }) {
   // User context passed from navigation
@@ -41,9 +55,33 @@ export default function Support({ route, navigation }) {
 
   const [showForm, setShowForm] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
-  const [selectedPriority, setSelectedPriority] = useState("medium");
+  const [selectedPriority, setSelectedPriority] = useState("major");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [myIssues, setMyIssues] = useState([]);
+  const [loadingIssues, setLoadingIssues] = useState(true);
+
+  const driverId = user?.driver_id || user?.emp_id;
+
+  const fetchMyIssues = async () => {
+    if (!driverId) {
+      setLoadingIssues(false);
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/driver/issues/${driverId}`);
+      const result = await response.json();
+      if (result.success) setMyIssues(result.data || []);
+    } catch (error) {
+      console.error("Fetch My Issues Error:", error);
+    } finally {
+      setLoadingIssues(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMyIssues();
+  }, []);
 
   // Intent handlers for direct communication channels
   const handleCall = () => Linking.openURL("tel:+94712345678");
@@ -55,7 +93,7 @@ export default function Support({ route, navigation }) {
    */
   const resetForm = () => {
     setSelectedType(null);
-    setSelectedPriority("medium");
+    setSelectedPriority("major");
     setDescription("");
     setShowForm(false);
   };
@@ -75,7 +113,6 @@ export default function Support({ route, navigation }) {
 
     setIsSubmitting(true);
     try {
-      const driverId = user?.driver_id || user?.emp_id;
       const response = await fetch(`${API_BASE_URL}/api/driver/report-issue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -92,6 +129,7 @@ export default function Support({ route, navigation }) {
       if (result.success) {
         Alert.alert("Issue Reported", "Your issue has been submitted successfully. Our team will review it shortly.");
         resetForm();
+        fetchMyIssues();
       } else {
         Alert.alert("Error", result.message || "Failed to submit issue.");
       }
@@ -265,6 +303,48 @@ export default function Support({ route, navigation }) {
             </Card>
           )}
 
+          {/* MY REPORTED ISSUES: past reports and their review status */}
+          <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>
+            My Reported Issues
+          </Typography>
+
+          {loadingIssues ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 12 }} />
+          ) : myIssues.length === 0 ? (
+            <Card elevation="sm" style={styles.emptyIssuesCard}>
+              <Typography variant="caption" color="textMuted" align="center">
+                You haven't reported any issues yet.
+              </Typography>
+            </Card>
+          ) : (
+            myIssues.map((issue) => {
+              const statusMeta = issueStatusMeta(issue.status);
+              return (
+                <Card key={issue.issue_id} elevation="sm" style={styles.issueCard}>
+                  <View style={styles.issueCardHeader}>
+                    <Typography variant="body" weight="bold" style={{ flex: 1 }}>
+                      {issue.issue_type || "Issue"}
+                    </Typography>
+                    <View style={[styles.statusPill, { backgroundColor: statusMeta.bg }]}>
+                      <MaterialIcons name={statusMeta.icon} size={12} color={statusMeta.color} />
+                      <Typography variant="tiny" weight="bold" style={{ color: statusMeta.color, marginLeft: 4 }}>
+                        {statusMeta.label}
+                      </Typography>
+                    </View>
+                  </View>
+                  <Typography variant="tiny" color="textMuted" style={{ marginTop: 4 }} numberOfLines={2}>
+                    {issue.description}
+                  </Typography>
+                  {issue.orders?.order_reference && (
+                    <Typography variant="tiny" color="textMuted" style={{ marginTop: 4 }}>
+                      Order: {issue.orders.order_reference}
+                    </Typography>
+                  )}
+                </Card>
+              );
+            })
+          )}
+
           {/* DIRECT SUPPORT CHANNELS */}
           <Typography variant="subtitle" weight="bold" style={[styles.sectionTitle, { marginTop: theme.spacing.xl }]}>
             Direct Support
@@ -382,6 +462,28 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: theme.spacing.md,
+  },
+
+  // My Reported Issues
+  emptyIssuesCard: {
+    padding: 16,
+    borderRadius: 16,
+  },
+  issueCard: {
+    padding: 14,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  issueCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
 
   // Report Banner (collapsed state)

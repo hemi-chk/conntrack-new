@@ -8,9 +8,9 @@ export default function Login() {
   const [error, setError] = useState("")
 
   const externalRedirectMap = {
-    operations: "http://127.0.0.1:5174",
-    supplier: "http://127.0.0.1:5175",
-    logistics: "http://127.0.0.1:5176",
+    operations: import.meta.env.VITE_OPERATIONS_URL || "http://127.0.0.1:5174",
+    supplier: import.meta.env.VITE_SUPPLIER_URL || "http://127.0.0.1:5175",
+    logistics: import.meta.env.VITE_LOGISTICS_URL || "http://127.0.0.1:5176",
   }
 
   const handleLogin = async (e) => {
@@ -19,7 +19,7 @@ export default function Login() {
     setError("")
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -43,6 +43,7 @@ export default function Login() {
       } else if (externalRedirectMap[data.role]) {
         const redirectUrl = new URL(externalRedirectMap[data.role])
         redirectUrl.searchParams.set("token", data.token)
+        redirectUrl.searchParams.set("refresh_token", data.refresh_token || '')
         redirectUrl.searchParams.set("role", data.role)
         redirectUrl.searchParams.set("user", JSON.stringify(data.user))
         window.location.href = redirectUrl.toString()
