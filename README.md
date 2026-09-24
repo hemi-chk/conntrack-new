@@ -17,6 +17,7 @@ testsupplier@contrack.lk - testuser
 Admin interface and Mobile Application is not open for test users. 
 
 Admin Interface images 
+<img width="1242" height="712" alt="image" src="https://github.com/user-attachments/assets/582602e8-2b63-4197-bd57-4a2acdca3c14" />
 <img width="1890" height="858" alt="image" src="https://github.com/user-attachments/assets/0a552967-6a0c-41c5-8660-5fedf034a452" />
 <img width="1880" height="740" alt="image" src="https://github.com/user-attachments/assets/4e6d1a64-8605-4b9f-ae55-e325d7728a12" />
 <img width="1882" height="758" alt="image" src="https://github.com/user-attachments/assets/d50a86ad-532c-4dee-9298-ec248789d0f9" />
