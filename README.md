@@ -16,6 +16,20 @@ testsupplier@contrack.lk - testuser
 
 Admin interface and Mobile Application is not open for test users. 
 
+Admin Interface images 
+<img width="1890" height="858" alt="image" src="https://github.com/user-attachments/assets/0a552967-6a0c-41c5-8660-5fedf034a452" />
+<img width="1880" height="740" alt="image" src="https://github.com/user-attachments/assets/4e6d1a64-8605-4b9f-ae55-e325d7728a12" />
+<img width="1882" height="758" alt="image" src="https://github.com/user-attachments/assets/d50a86ad-532c-4dee-9298-ec248789d0f9" />
+<img width="1878" height="758" alt="image" src="https://github.com/user-attachments/assets/8d40d162-002c-4b32-99de-38ec7a331980" />
+<img width="1843" height="763" alt="image" src="https://github.com/user-attachments/assets/e081f136-d1a4-43e4-93c2-d9e7de1549ac" />
+<img width="1885" height="865" alt="image" src="https://github.com/user-attachments/assets/677b979e-4fc0-4527-8476-35bbe1c00eff" />
+<img width="1897" height="752" alt="image" src="https://github.com/user-attachments/assets/5dc7f690-b76d-45fa-a87c-a016ae2a6b36" />
+<img width="827" height="783" alt="image" src="https://github.com/user-attachments/assets/5ab98b80-e5d7-419a-a354-7ae3b1875edf" />
+<img width="1296" height="857" alt="image" src="https://github.com/user-attachments/assets/4f6d714c-8cfa-4b51-83da-a0d1d80910fd" />
+<img width="1892" height="763" alt="image" src="https://github.com/user-attachments/assets/c8dbf2a5-4da3-46ed-92d7-6d0ed1601259" />
+<img width="1850" height="758" alt="image" src="https://github.com/user-attachments/assets/8a1783c3-42e3-41e9-8456-4a9881800bdd" />
+
+
 ---
 
 ## Architecture Overview
