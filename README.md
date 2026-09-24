@@ -1,10 +1,24 @@
-# ConnTrack - Enterprise Logistics & Fleet Management System 🚚
+# ConnTrack - Enterprise Logistics & Fleet Management System 
 
 Welcome to **ConnTrack**, an enterprise logistics, fleet management, and supply chain tracking platform. Built as a modern monorepo using **Turborepo**, ConnTrack delivers real-time visibility, automated logistics workflows, multi-portal web applications, and a dedicated mobile driver application.
 
+## Test it here:
+http://13.202.136.253:3001/
+
+# Operational interfcae
+testoperations@contrack.lk - tesruser
+
+# Logistics interface
+testlogistics@contrack.lk - tesruser
+
+# Supplier interface
+testsupplier@contrack.lk - testuser
+
+Admin interface and Mobile Application is not open for test users. 
+
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ConnTrack is structured as a **Microservices Monorepo** managed with `npm` workspaces and `Turborepo`. Services communicate synchronously via an **API Gateway** and asynchronously via **RabbitMQ** message queues, using **Supabase** (PostgreSQL) for unified persistence and storage.
 
@@ -42,9 +56,9 @@ ConnTrack is structured as a **Microservices Monorepo** managed with `npm` works
 
 ---
 
-## 📦 Workspace Structure
+##  Workspace Structure
 
-### 🚀 Applications (`apps/`)
+###  Applications (`apps/`)
 
 #### Backend Microservices
 * **[api-gateway](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-gateway)** *(Port 5000)*: Central routing proxy directing traffic across microservices.
@@ -75,7 +89,7 @@ ConnTrack is structured as a **Microservices Monorepo** managed with `npm` works
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 * **Monorepo Engine**: [Turborepo](https://turbo.build/) & npm Workspaces
 * **Backend Microservices**: Node.js, Express.js
@@ -87,17 +101,17 @@ ConnTrack is structured as a **Microservices Monorepo** managed with `npm` works
 
 ---
 
-## 🔑 Core Features
+##  Core Features
 
-* 📍 **Live GPS & Route Tracking**: Coordinate ingestion from mobile drivers with interactive map overlays on web portals.
-* 📄 **Document & Checkpoint Management**: Digital Gate Passes, Port Permits, and BOI Clearance verification with file preview and download capabilities.
-* 🌐 **Multi-Language Support (i18n)**: Driver mobile localization supporting English, Sinhala (සිංහල), and Tamil (தமிழ்).
-* 🚨 **Event-Driven Issue Reporting**: Real-time notifications and alerts for vehicle breakdowns, traffic delays, or document discrepancies routed through RabbitMQ.
-* 🔐 **Secure Role-Based Authentication**: Custom JWT authentication tailored for mobile drivers alongside Supabase Auth for web dashboard users.
+*  **Live GPS & Route Tracking**: Coordinate ingestion from mobile drivers with interactive map overlays on web portals.
+*  **Document & Checkpoint Management**: Digital Gate Passes, Port Permits, and BOI Clearance verification with file preview and download capabilities.
+*  **Multi-Language Support (i18n)**: Driver mobile localization supporting English, Sinhala (සිංහල), and Tamil (தமிழ்).
+*  **Event-Driven Issue Reporting**: Real-time notifications and alerts for vehicle breakdowns, traffic delays, or document discrepancies routed through RabbitMQ.
+*  **Secure Role-Based Authentication**: Custom JWT authentication tailored for mobile drivers alongside Supabase Auth for web dashboard users.
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Prerequisites
 Ensure you have the following installed on your local system:
@@ -114,25 +128,8 @@ cd conntrack-new
 npm install
 ```
 
-### 3. Environment Configuration
-Copy `.env.example` to create `.env` in the root directory and configure your Supabase credentials and secret keys:
 
-```bash
-cp .env.example .env
-```
-
-Key environment variables:
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-role-key
-DRIVER_JWT_SECRET=your-random-jwt-secret
-AMQP_URL=amqp://conntrack:conntrack123@localhost:5672
-```
-
----
-
-## 💻 Running the Application
+##  Running the Application
 
 ### Option A: Local Development Mode (Turborepo)
 
@@ -169,7 +166,7 @@ npx expo start
 
 ---
 
-## 📜 Available NPM Scripts
+##  Available NPM Scripts
 
 From the repository root:
 
@@ -181,7 +178,7 @@ From the repository root:
 
 ---
 
-## 🤝 Contribution & Coding Standards
+##  Contribution & Coding Standards
 
 * **JSDoc Documentation**: All core API controllers and service handlers must maintain JSDoc annotations.
 * **Component Design**: UI components should leverage `@conntrack/ui` design tokens and atomic patterns.
@@ -189,4 +186,4 @@ From the repository root:
 
 ---
 
-© 2026 ConnTrack Logistics Management Systems. All rights reserved.
+
