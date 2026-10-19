@@ -1,6 +1,6 @@
-# ConnTrack — Logistics & Fleet Management Platform 🚚
+# ConnTrack - Logistics & Fleet Management Platform 🚚
 
-**ConnTrack** is an end-to-end logistics platform for container transport — from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
+**ConnTrack** is an end-to-end logistics platform for container transport , from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
 
 Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 React web portals and a React Native driver app, containerized with Docker and deployed on AWS.
 
