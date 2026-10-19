@@ -1,6 +1,6 @@
 # ConnTrack - Logistics & Fleet Management Platform
 
-**ConnTrack** is an end-to-end logistics platform for container transport , from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
+**ConnTrack** is an end-to-end logistics platform for container transport, from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
 
 Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 React web portals and a React Native driver app, containerized with Docker and deployed on AWS.
 
@@ -8,7 +8,7 @@ Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 Rea
 
 ## Live Demo
 
-**[http://13.202.136.253:3001](http://13.202.136.253:3001)** — single login page; you are redirected to your portal based on your role.
+**[http://13.202.136.253:3001](http://13.202.136.253:3001)**, single login page; you are redirected to your portal based on your role.
 
 | Portal | Email | Password |
 | :--- | :--- | :--- |
@@ -16,19 +16,19 @@ Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 Rea
 | Logistics | `testlogistics@contrack.lk` | `tesruser` |
 | Supplier | `testsupplier@contrack.lk` | `testuser` |
 
-> The Admin portal and the mobile driver app are not open to test users — see the screenshots below.
+> The Admin portal and the mobile driver app are not open to test users, see the screenshots below.
 
 ---
 
 ## Core Features
 
-* **Live GPS tracking** — drivers stream their location from the mobile app; web portals show it on interactive maps with reverse-geocoded place names.
-* **Supplier bidding** — transport suppliers bid on jobs, then manage assigned jobs, their drivers and vehicles.
-* **Digital clearance documents** — Gate Passes, Port Permits and BOI Clearance across Port, Warehouse and BOI checkpoints, with preview and download.
-* **Event-driven issue reporting** — vehicle breakdowns, delays and document problems are routed through RabbitMQ to the right teams as real-time notifications.
-* **Dashboards & reports** — order, logistics and staff overviews with charts for each role.
-* **Multi-language driver app** — English, Sinhala (සිංහල) and Tamil (தமிழ்).
-* **Role-based access** — separate portals for Admin, Operations, Logistics and Suppliers; JWT authentication for drivers.
+* **Live GPS tracking**, drivers stream their location from the mobile app; web portals show it on interactive maps with reverse-geocoded place names.
+* **Supplier bidding**, transport suppliers bid on jobs, then manage assigned jobs, their drivers and vehicles.
+* **Digital clearance documents**, Gate Passes, Port Permits and BOI Clearance across Port, Warehouse and BOI checkpoints, with preview and download.
+* **Event-driven issue reporting**, vehicle breakdowns, delays and document problems are routed through RabbitMQ to the right teams as real-time notifications.
+* **Dashboards & reports**, order, logistics and staff overviews with charts for each role.
+* **Multi-language driver app**, English, Sinhala (සිංහල) and Tamil (தமிழ்).
+* **Role-based access**, separate portals for Admin, Operations, Logistics and Suppliers; JWT authentication for drivers.
 
 ---
 
@@ -102,14 +102,14 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 
 ### Mobile app
 
-* [mobile-driver](apps/mobile-driver) — Expo / React Native app for drivers: GPS tracking, clearance documents, duty status, issue reporting and push notifications, in three languages.
+* [mobile-driver](apps/mobile-driver), Expo / React Native app for drivers: GPS tracking, clearance documents, duty status, issue reporting and push notifications, in three languages.
 
 ### Shared packages (`packages/`)
 
-* [@conntrack/api-core](packages/api-core) — shared Express middleware, auth/JWT helpers and response utilities
-* [@conntrack/database](packages/database) — shared Supabase client
-* [@conntrack/messaging](packages/messaging) — RabbitMQ (AMQP) publish/subscribe wrapper
-* [@conntrack/ui](packages/ui) — shared React component library (Tailwind CSS, Radix UI)
+* [@conntrack/api-core](packages/api-core), shared Express middleware, auth/JWT helpers and response utilities
+* [@conntrack/database](packages/database), shared Supabase client
+* [@conntrack/messaging](packages/messaging), RabbitMQ (AMQP) publish/subscribe wrapper
+* [@conntrack/ui](packages/ui), shared React component library (Tailwind CSS, Radix UI)
 
 ---
 
@@ -120,7 +120,7 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 | **Monorepo** | Turborepo, npm workspaces |
 | **Backend** | Node.js, Express (ESM), JWT, bcrypt |
 | **Messaging** | RabbitMQ (AMQP) |
-| **Database & storage** | Supabase — PostgreSQL, Auth, Storage buckets |
+| **Database & storage** | Supabase (PostgreSQL, Auth, Storage buckets) |
 | **Web** | React 19, Vite, Tailwind CSS v4, Radix UI, Recharts, Leaflet |
 | **Mobile** | React Native, Expo, expo-router, React Navigation, react-native-maps, i18next |
 | **DevOps** | Docker, Docker Compose, Nginx, AWS EC2, GitHub Actions |
@@ -152,20 +152,20 @@ cd conntrack-new
 npm install
 ```
 
-### Run — local development (Turborepo)
+### Run, local development (Turborepo)
 
 ```bash
 npm run dev                          # all services and web portals
 npm run dev -- --filter=web-logistics  # a single app
 ```
 
-### Run — Docker Compose
+### Run, Docker Compose
 
 ```bash
 docker compose up -d --build
 ```
 
-### Run — mobile driver app
+### Run, mobile driver app
 
 ```bash
 cd apps/mobile-driver
@@ -184,7 +184,7 @@ npx expo start
 
 ## Coding Standards
 
-* Keep microservices decoupled — use `@conntrack/messaging` (RabbitMQ) for cross-service events instead of direct service-to-service calls.
+* Keep microservices decoupled, use `@conntrack/messaging` (RabbitMQ) for cross-service events instead of direct service-to-service calls.
 * Build UI with `@conntrack/ui` components and design tokens.
 * Document controllers and service handlers with JSDoc.
 
