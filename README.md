@@ -1,4 +1,4 @@
-# ConnTrack - Logistics & Fleet Management Platform 🚚
+# ConnTrack - Logistics & Fleet Management Platform
 
 **ConnTrack** is an end-to-end logistics platform for container transport , from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
 
@@ -6,9 +6,9 @@ Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 Rea
 
 ---
 
-## 🌐 Live Demo
+## Live Demo
 
-**👉 [http://13.202.136.253:3001](http://13.202.136.253:3001)** — single login page; you are redirected to your portal based on your role.
+**[http://13.202.136.253:3001](http://13.202.136.253:3001)** — single login page; you are redirected to your portal based on your role.
 
 | Portal | Email | Password |
 | :--- | :--- | :--- |
@@ -20,19 +20,19 @@ Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 Rea
 
 ---
 
-## ✨ Core Features
+## Core Features
 
-* **📍 Live GPS tracking** — drivers stream their location from the mobile app; web portals show it on interactive maps with reverse-geocoded place names.
-* **💼 Supplier bidding** — transport suppliers bid on jobs, then manage assigned jobs, their drivers and vehicles.
-* **📑 Digital clearance documents** — Gate Passes, Port Permits and BOI Clearance across Port, Warehouse and BOI checkpoints, with preview and download.
-* **⚠️ Event-driven issue reporting** — vehicle breakdowns, delays and document problems are routed through RabbitMQ to the right teams as real-time notifications.
-* **📊 Dashboards & reports** — order, logistics and staff overviews with charts for each role.
-* **🌍 Multi-language driver app** — English, Sinhala (සිංහල) and Tamil (தமிழ்).
-* **🔐 Role-based access** — separate portals for Admin, Operations, Logistics and Suppliers; JWT authentication for drivers.
+* **Live GPS tracking** — drivers stream their location from the mobile app; web portals show it on interactive maps with reverse-geocoded place names.
+* **Supplier bidding** — transport suppliers bid on jobs, then manage assigned jobs, their drivers and vehicles.
+* **Digital clearance documents** — Gate Passes, Port Permits and BOI Clearance across Port, Warehouse and BOI checkpoints, with preview and download.
+* **Event-driven issue reporting** — vehicle breakdowns, delays and document problems are routed through RabbitMQ to the right teams as real-time notifications.
+* **Dashboards & reports** — order, logistics and staff overviews with charts for each role.
+* **Multi-language driver app** — English, Sinhala (සිංහල) and Tamil (தமிழ்).
+* **Role-based access** — separate portals for Admin, Operations, Logistics and Suppliers; JWT authentication for drivers.
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 ### Admin Portal
 
@@ -51,7 +51,7 @@ Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 Rea
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Services communicate synchronously through an **API Gateway** and asynchronously through **RabbitMQ**, with **Supabase** (PostgreSQL, Auth, Storage) as the shared data layer. Every service and portal runs in its own Docker container.
 
@@ -77,7 +77,7 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 
 ---
 
-## 📂 Workspace Structure
+## Workspace Structure
 
 ### Backend microservices (`apps/api-*`)
 
@@ -113,7 +113,7 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Layer | Technologies |
 | :--- | :--- |
@@ -127,7 +127,7 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 * Each microservice and web portal has its own **Dockerfile**; the whole stack (including RabbitMQ) is orchestrated with **Docker Compose**.
 * Web portals are built with Vite and served as static sites by **Nginx**.
@@ -135,7 +135,7 @@ Services communicate synchronously through an **API Gateway** and asynchronously
 
 ---
 
-## 💻 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -182,7 +182,7 @@ npx expo start
 
 ---
 
-## 📐 Coding Standards
+## Coding Standards
 
 * Keep microservices decoupled — use `@conntrack/messaging` (RabbitMQ) for cross-service events instead of direct service-to-service calls.
 * Build UI with `@conntrack/ui` components and design tokens.
@@ -190,7 +190,7 @@ npx expo start
 
 ---
 
-## 👥 Team
+## Team
 
 * **Hemindi Kalubovila**
 * **Binuwara Disanayake**
