@@ -1,141 +1,150 @@
-# ConnTrack - Enterprise Logistics & Fleet Management System 
+# ConnTrack — Logistics & Fleet Management Platform 🚚
 
-Welcome to **ConnTrack**, an enterprise logistics, fleet management, and supply chain tracking platform. Built as a modern monorepo using **Turborepo**, ConnTrack delivers real-time visibility, automated logistics workflows, multi-portal web applications, and a dedicated mobile driver application.
+**ConnTrack** is an end-to-end logistics platform for container transport — from the port, through clearance checkpoints, to the warehouse. It connects **operations staff, logistics coordinators, transport suppliers and drivers** in one system, with live GPS tracking, a supplier bidding marketplace, digital clearance documents and real-time issue reporting.
 
-## Test it here:
-http://13.202.136.253:3001/
-
-# Operational interfcae
-testoperations@contrack.lk - tesruser
-
-# Logistics interface
-testlogistics@contrack.lk - tesruser
-
-# Supplier interface
-testsupplier@contrack.lk - testuser
-
-Admin interface and Mobile Application is not open for test users. 
-
-Admin Interface images 
-<img width="1242" height="712" alt="image" src="https://github.com/user-attachments/assets/582602e8-2b63-4197-bd57-4a2acdca3c14" />
-<img width="1890" height="858" alt="image" src="https://github.com/user-attachments/assets/0a552967-6a0c-41c5-8660-5fedf034a452" />
-<img width="1880" height="740" alt="image" src="https://github.com/user-attachments/assets/4e6d1a64-8605-4b9f-ae55-e325d7728a12" />
-<img width="1882" height="758" alt="image" src="https://github.com/user-attachments/assets/d50a86ad-532c-4dee-9298-ec248789d0f9" />
-<img width="1878" height="758" alt="image" src="https://github.com/user-attachments/assets/8d40d162-002c-4b32-99de-38ec7a331980" />
-<img width="1843" height="763" alt="image" src="https://github.com/user-attachments/assets/e081f136-d1a4-43e4-93c2-d9e7de1549ac" />
-<img width="1885" height="865" alt="image" src="https://github.com/user-attachments/assets/677b979e-4fc0-4527-8476-35bbe1c00eff" />
-<img width="1897" height="752" alt="image" src="https://github.com/user-attachments/assets/5dc7f690-b76d-45fa-a87c-a016ae2a6b36" />
-<img width="827" height="783" alt="image" src="https://github.com/user-attachments/assets/5ab98b80-e5d7-419a-a354-7ae3b1875edf" />
-<img width="1296" height="857" alt="image" src="https://github.com/user-attachments/assets/4f6d714c-8cfa-4b51-83da-a0d1d80910fd" />
-<img width="1892" height="763" alt="image" src="https://github.com/user-attachments/assets/c8dbf2a5-4da3-46ed-92d7-6d0ed1601259" />
-<img width="1850" height="758" alt="image" src="https://github.com/user-attachments/assets/8a1783c3-42e3-41e9-8456-4a9881800bdd" />
-
+Built as a **microservices monorepo** (Turborepo) with 7 Node.js services, 4 React web portals and a React Native driver app, containerized with Docker and deployed on AWS.
 
 ---
 
-## Architecture Overview
+## 🌐 Live Demo
 
-ConnTrack is structured as a **Microservices Monorepo** managed with `npm` workspaces and `Turborepo`. Services communicate synchronously via an **API Gateway** and asynchronously via **RabbitMQ** message queues, using **Supabase** (PostgreSQL) for unified persistence and storage.
+**👉 [http://13.202.136.253:3001](http://13.202.136.253:3001)** — single login page; you are redirected to your portal based on your role.
+
+| Portal | Email | Password |
+| :--- | :--- | :--- |
+| Operations | `testoperations@contrack.lk` | `tesruser` |
+| Logistics | `testlogistics@contrack.lk` | `tesruser` |
+| Supplier | `testsupplier@contrack.lk` | `testuser` |
+
+> The Admin portal and the mobile driver app are not open to test users — see the screenshots below.
+
+---
+
+## ✨ Core Features
+
+* **📍 Live GPS tracking** — drivers stream their location from the mobile app; web portals show it on interactive maps with reverse-geocoded place names.
+* **💼 Supplier bidding** — transport suppliers bid on jobs, then manage assigned jobs, their drivers and vehicles.
+* **📑 Digital clearance documents** — Gate Passes, Port Permits and BOI Clearance across Port, Warehouse and BOI checkpoints, with preview and download.
+* **⚠️ Event-driven issue reporting** — vehicle breakdowns, delays and document problems are routed through RabbitMQ to the right teams as real-time notifications.
+* **📊 Dashboards & reports** — order, logistics and staff overviews with charts for each role.
+* **🌍 Multi-language driver app** — English, Sinhala (සිංහල) and Tamil (தமிழ்).
+* **🔐 Role-based access** — separate portals for Admin, Operations, Logistics and Suppliers; JWT authentication for drivers.
+
+---
+
+## 📸 Screenshots
+
+### Admin Portal
+
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/582602e8-2b63-4197-bd57-4a2acdca3c14" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/0a552967-6a0c-41c5-8660-5fedf034a452" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/4e6d1a64-8605-4b9f-ae55-e325d7728a12" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/d50a86ad-532c-4dee-9298-ec248789d0f9" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/8d40d162-002c-4b32-99de-38ec7a331980" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/e081f136-d1a4-43e4-93c2-d9e7de1549ac" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/677b979e-4fc0-4527-8476-35bbe1c00eff" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/5dc7f690-b76d-45fa-a87c-a016ae2a6b36" />
+<img width="500" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/5ab98b80-e5d7-419a-a354-7ae3b1875edf" />
+<img width="800" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/4f6d714c-8cfa-4b51-83da-a0d1d80910fd" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/c8dbf2a5-4da3-46ed-92d7-6d0ed1601259" />
+<img width="900" alt="Admin portal screenshot" src="https://github.com/user-attachments/assets/8a1783c3-42e3-41e9-8456-4a9881800bdd" />
+
+---
+
+## 🏗️ Architecture
+
+Services communicate synchronously through an **API Gateway** and asynchronously through **RabbitMQ**, with **Supabase** (PostgreSQL, Auth, Storage) as the shared data layer. Every service and portal runs in its own Docker container.
 
 ```text
-                               ┌─────────────────────────┐
-                               │       Client Apps       │
-                               └────────────┬────────────┘
-                                            │
-                     ┌──────────────────────┴──────────────────────┐
-                     │                                             │
-             ┌───────▼─────────┐                           ┌───────▼────────┐
+             ┌─────────────────┐                           ┌────────────────┐
              │   Web Portals   │                           │ Mobile Driver  │
              │ (React + Vite)  │                           │ (React Native) │
              └───────┬─────────┘                           └───────┬────────┘
-                     │                                             │
                      └──────────────────────┬──────────────────────┘
-                                            │
                                   ┌─────────▼─────────┐
-                                  │    API Gateway    │ (Port 5000)
+                                  │    API Gateway    │ :5000
                                   └─────────┬─────────┘
-                                            │
      ┌──────────────┬──────────────┬────────┼──────────────┬──────────────┐
-     │              │              │        │              │              │
 ┌────▼─────┐   ┌────▼─────┐   ┌────▼────┐ ┌─▼────────┐   ┌─▼────────┐   ┌─▼────────┐
-│api-auth  │   │api-admin │   │api-oper │ │api-logis │   │api-suppl │   │api-driver│
-│(Port 5001)   │(Port 5002)   │(P:5003) │ │(P:5004)  │   │(P:5005)  │   │(P:5006)  │
+│ auth     │   │ admin    │   │ ops     │ │ logistics│   │ supplier │   │ driver   │
+│ :5001    │   │ :5002    │   │ :5003   │ │ :5004    │   │ :5005    │   │ :5006    │
 └────┬─────┘   └────┬─────┘   └────┬────┘ └─┬────────┘   └─┬────────┘   └─┬────────┘
-     │              │              │        │              │              │
      └──────────────┴──────────────┼────────┴──────────────┴──────────────┘
-                                   │
                    ┌───────────────┴───────────────┐
-                   │  RabbitMQ Broker + Supabase   │
+                   │  RabbitMQ (events) + Supabase │
                    └───────────────────────────────┘
 ```
 
 ---
 
-##  Workspace Structure
+## 📂 Workspace Structure
 
-###  Applications (`apps/`)
+### Backend microservices (`apps/api-*`)
 
-#### Backend Microservices
-* **[api-gateway](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-gateway)** *(Port 5000)*: Central routing proxy directing traffic across microservices.
-* **[api-auth](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-auth)** *(Port 5001)*: Authentication, JWT token verification, and role permissions.
-* **[api-admin](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-admin)** *(Port 5002)*: Platform settings, user management, and audit logs.
-* **[api-operations](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-operations)** *(Port 5003)*: Dispatching, task assignment, and fleet operations logic.
-* **[api-logistics](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-logistics)** *(Port 5004)*: Shipment routing, tracking updates, and analytics/reporting.
-* **[api-supplier](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-supplier)** *(Port 5005)*: Supplier order management, inventory dispatching, and vendor APIs.
-* **[api-driver](file:///c:/Users/HP/Desktop/conntrack-new/apps/api-driver)** *(Port 5006)*: Driver profile management, duty status, document verification, and live location ingestion.
+| Service | Port | Responsibility |
+| :--- | :--- | :--- |
+| [api-gateway](apps/api-gateway) | 5000 | Reverse proxy routing requests to all services |
+| [api-auth](apps/api-auth) | 5001 | Login, JWT issuing/verification, role permissions |
+| [api-admin](apps/api-admin) | 5002 | Staff, drivers, suppliers, orders and platform settings |
+| [api-operations](apps/api-operations) | 5003 | Order creation, dispatching and issue handling |
+| [api-logistics](apps/api-logistics) | 5004 | Shipment tracking, notifications and reports |
+| [api-supplier](apps/api-supplier) | 5005 | Bidding, assigned jobs, supplier drivers and vehicles |
+| [api-driver](apps/api-driver) | 5006 | Driver profiles, duty status, documents and live location |
 
-#### Web Portals
-* **[web-admin](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-admin)**: Enterprise administration dashboard for system configurability and user management.
-* **[web-logistics](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-logistics)**: Logistics management portal for trip scheduling, live tracking, and document verification.
-* **[web-operations](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-operations)**: Real-time operations center for dispatch monitoring and issue management.
-* **[web-supplier](file:///c:/Users/HP/Desktop/conntrack-new/apps/web-supplier)**: Vendor dashboard to manage goods dispatch, manifests, and delivery statuses.
+### Web portals (`apps/web-*`)
 
-#### Mobile Applications
-* **[mobile-driver](file:///c:/Users/HP/Desktop/conntrack-new/apps/mobile-driver)**: Cross-platform mobile app (iOS/Android) for drivers with location tracking, document viewing (Gate Pass, BOI Clearance, Port Permits), duty status management, and offline-capable notifications.
+| Portal | Port (Docker) | Purpose |
+| :--- | :--- | :--- |
+| [web-admin](apps/web-admin) | 3001 | Shared login + administration dashboard |
+| [web-operations](apps/web-operations) | 3002 | Operations center for orders, dispatch and issues |
+| [web-logistics](apps/web-logistics) | 3003 | Live tracking, order details, notifications and reports |
+| [web-supplier](apps/web-supplier) | 3004 | Biddings, assigned jobs, driver and vehicle management |
 
----
+### Mobile app
 
-### 🧩 Shared Packages (`packages/`)
+* [mobile-driver](apps/mobile-driver) — Expo / React Native app for drivers: GPS tracking, clearance documents, duty status, issue reporting and push notifications, in three languages.
 
-* **[@conntrack/api-core](file:///c:/Users/HP/Desktop/conntrack-new/packages/api-core)**: Shared Express middleware, standardized response helpers, error handlers, and authentication utilities.
-* **[@conntrack/database](file:///c:/Users/HP/Desktop/conntrack-new/packages/database)**: Shared Supabase DB client initializers and common database querying modules.
-* **[@conntrack/messaging](file:///c:/Users/HP/Desktop/conntrack-new/packages/messaging)**: RabbitMQ AMQP wrapper routines for event pub/sub across backend microservices.
-* **[@conntrack/ui](file:///c:/Users/HP/Desktop/conntrack-new/packages/ui)**: Shared UI component design system (Tailwind CSS, Radix UI primitives, icons, and theme configuration).
+### Shared packages (`packages/`)
 
----
-
-## Technology Stack
-
-* **Monorepo Engine**: [Turborepo](https://turbo.build/) & npm Workspaces
-* **Backend Microservices**: Node.js, Express.js
-* **Messaging & Async Events**: [RabbitMQ](https://www.rabbitmq.com/) (AMQP)
-* **Database & Storage**: [Supabase](https://supabase.com/) (PostgreSQL & Storage Buckets)
-* **Web Frontend**: React 19, Vite, Tailwind CSS v4, Lucide React, Recharts, Leaflet
-* **Mobile Frontend**: React Native, Expo, React Navigation, `expo-location`, `react-i18next`
-* **Containerization**: Docker & Docker Compose
+* [@conntrack/api-core](packages/api-core) — shared Express middleware, auth/JWT helpers and response utilities
+* [@conntrack/database](packages/database) — shared Supabase client
+* [@conntrack/messaging](packages/messaging) — RabbitMQ (AMQP) publish/subscribe wrapper
+* [@conntrack/ui](packages/ui) — shared React component library (Tailwind CSS, Radix UI)
 
 ---
 
-##  Core Features
+## 🛠️ Technology Stack
 
-*  **Live GPS & Route Tracking**: Coordinate ingestion from mobile drivers with interactive map overlays on web portals.
-*  **Document & Checkpoint Management**: Digital Gate Passes, Port Permits, and BOI Clearance verification with file preview and download capabilities.
-*  **Multi-Language Support (i18n)**: Driver mobile localization supporting English, Sinhala (සිංහල), and Tamil (தமிழ்).
-*  **Event-Driven Issue Reporting**: Real-time notifications and alerts for vehicle breakdowns, traffic delays, or document discrepancies routed through RabbitMQ.
-*  **Secure Role-Based Authentication**: Custom JWT authentication tailored for mobile drivers alongside Supabase Auth for web dashboard users.
+| Layer | Technologies |
+| :--- | :--- |
+| **Monorepo** | Turborepo, npm workspaces |
+| **Backend** | Node.js, Express (ESM), JWT, bcrypt |
+| **Messaging** | RabbitMQ (AMQP) |
+| **Database & storage** | Supabase — PostgreSQL, Auth, Storage buckets |
+| **Web** | React 19, Vite, Tailwind CSS v4, Radix UI, Recharts, Leaflet |
+| **Mobile** | React Native, Expo, expo-router, React Navigation, react-native-maps, i18next |
+| **DevOps** | Docker, Docker Compose, Nginx, AWS EC2, GitHub Actions |
 
 ---
 
-##  Getting Started
+## 🚀 Deployment
 
-### 1. Prerequisites
-Ensure you have the following installed on your local system:
-* **Node.js** `>= 18.0.0`
-* **npm** `>= 10.0.0`
-* **Docker Desktop** (for RabbitMQ & full container stack)
+* Each microservice and web portal has its own **Dockerfile**; the whole stack (including RabbitMQ) is orchestrated with **Docker Compose**.
+* Web portals are built with Vite and served as static sites by **Nginx**.
+* Production runs on **AWS EC2**. A **GitHub Actions** workflow ([deploy.yml](.github/workflows/deploy.yml)) deploys over SSH and can rebuild all services or only selected ones.
 
-### 2. Installation
-Clone the repository and install dependencies at the monorepo root:
+---
+
+## 💻 Getting Started
+
+### Prerequisites
+
+* Node.js `>= 18`
+* npm `>= 10`
+* Docker Desktop (for RabbitMQ and the full container stack)
+* A Supabase project (add its URL and keys to each app's `.env`)
+
+### Install
 
 ```bash
 git clone https://github.com/hemi-chk/conntrack-new.git
@@ -143,62 +152,48 @@ cd conntrack-new
 npm install
 ```
 
-
-##  Running the Application
-
-### Option A: Local Development Mode (Turborepo)
-
-Start all backend services and web applications concurrently:
+### Run — local development (Turborepo)
 
 ```bash
-npm run dev
+npm run dev                          # all services and web portals
+npm run dev -- --filter=web-logistics  # a single app
 ```
 
-To run a specific application individually:
-```bash
-npm run dev --filter=web-logistics
-# or
-npm run dev --filter=api-driver
-```
-
-### Option B: Running via Docker Compose
-
-Spin up RabbitMQ and all containerized microservices:
+### Run — Docker Compose
 
 ```bash
-docker-compose up -d
+docker compose up -d --build
 ```
 
-### Option C: Mobile Driver App Setup
-
-To start the Expo development server for the mobile app:
+### Run — mobile driver app
 
 ```bash
 cd apps/mobile-driver
-npm install
 npx expo start
 ```
 
----
-
-##  Available NPM Scripts
-
-From the repository root:
+### Scripts
 
 | Script | Description |
 | :--- | :--- |
-| `npm run dev` | Runs all microservices and web portals concurrently using Turborepo |
-| `npm run build` | Builds all packages and production artifacts across workspaces |
-| `npm run lint` | Runs ESLint verification across all packages and apps |
+| `npm run dev` | Run all microservices and web portals concurrently |
+| `npm run build` | Build all packages and apps |
+| `npm run lint` | Run ESLint across the workspace |
 
 ---
 
-##  Contribution & Coding Standards
+## 📐 Coding Standards
 
-* **JSDoc Documentation**: All core API controllers and service handlers must maintain JSDoc annotations.
-* **Component Design**: UI components should leverage `@conntrack/ui` design tokens and atomic patterns.
-* **Service Scoping**: Keep microservice responsibilities strictly decoupled; use `@conntrack/messaging` for cross-service events.
+* Keep microservices decoupled — use `@conntrack/messaging` (RabbitMQ) for cross-service events instead of direct service-to-service calls.
+* Build UI with `@conntrack/ui` components and design tokens.
+* Document controllers and service handlers with JSDoc.
 
 ---
 
+## 👥 Team
 
+* **Hemindi Kalubovila**
+* **Binuwara Disanayake**
+* **Ravindu Lakshan**
+* **Shimra Foumy**
+* **Fathima Ramaza**
